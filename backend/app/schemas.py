@@ -25,6 +25,20 @@ class ChapterOut(BaseModel):
         from_attributes = True
 
 
+class PaginatedWorksOut(BaseModel):
+    items: List[WorkOut]
+    total: int
+    limit: int
+    offset: int
+
+
+class PaginatedChaptersOut(BaseModel):
+    items: List[ChapterOut]
+    total: int
+    limit: int
+    offset: int
+
+
 class ChapterTranslationCreate(BaseModel):
     chapter_id: int
     cache_policy: str = Field(default="reuse")
