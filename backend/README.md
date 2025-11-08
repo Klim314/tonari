@@ -1,37 +1,33 @@
-# Backend (FastAPI) — Dev with uv
+# Backend (FastAPI) — Dev Workflow
 
-## Prereqs
-- Python 3.11+
-- uv (https://github.com/astral-sh/uv)
-- Docker (optional, for Postgres)
+## Tooling
+- Docker + Docker Compose (containers persist between commands; no `--rm`)
+- [just](https://github.com/casey/just) (command runner)
+- Optional: Python 3.11 + [uv](https://github.com/astral-sh/uv) for direct host execution
 
-## Start Postgres (non-default port)
+## Everyday Commands (from repo root)
 
-Use Docker to avoid clashes with local services:
+| Command | Description |
+| --- | --- |
+| `just dev-up` | Start Postgres + `api-dev` (FastAPI + `--reload`, mounted source) |
+| `just dev-down` | Stop the dev containers without deleting them |
+| `just sanity` | Smoke test via TestClient (runs inside `api-dev`, uses in-memory SQLite) |
+| `just test` | Pytest suite (inside `api-dev`, SQLite override per run) |
+| `just lint` / `just format` | Ruff check/format inside the running container |
 
-```
-docker compose up -d db
-```
+Run `just dev-up` once per session; the containers stay alive, so repeated `sanity`, `test`, or `lint` commands are fast `docker compose exec` calls. When dependencies change, rebuild with `docker compose build api-dev` or `docker compose build api`.
 
-Connection string (place in `backend/.env`):
+The live dev API is available at http://localhost:8087 and reloads automatically whenever files under `backend/` change (mounted into the container). The dev image installs the backend in editable mode, so the running interpreter always references the bind-mounted source instead of the copy baked into the image.
 
-```
-DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:55432/tonari
-```
-
-## Install deps and run API
-
-From `backend/`:
+If you prefer direct `uv` usage instead of Docker, you can still run:
 
 ```
 uv sync
 uv run uvicorn app.main:app --reload --port 8087
 ```
 
-API will be at http://localhost:8087
-
-## Basic flow
-- Ingest a Syosetu chapter: `POST /ingest/syosetu { "url": "https://ncode.syosetu.com/..." }`
+## Basic API Flow
+- Ingest a Syosetu chapter: `POST /ingest/syosetu { "novel_id": "n4811fg", "chapter": 2 }`
 - Create a chapter translation: `POST /chapter-translations { "chapter_id": <id> }`
 - Fetch segments: `GET /chapter-translations/{id}/segments`
 

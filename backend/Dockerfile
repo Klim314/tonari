@@ -5,6 +5,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+ARG INSTALL_DEV=false
+ARG EDITABLE_INSTALL=false
+
 # System deps (optional: build dependencies if needed)
 RUN apt-get update -y && apt-get install -y --no-install-recommends \
     build-essential \
@@ -13,7 +16,16 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends \
 # Copy project and install
 COPY . /app
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir .
+    if [ "$INSTALL_DEV" = "true" ]; then \
+        target=".[dev]"; \
+    else \
+        target="."; \
+    fi && \
+    if [ "$EDITABLE_INSTALL" = "true" ]; then \
+        pip install --no-cache-dir -e "$target"; \
+    else \
+        pip install --no-cache-dir "$target"; \
+    fi
 
 EXPOSE 8087
 

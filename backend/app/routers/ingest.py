@@ -1,9 +1,10 @@
 from fastapi import APIRouter, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from app.db import SessionLocal
 from app.schemas import IngestSyosetuRequest, WorkOut, ChapterOut
-from app.syosetu_client import SyosetuClient
+from app.syosetu.scraper import SyosetuScraper
 from app.models import Work, Chapter
 import hashlib
 
@@ -15,12 +16,14 @@ def _hash_text(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+scraper = SyosetuScraper()
+
+
 @router.post("/syosetu", response_model=ChapterOut)
 async def ingest_syosetu(req: IngestSyosetuRequest):
-    client = SyosetuClient()
     try:
-        html = await client.fetch(req.url)
-        title, normalized_text = client.parse_chapter(html)
+        url = _build_chapter_url(req.novel_id, req.chapter)
+        title, normalized_text = await run_in_threadpool(scraper.scrape_chapter, url)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=f"Failed to fetch/parse: {e}")
 
@@ -29,7 +32,12 @@ async def ingest_syosetu(req: IngestSyosetuRequest):
     with SessionLocal() as db:  # type: Session
         # For prototype, create a Work per ingest if not exists for the URL hash
         work_title = title
-        source_meta = {"source": "syosetu", "url": req.url}
+        source_meta = {
+            "source": "syosetu",
+            "novel_id": req.novel_id,
+            "chapter": req.chapter,
+            "url": url,
+        }
 
         work = Work(title=work_title, source_meta=source_meta)
         db.add(work)
@@ -54,3 +62,8 @@ async def ingest_syosetu(req: IngestSyosetuRequest):
         db.refresh(chapter)
 
         return ChapterOut.model_validate(chapter)
+
+
+def _build_chapter_url(novel_id: str, chapter: int) -> str:
+    novel = novel_id.strip().lower()
+    return f"https://ncode.syosetu.com/{novel}/{chapter}/"

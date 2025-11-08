@@ -3,7 +3,8 @@ from pydantic import BaseModel, Field
 
 
 class IngestSyosetuRequest(BaseModel):
-    url: str = Field(..., description="Syosetu chapter or index URL")
+    novel_id: str = Field(..., pattern=r"^n[a-z0-9]+$", description="Syosetu novel identifier (e.g. n4811fg)")
+    chapter: int = Field(..., ge=1, description="Chapter number (1-indexed) to fetch")
 
 
 class WorkOut(BaseModel):
@@ -36,7 +37,7 @@ class TranslationSegmentOut(BaseModel):
     order_index: int
     src: str
     tgt: str
-    flags: List[str] = []
+    flags: List[str] = Field(default_factory=list)
 
 
 class ChapterTranslationOut(BaseModel):

@@ -7,7 +7,7 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=tonari
     ports:
-      - "55432:5432"
+      - "35432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -19,6 +19,9 @@ services:
   api:
     build:
       context: ./backend
+      args:
+        INSTALL_DEV: "false"
+        EDITABLE_INSTALL: "false"
     environment:
       - DATABASE_URL=postgresql+psycopg2://postgres:postgres@db:5432/tonari
     ports:
@@ -26,6 +29,23 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+  api-dev:
+    build:
+      context: ./backend
+      args:
+        INSTALL_DEV: "true"
+        EDITABLE_INSTALL: "true"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8087 --reload
+    environment:
+      - DATABASE_URL=postgresql+psycopg2://postgres:postgres@db:5432/tonari
+    ports:
+      - "8087:8087"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
 
 volumes:
   pgdata:
