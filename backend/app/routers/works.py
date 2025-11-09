@@ -38,6 +38,15 @@ def search_works(q: str | None = Query(default=None), limit: int = 50, offset: i
         )
 
 
+@router.get("/{work_id}", response_model=WorkOut)
+def get_work(work_id: int):
+    with SessionLocal() as db:  # type: Session
+        work = db.get(Work, work_id)
+        if not work:
+            raise HTTPException(status_code=404, detail="work not found")
+        return WorkOut.model_validate(work)
+
+
 @router.get("/{work_id}/chapters", response_model=PaginatedChaptersOut)
 def list_chapters_for_work(work_id: int, limit: int = 50, offset: int = 0):
     limit, offset = _sanitize_pagination(limit, offset)

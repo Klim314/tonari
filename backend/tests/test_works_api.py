@@ -73,3 +73,13 @@ def test_list_chapters_for_work(client, db_session):
 def test_list_chapters_for_missing_work(client):
     resp = client.get("/works/999/chapters")
     assert resp.status_code == 404
+
+
+def test_get_work(client, db_session):
+    work = _create_work(db_session, "Solo Work")
+    resp = client.get(f"/works/{work.id}")
+    assert resp.status_code == 200
+    assert resp.json()["title"] == "Solo Work"
+
+    missing = client.get("/works/999")
+    assert missing.status_code == 404
