@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import Integer, String, Text, ForeignKey
+from sqlalchemy import Integer, String, Text, ForeignKey, UniqueConstraint
 from sqlalchemy.types import JSON
 
 from app.db import Base
@@ -7,8 +7,11 @@ from app.db import Base
 
 class Work(Base):
     __tablename__ = "works"
+    __table_args__ = (UniqueConstraint("source", "source_id", name="uq_work_source_id"),)
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(String(512))
+    source: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    source_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
     source_meta: Mapped[dict | None] = mapped_column(JSON, default=None)
 
     chapters: Mapped[list["Chapter"]] = relationship("Chapter", back_populates="work")

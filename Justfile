@@ -17,3 +17,7 @@ dev-up:
 
 dev-down:
     docker compose stop api-dev db
+
+alembic *args:
+    docker compose exec api-dev alembic {{args}}
+

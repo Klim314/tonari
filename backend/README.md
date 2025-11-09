@@ -26,6 +26,26 @@ uv sync
 uv run uvicorn app.main:app --reload --port 8087
 ```
 
+## Database Migrations (Alembic)
+
+We now manage schema changes with Alembic. Common commands (from `backend/`):
+
+| Command | Description |
+| --- | --- |
+| `alembic revision --autogenerate -m "msg"` | Create a new migration from model diffs |
+| `alembic upgrade head` | Apply all pending migrations |
+| `alembic downgrade -1` | Roll back the last migration |
+
+For existing databases that pre-date Alembic, stamp the current schema once before upgrading:
+
+```
+cd backend
+alembic stamp 0001_initial_schema
+alembic upgrade head
+```
+
+New environments can simply run `alembic upgrade head` (tables will be created via migrations).
+
 ## Basic API Flow
 - Ingest a Syosetu chapter: `POST /ingest/syosetu { "novel_id": "n4811fg", "chapter": 2 }`
 - Create a chapter translation: `POST /chapter-translations { "chapter_id": <id> }`
