@@ -1,13 +1,15 @@
 import { useMemo } from "react";
-import { WorksPage } from "./pages/WorksPage";
-import { WorkDetailPage } from "./pages/WorkDetailPage";
-import { ChapterDetailPage } from "./pages/ChapterDetailPage";
 import { useBrowserLocation } from "./hooks/useBrowserLocation";
+import { ChapterDetailPage } from "./pages/ChapterDetailPage";
+import { WorkDetailPage } from "./pages/WorkDetailPage";
+import { WorksPage } from "./pages/WorksPage";
 
 function App() {
 	const { path, navigate } = useBrowserLocation();
 	const pathname = useMemo(() => path.split("?")[0] ?? "/", [path]);
-	const chapterDetailMatch = pathname.match(/^\/works\/(\d+)\/chapters\/(\d+)$/);
+	const chapterDetailMatch = pathname.match(
+		/^\/works\/(\d+)\/chapters\/(\d+)$/,
+	);
 	const workDetailMatch = pathname.match(/^\/works\/(\d+)$/);
 
 	if (chapterDetailMatch) {
@@ -18,7 +20,9 @@ function App() {
 				<ChapterDetailPage
 					workId={workId}
 					chapterId={chapterId}
-					onNavigateBack={(nextPath) => navigate(nextPath ?? `/works/${workId}`)}
+					onNavigateBack={(nextPath) =>
+						navigate(nextPath ?? `/works/${workId}`)
+					}
 				/>
 			);
 		}

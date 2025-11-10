@@ -51,9 +51,7 @@ export function useChapter(
 					data: null,
 					loading: false,
 					error:
-						error instanceof Error
-							? error.message
-							: "Failed to fetch chapter",
+						error instanceof Error ? error.message : "Failed to fetch chapter",
 				});
 			}
 		}
@@ -68,4 +66,3 @@ export function useChapter(
 
 	return state;
 }
-

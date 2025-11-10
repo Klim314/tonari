@@ -21,3 +21,5 @@ dev-down:
 alembic *args:
     docker compose exec api-dev alembic {{args}}
 
+lint-web:
+    cd frontend && npx @biomejs/biome check --write

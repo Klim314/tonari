@@ -24,7 +24,7 @@ import {
 	Textarea,
 } from "@chakra-ui/react";
 import axios from "axios";
-import { CheckCircle2, AlertTriangle } from "lucide-react";
+import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { apiClient } from "../lib/api";
 

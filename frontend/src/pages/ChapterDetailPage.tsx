@@ -24,7 +24,11 @@ export function ChapterDetailPage({
 	chapterId,
 	onNavigateBack,
 }: ChapterDetailPageProps) {
-	const { data: work, loading: workLoading, error: workError } = useWork(workId);
+	const {
+		data: work,
+		loading: workLoading,
+		error: workError,
+	} = useWork(workId);
 	const {
 		data: chapter,
 		loading: chapterLoading,
@@ -37,7 +41,11 @@ export function ChapterDetailPage({
 	return (
 		<Box py={10}>
 			<Container maxW="6xl">
-				<Button variant="ghost" mb={4} onClick={() => onNavigateBack(`/works/${workId}`)}>
+				<Button
+					variant="ghost"
+					mb={4}
+					onClick={() => onNavigateBack(`/works/${workId}`)}
+				>
 					← Back to work
 				</Button>
 
@@ -50,7 +58,9 @@ export function ChapterDetailPage({
 					<Alert.Root status="error" borderRadius="md">
 						<Alert.Indicator />
 						<Alert.Content>
-							<Alert.Description>Failed to load chapter: {error}</Alert.Description>
+							<Alert.Description>
+								Failed to load chapter: {error}
+							</Alert.Description>
 						</Alert.Content>
 					</Alert.Root>
 				) : !work || !chapter ? (
