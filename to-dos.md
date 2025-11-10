@@ -13,6 +13,11 @@
 - [x] Create a `WorkDetailPage` showing work metadata, a paginated chapter list (titles only), and a scrape-control panel for selecting ranges/rescrape.
 - [x] Implement hooks (`useWork`, `useWorkChapters`, `useScrapeChapters`) to drive the Work page and keep it in sync with backend status.
 - [x] Provide a minimal chapter viewer or drawer that loads chapter details via `GET /chapters/{id}` to confirm scraped content.
+- [ ] Add works pagination or load-more controls so `/works/` queries beyond the first 50 rows are reachable.
+- [ ] Render fractional chapter labels using `sort_key` (or equivalent) to avoid duplicate "Chapter N" entries after inserts.
+- [ ] Stop re-sorting chapters on the client by `idx`; rely on backend ordering or sort by `sort_key` to match pagination.
+- [ ] Surface backend `detail` messages (Axios `response.data.detail`) in fetch-hook errors so operators see actionable failures.
+- [ ] Harden scrape range validation in `ScrapeChaptersInlineForm` to reject malformed floats like `1.2.3` instead of coercing them.
 
 ## Docs & Ops
 - [ ] Document the new scraping workflow (curl examples, expected payloads, env vars) so manual testers can follow the flow end-to-end.

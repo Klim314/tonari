@@ -7,11 +7,13 @@
 		"dev": "vite",
 		"build": "tsc -b && vite build",
 		"lint": "biome check .",
+		"generate:api": "npx @hey-api/openapi-ts --file openapi-ts.config.ts",
 		"preview": "vite preview"
 	},
 	"dependencies": {
 		"@chakra-ui/react": "^3.29.0",
 		"@emotion/react": "^11.14.0",
+		"@hey-api/client-axios": "0.9.1",
 		"axios": "^1.13.2",
 		"lucide-react": "^0.553.0",
 		"react": "^19.2.0",
@@ -19,6 +21,7 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "1.9.4",
+		"@hey-api/openapi-ts": "0.87.1",
 		"@types/node": "^24.6.0",
 		"@types/react": "^19.1.16",
 		"@types/react-dom": "^19.1.9",

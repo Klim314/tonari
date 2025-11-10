@@ -35,6 +35,7 @@ export function WorksPage({ onSelectWork }: WorksPageProps) {
 	const { data, loading, error } = useWorks(query, refreshToken);
 
 	const works = data?.items ?? [];
+	const skeletonKeys = ["one", "two", "three", "four", "five", "six"];
 	const handleImportSuccess = () => {
 		setRefreshToken((token) => token + 1);
 	};
@@ -91,8 +92,12 @@ export function WorksPage({ onSelectWork }: WorksPageProps) {
 					) : (
 						<SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} gap={6}>
 							{loading
-								? Array.from({ length: 6 }).map((_, index) => (
-										<Skeleton key={index} height="120px" borderRadius="md" />
+								? skeletonKeys.map((key) => (
+										<Skeleton
+											key={`works-skeleton-${key}`}
+											height="120px"
+											borderRadius="md"
+										/>
 									))
 								: works.map((work) => (
 										<WorkCard

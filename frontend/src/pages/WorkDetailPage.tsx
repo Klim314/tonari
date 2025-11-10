@@ -14,12 +14,17 @@ import {
 	Text,
 } from "@chakra-ui/react";
 import { type FormEvent, useMemo, useState } from "react";
+import { Works } from "../client";
 import { useWork } from "../hooks/useWork";
 import { useWorkChapters } from "../hooks/useWorkChapters";
-import { apiClient } from "../lib/api";
+import { getApiErrorMessage } from "../lib/api";
 import type { Chapter } from "../types/works";
 
 const CHAPTERS_PER_PAGE = 10;
+const CHAPTER_SKELETON_KEYS = Array.from(
+	{ length: CHAPTERS_PER_PAGE },
+	(_, index) => `chapter-skeleton-${index}`,
+);
 
 interface WorkDetailPageProps {
 	workId: number;
@@ -130,8 +135,8 @@ export function WorkDetailPage({
 						</Heading>
 						{chaptersLoading ? (
 							<Stack>
-								{Array.from({ length: CHAPTERS_PER_PAGE }).map((_, index) => (
-									<Skeleton key={index} height="72px" borderRadius="md" />
+								{CHAPTER_SKELETON_KEYS.map((key) => (
+									<Skeleton key={key} height="72px" borderRadius="md" />
 								))}
 							</Stack>
 						) : chaptersError ? (
@@ -254,10 +259,14 @@ function ScrapeChaptersInlineForm({ workId, onSuccess }: ScrapeFormProps) {
 		}
 		setSubmitting(true);
 		try {
-			await apiClient.post(`/works/${workId}/scrape-chapters`, {
-				start: startValue,
-				end: endValue,
-				force,
+			await Works.requestChapterScrapeWorksWorkIdScrapeChaptersPost({
+				path: { work_id: workId },
+				body: {
+					start: startValue,
+					end: endValue,
+					force,
+				},
+				throwOnError: true,
 			});
 			setStart("");
 			setEnd("");
@@ -265,8 +274,7 @@ function ScrapeChaptersInlineForm({ workId, onSuccess }: ScrapeFormProps) {
 			setFeedback({ type: "success", message: "Scrape request queued." });
 			onSuccess?.();
 		} catch (error) {
-			const message =
-				error instanceof Error ? error.message : "Failed to queue scrape";
+			const message = getApiErrorMessage(error, "Failed to queue scrape");
 			setFeedback({ type: "error", message });
 		} finally {
 			setSubmitting(false);

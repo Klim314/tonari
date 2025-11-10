@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { apiClient } from "../lib/api";
+import { Works } from "../client";
+import { getApiErrorMessage } from "../lib/api";
 import type { PaginatedWorksResponse } from "../types/works";
 
 interface WorksState {
@@ -16,28 +17,32 @@ const defaultState: WorksState = {
 
 export function useWorks(searchQuery: string, refreshToken = 0) {
 	const [state, setState] = useState<WorksState>(defaultState);
+	const refreshKey = refreshToken;
 
 	useEffect(() => {
+		void refreshKey;
 		let cancelled = false;
 		const controller = new AbortController();
 
 		async function fetchWorks() {
 			setState((prev) => ({ ...prev, loading: true, error: null }));
 			try {
-				const params = new URLSearchParams();
-				params.set("limit", "50");
-				params.set("offset", "0");
-				if (searchQuery.trim()) {
-					params.set("q", searchQuery.trim());
+				const trimmedQuery = searchQuery.trim();
+				const query: NonNullable<
+					Parameters<typeof Works.searchWorksWorksGet>[0]
+				>["query"] = {
+					limit: 50,
+					offset: 0,
+				};
+				if (trimmedQuery) {
+					query.q = trimmedQuery;
 				}
 
-				const response = await apiClient.get<PaginatedWorksResponse>(
-					"/works/",
-					{
-						params,
-						signal: controller.signal,
-					},
-				);
+				const response = await Works.searchWorksWorksGet({
+					query,
+					signal: controller.signal,
+					throwOnError: true,
+				});
 
 				if (!cancelled) {
 					setState({
@@ -53,8 +58,7 @@ export function useWorks(searchQuery: string, refreshToken = 0) {
 				setState({
 					data: null,
 					loading: false,
-					error:
-						error instanceof Error ? error.message : "Failed to fetch works",
+					error: getApiErrorMessage(error, "Failed to fetch works"),
 				});
 			}
 		}
@@ -65,7 +69,7 @@ export function useWorks(searchQuery: string, refreshToken = 0) {
 			cancelled = true;
 			controller.abort();
 		};
-	}, [searchQuery, refreshToken]);
+	}, [searchQuery, refreshKey]);
 
 	return state;
 }

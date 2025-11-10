@@ -23,10 +23,10 @@ import {
 	Text,
 	Textarea,
 } from "@chakra-ui/react";
-import axios from "axios";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { apiClient } from "../lib/api";
+import { Works } from "../client";
+import { getApiErrorMessage } from "../lib/api";
 
 interface AddWorkModalProps {
 	isOpen: boolean;
@@ -82,16 +82,14 @@ export function AddWorkModal({
 
 		for (const url of urls) {
 			try {
-				await apiClient.post("/works/import", { url, force: false });
+				await Works.importWorkWorksImportPost({
+					body: { url, force: false },
+					throwOnError: true,
+				});
 				newResults.push({ url, status: "success" });
 				successCount += 1;
 			} catch (error) {
-				let message = "Failed to import work.";
-				if (axios.isAxiosError(error)) {
-					message = error.response?.data?.detail ?? error.message;
-				} else if (error instanceof Error) {
-					message = error.message;
-				}
+				const message = getApiErrorMessage(error, "Failed to import work.");
 				newResults.push({ url, status: "error", message });
 			}
 		}

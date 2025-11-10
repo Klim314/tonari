@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { apiClient } from "../lib/api";
+import { Works } from "../client";
+import { getApiErrorMessage } from "../lib/api";
 import type { PaginatedChaptersResponse } from "../types/works";
 
 interface ChaptersState {
@@ -21,8 +22,10 @@ export function useWorkChapters(
 	refreshToken = 0,
 ) {
 	const [state, setState] = useState<ChaptersState>(defaultState);
+	const refreshKey = refreshToken;
 
 	useEffect(() => {
+		void refreshKey;
 		if (!workId) {
 			setState({ ...defaultState });
 			return;
@@ -33,17 +36,12 @@ export function useWorkChapters(
 		async function fetchChapters() {
 			setState((prev) => ({ ...prev, loading: true, error: null }));
 			try {
-				const params = new URLSearchParams();
-				params.set("limit", String(limit));
-				params.set("offset", String(offset));
-
-				const response = await apiClient.get<PaginatedChaptersResponse>(
-					`/works/${workId}/chapters`,
-					{
-						params,
-						signal: controller.signal,
-					},
-				);
+				const response = await Works.listChaptersForWorkWorksWorkIdChaptersGet({
+					path: { work_id: workId },
+					query: { limit, offset },
+					signal: controller.signal,
+					throwOnError: true,
+				});
 
 				if (!cancelled) {
 					setState({
@@ -59,8 +57,7 @@ export function useWorkChapters(
 				setState({
 					data: null,
 					loading: false,
-					error:
-						error instanceof Error ? error.message : "Failed to fetch chapters",
+					error: getApiErrorMessage(error, "Failed to fetch chapters"),
 				});
 			}
 		}
@@ -71,7 +68,7 @@ export function useWorkChapters(
 			cancelled = true;
 			controller.abort();
 		};
-	}, [workId, limit, offset, refreshToken]);
+	}, [workId, limit, offset, refreshKey]);
 
 	return state;
 }

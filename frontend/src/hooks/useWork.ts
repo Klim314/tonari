@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { apiClient } from "../lib/api";
+import { Works } from "../client";
+import { getApiErrorMessage } from "../lib/api";
 import type { Work } from "../types/works";
 
 interface WorkState {
@@ -16,8 +17,10 @@ const defaultState: WorkState = {
 
 export function useWork(workId?: number | null, refreshToken = 0) {
 	const [state, setState] = useState<WorkState>(defaultState);
+	const refreshKey = refreshToken;
 
 	useEffect(() => {
+		void refreshKey;
 		if (!workId) {
 			setState({ ...defaultState });
 			return;
@@ -28,8 +31,10 @@ export function useWork(workId?: number | null, refreshToken = 0) {
 		async function fetchWork() {
 			setState((prev) => ({ ...prev, loading: true, error: null }));
 			try {
-				const response = await apiClient.get<Work>(`/works/${workId}`, {
+				const response = await Works.getWorkWorksWorkIdGet({
+					path: { work_id: workId },
 					signal: controller.signal,
+					throwOnError: true,
 				});
 				if (!cancelled) {
 					setState({
@@ -45,8 +50,7 @@ export function useWork(workId?: number | null, refreshToken = 0) {
 				setState({
 					data: null,
 					loading: false,
-					error:
-						error instanceof Error ? error.message : "Failed to fetch work",
+					error: getApiErrorMessage(error, "Failed to fetch work"),
 				});
 			}
 		}
@@ -57,7 +61,7 @@ export function useWork(workId?: number | null, refreshToken = 0) {
 			cancelled = true;
 			controller.abort();
 		};
-	}, [workId, refreshToken]);
+	}, [workId, refreshKey]);
 
 	return state;
 }

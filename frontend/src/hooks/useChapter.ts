@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { apiClient } from "../lib/api";
+import { Works } from "../client";
+import { getApiErrorMessage } from "../lib/api";
 import type { ChapterDetail } from "../types/works";
 
 interface ChapterState {
@@ -20,8 +21,10 @@ export function useChapter(
 	refreshToken = 0,
 ) {
 	const [state, setState] = useState<ChapterState>(defaultState);
+	const refreshKey = refreshToken;
 
 	useEffect(() => {
+		void refreshKey;
 		if (!workId || !chapterId) {
 			setState({ ...defaultState });
 			return;
@@ -32,10 +35,12 @@ export function useChapter(
 		async function fetchChapter() {
 			setState((prev) => ({ ...prev, loading: true, error: null }));
 			try {
-				const response = await apiClient.get<ChapterDetail>(
-					`/works/${workId}/chapters/${chapterId}`,
-					{ signal: controller.signal },
-				);
+				const response =
+					await Works.getChapterForWorkWorksWorkIdChaptersChapterIdGet({
+						path: { work_id: workId, chapter_id: chapterId },
+						signal: controller.signal,
+						throwOnError: true,
+					});
 				if (!cancelled) {
 					setState({
 						data: response.data,
@@ -50,8 +55,7 @@ export function useChapter(
 				setState({
 					data: null,
 					loading: false,
-					error:
-						error instanceof Error ? error.message : "Failed to fetch chapter",
+					error: getApiErrorMessage(error, "Failed to fetch chapter"),
 				});
 			}
 		}
@@ -62,7 +66,7 @@ export function useChapter(
 			cancelled = true;
 			controller.abort();
 		};
-	}, [workId, chapterId, refreshToken]);
+	}, [workId, chapterId, refreshKey]);
 
 	return state;
 }
