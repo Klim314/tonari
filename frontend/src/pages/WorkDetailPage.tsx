@@ -24,11 +24,13 @@ const CHAPTERS_PER_PAGE = 10;
 interface WorkDetailPageProps {
   workId: number;
   onNavigateHome: () => void;
+  onNavigateToChapter?: (chapterId: number) => void;
 }
 
 export function WorkDetailPage({
   workId,
   onNavigateHome,
+  onNavigateToChapter,
 }: WorkDetailPageProps) {
   const [chapterPage, setChapterPage] = useState(0);
   const [chaptersRefreshToken, setChaptersRefreshToken] = useState(0);
@@ -158,6 +160,16 @@ export function WorkDetailPage({
                     borderWidth="1px"
                     borderRadius="md"
                     p={4}
+                    as={onNavigateToChapter ? "button" : "div"}
+                    textAlign="left"
+                    cursor={onNavigateToChapter ? "pointer" : "default"}
+                    transition="background-color 0.2s ease"
+                    _hover={
+                      onNavigateToChapter
+                        ? { bg: "gray.800" }
+                        : undefined
+                    }
+                    onClick={() => onNavigateToChapter?.(chapter.id)}
                   >
                     <Text fontWeight="semibold" color="teal.200">
                       Chapter {formatChapterKey(chapter.idx)}

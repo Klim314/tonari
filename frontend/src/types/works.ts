@@ -29,6 +29,10 @@ export interface Chapter {
 	title: string;
 }
 
+export interface ChapterDetail extends Chapter {
+	normalized_text: string;
+}
+
 export interface PaginatedChaptersResponse {
 	items: Chapter[];
 	total: number;
