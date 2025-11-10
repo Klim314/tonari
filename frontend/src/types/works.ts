@@ -25,6 +25,7 @@ export interface Chapter {
 	id: number;
 	work_id: number;
 	idx: number | string;
+	sort_key: number;
 	title: string;
 }
 

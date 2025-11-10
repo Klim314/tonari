@@ -12,3 +12,7 @@ class WorkNotFoundError(NotFoundError):
 
 class ChapterNotFoundError(NotFoundError):
     """Raised when a chapter lookup fails."""
+
+
+class ChapterScrapeError(ServiceError):
+    """Raised when a chapter scrape request cannot be fulfilled."""

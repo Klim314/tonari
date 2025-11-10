@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.db import SessionLocal
 from app.scrapers.exceptions import ScraperError, ScraperNotFoundError
 from app.schemas import (
+    ChapterDetailOut,
     ChapterOut,
     ChapterScrapeRequest,
     ChapterScrapeResponse,
@@ -15,7 +16,7 @@ from app.schemas import (
     WorkOut,
 )
 from services.chapters import ChaptersService
-from services.exceptions import WorkNotFoundError
+from services.exceptions import ChapterNotFoundError, ChapterScrapeError, WorkNotFoundError
 from services.works import WorksService
 
 router = APIRouter()
@@ -61,7 +62,12 @@ def get_work(work_id: int):
 @router.get("/{work_id}/chapters", response_model=PaginatedChaptersOut)
 def list_chapters_for_work(work_id: int, limit: int = 50, offset: int = 0):
     with SessionLocal() as db:  # type: Session
+        works_service = WorksService(db)
         chapters_service = ChaptersService(db)
+        try:
+            works_service.get_work(work_id)
+        except WorkNotFoundError:
+            raise HTTPException(status_code=404, detail="work not found") from None
         rows, total, limit, offset = chapters_service.get_chapters_for_work(
             work_id, limit=limit, offset=offset
         )
@@ -73,18 +79,54 @@ def list_chapters_for_work(work_id: int, limit: int = 50, offset: int = 0):
         )
 
 
-@router.post("/{work_id}/scrape-chapters", response_model=ChapterScrapeResponse)
-def request_chapter_scrape(work_id: int, payload: ChapterScrapeRequest):
+@router.get("/{work_id}/chapters/{chapter_id}", response_model=ChapterDetailOut)
+def get_chapter_for_work(work_id: int, chapter_id: int):
     with SessionLocal() as db:  # type: Session
         works_service = WorksService(db)
+        chapters_service = ChaptersService(db)
         try:
             work = works_service.get_work(work_id)
         except WorkNotFoundError:
             raise HTTPException(status_code=404, detail="work not found") from None
+        try:
+            chapter = chapters_service.get_chapter(chapter_id)
+        except ChapterNotFoundError:
+            raise HTTPException(status_code=404, detail="chapter not found") from None
+        if chapter.work_id != work.id:
+            raise HTTPException(status_code=404, detail="chapter not found") from None
+        return ChapterDetailOut.model_validate(chapter)
+
+
+@router.post("/{work_id}/scrape-chapters", response_model=ChapterScrapeResponse)
+def request_chapter_scrape(work_id: int, payload: ChapterScrapeRequest):
+    with SessionLocal() as db:  # type: Session
+        works_service = WorksService(db)
+        chapters_service = ChaptersService(db)
+        try:
+            work = works_service.get_work(work_id)
+        except WorkNotFoundError:
+            raise HTTPException(status_code=404, detail="work not found") from None
+        try:
+            summary = chapters_service.scrape_work_for_chapters(
+                work,
+                start=payload.start,
+                end=payload.end,
+                force=payload.force,
+            )
+        except ChapterScrapeError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from None
+        except ScraperNotFoundError:
+            raise HTTPException(status_code=400, detail="no supported scraper found") from None
+
         return ChapterScrapeResponse(
             work_id=work.id,
-            start=payload.start,
-            end=payload.end,
-            force=payload.force,
-            status="queued",
+            start=float(summary.start),
+            end=float(summary.end),
+            force=summary.force,
+            status=summary.status,
+            requested=summary.requested,
+            created=summary.created,
+            updated=summary.updated,
+            skipped=summary.skipped,
+            errors=[{"chapter": float(err.chapter), "reason": err.reason} for err in summary.errors],
         )

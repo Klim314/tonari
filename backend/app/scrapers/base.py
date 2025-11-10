@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Protocol
 
 from .types import SourceDescriptor, WorkMetadata
@@ -16,4 +17,7 @@ class WorkScraper(Protocol):
         ...
 
     def fetch_work_metadata(self, descriptor: SourceDescriptor) -> WorkMetadata:
+        ...
+
+    def build_chapter_url(self, source_id: str, chapter_number: Decimal) -> str:
         ...

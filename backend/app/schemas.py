@@ -27,7 +27,15 @@ class ChapterOut(BaseModel):
     id: int
     work_id: int
     idx: int
+    sort_key: float
     title: str
+
+    class Config:
+        from_attributes = True
+
+
+class ChapterDetailOut(ChapterOut):
+    normalized_text: str
 
     class Config:
         from_attributes = True
@@ -59,12 +67,22 @@ class ChapterScrapeRequest(BaseModel):
         return self
 
 
+class ChapterScrapeErrorItem(BaseModel):
+    chapter: float
+    reason: str
+
+
 class ChapterScrapeResponse(BaseModel):
     work_id: int
     start: float
     end: float
     force: bool
     status: str
+    requested: int
+    created: int
+    updated: int
+    skipped: int
+    errors: List[ChapterScrapeErrorItem] = Field(default_factory=list)
 
 
 class ChapterTranslationCreate(BaseModel):

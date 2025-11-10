@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from decimal import Decimal
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -16,6 +18,7 @@ def _create_chapter(session: Session, text: str = "彼は歩く。彼女も歩�
     chapter = Chapter(
         work_id=work.id,
         idx=1,
+        sort_key=Decimal(1),
         title="Chapter 1",
         normalized_text=text,
         text_hash="dummy",

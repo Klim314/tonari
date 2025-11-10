@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Tuple
 from urllib.parse import urlparse
 
@@ -72,6 +73,16 @@ class SyosetuScraper:
     def scrape_chapter(self, url: str) -> Tuple[str, str]:
         html = self.http_client.fetch(url)
         return syosetu_parser.parse_chapter(html)
+
+    def build_chapter_url(self, source_id: str, chapter_number: Decimal) -> str:
+        integer_value = chapter_number.to_integral_value()
+        if chapter_number != integer_value:
+            raise ScraperError("Syosetu chapters only support whole numbers")
+        chapter_index = int(integer_value)
+        if chapter_index < 1:
+            raise ScraperError("Chapter numbers must be >= 1")
+        novel_id = source_id.strip().lower()
+        return f"https://ncode.syosetu.com/{novel_id}/{chapter_index}/"
 
     @staticmethod
     def _build_work_url(novel_id: str) -> str:

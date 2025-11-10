@@ -1,3 +1,6 @@
+from decimal import Decimal
+import hashlib
+
 from fastapi import APIRouter, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
@@ -6,7 +9,6 @@ from app.db import SessionLocal
 from app.schemas import IngestSyosetuRequest, WorkOut, ChapterOut
 from app.syosetu.scraper import SyosetuScraper
 from app.models import Work, Chapter
-import hashlib
 
 
 router = APIRouter()
@@ -53,6 +55,7 @@ async def ingest_syosetu(req: IngestSyosetuRequest):
         chapter = Chapter(
             work_id=work.id,
             idx=idx,
+            sort_key=Decimal(idx),
             title=title,
             normalized_text=normalized_text,
             text_hash=text_hash,

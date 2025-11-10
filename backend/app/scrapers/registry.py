@@ -27,5 +27,12 @@ class ScraperRegistry:
                 return scraper
         raise ScraperNotFoundError(f"No scraper available for URL: {url}")
 
+    def resolve_by_source(self, source: str) -> WorkScraper:
+        normalized = source.lower()
+        for scraper in self._scrapers:
+            if scraper.source.lower() == normalized:
+                return scraper
+        raise ScraperNotFoundError(f"No scraper registered for source: {source}")
+
 
 scraper_registry = ScraperRegistry()

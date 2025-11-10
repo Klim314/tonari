@@ -1,5 +1,7 @@
+from decimal import Decimal
+
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import Integer, String, Text, ForeignKey, UniqueConstraint
+from sqlalchemy import Integer, String, Text, ForeignKey, UniqueConstraint, Numeric
 from sqlalchemy.types import JSON
 
 from app.db import Base
@@ -22,6 +24,7 @@ class Chapter(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     work_id: Mapped[int] = mapped_column(ForeignKey("works.id", ondelete="CASCADE"))
     idx: Mapped[int] = mapped_column(Integer)
+    sort_key: Mapped[Decimal] = mapped_column(Numeric(12, 4), index=True)
     title: Mapped[str] = mapped_column(String(512))
     normalized_text: Mapped[str] = mapped_column(Text)
     text_hash: Mapped[str] = mapped_column(String(128))

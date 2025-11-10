@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from decimal import Decimal
+
 from fastapi.testclient import TestClient
 
 from app.db import Base, SessionLocal, engine
@@ -16,6 +18,7 @@ def seed_demo_chapter() -> int:
         chapter = Chapter(
             work_id=work.id,
             idx=1,
+            sort_key=Decimal(1),
             title="Chapter 1",
             normalized_text="彼は歩く。彼女も歩く。",
             text_hash="sanity",
