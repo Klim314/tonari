@@ -10,9 +10,9 @@
 
 ## Frontend
 - [x] Add an "Add New Work" dialog to `WorksPage` that validates the pasted URL, hits `/works/import`, and refreshes the works list on success.
-- [ ] Create a `WorkDetailPage` showing work metadata, a paginated chapter list (titles only), and a scrape-control panel for selecting ranges/rescrape.
-- [ ] Implement hooks (`useWork`, `useWorkChapters`, `useScrapeChapters`) to drive the Work page and keep it in sync with backend status.
-- [ ] Provide a minimal chapter viewer or drawer that loads chapter details via `GET /chapters/{id}` to confirm scraped content.
+- [x] Create a `WorkDetailPage` showing work metadata, a paginated chapter list (titles only), and a scrape-control panel for selecting ranges/rescrape.
+- [x] Implement hooks (`useWork`, `useWorkChapters`, `useScrapeChapters`) to drive the Work page and keep it in sync with backend status.
+- [x] Provide a minimal chapter viewer or drawer that loads chapter details via `GET /chapters/{id}` to confirm scraped content.
 
 ## Docs & Ops
 - [ ] Document the new scraping workflow (curl examples, expected payloads, env vars) so manual testers can follow the flow end-to-end.
