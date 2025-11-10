@@ -1,17 +1,17 @@
 import {
-	Alert,
-	Box,
-	Button,
-	Container,
-	Field,
-	Heading,
-	HStack,
-	Image,
-	Input,
-	Skeleton,
-	Stack,
-	Switch,
-	Text,
+  Alert,
+  Box,
+  Button,
+  Container,
+  Field,
+  Heading,
+  HStack,
+  Image,
+  Input,
+  Skeleton,
+  Stack,
+  Switch,
+  Text,
 } from "@chakra-ui/react";
 import { useMemo, useState, type FormEvent } from "react";
 import { apiClient } from "../lib/api";
@@ -22,318 +22,318 @@ import type { Chapter } from "../types/works";
 const CHAPTERS_PER_PAGE = 10;
 
 interface WorkDetailPageProps {
-	workId: number;
-	onNavigateHome: () => void;
+  workId: number;
+  onNavigateHome: () => void;
 }
 
 export function WorkDetailPage({
-	workId,
-	onNavigateHome,
+  workId,
+  onNavigateHome,
 }: WorkDetailPageProps) {
-	const [chapterPage, setChapterPage] = useState(0);
-	const [chaptersRefreshToken, setChaptersRefreshToken] = useState(0);
-	const {
-		data: work,
-		loading: workLoading,
-		error: workError,
-	} = useWork(workId);
-	const {
-		data: chaptersData,
-		loading: chaptersLoading,
-		error: chaptersError,
-	} = useWorkChapters(
-		workId,
-		CHAPTERS_PER_PAGE,
-		chapterPage * CHAPTERS_PER_PAGE,
-		chaptersRefreshToken,
-	);
+  const [chapterPage, setChapterPage] = useState(0);
+  const [chaptersRefreshToken, setChaptersRefreshToken] = useState(0);
+  const {
+    data: work,
+    loading: workLoading,
+    error: workError,
+  } = useWork(workId);
+  const {
+    data: chaptersData,
+    loading: chaptersLoading,
+    error: chaptersError,
+  } = useWorkChapters(
+    workId,
+    CHAPTERS_PER_PAGE,
+    chapterPage * CHAPTERS_PER_PAGE,
+    chaptersRefreshToken,
+  );
 
-	const meta = (work?.source_meta ?? {}) as Record<string, unknown>;
-	const thumbnailUrl =
-		typeof meta.thumbnail_url === "string" ? meta.thumbnail_url : undefined;
-	const description =
-		typeof meta.description === "string" && meta.description.trim().length > 0
-			? meta.description
-			: "No description available for this work yet.";
+  const meta = (work?.source_meta ?? {}) as Record<string, unknown>;
+  const thumbnailUrl =
+    typeof meta.thumbnail_url === "string" ? meta.thumbnail_url : undefined;
+  const description =
+    typeof meta.description === "string" && meta.description.trim().length > 0
+      ? meta.description
+      : "No description available for this work yet.";
 
-	const chapters = useMemo(
-		() => sortChapters(chaptersData?.items ?? []),
-		[chaptersData?.items],
-	);
-	const totalChapters = chaptersData?.total ?? 0;
-	const currentOffset = chaptersData?.offset ?? chapterPage * CHAPTERS_PER_PAGE;
-	const showingStart = chapters.length > 0 ? currentOffset + 1 : 0;
-	const showingEnd = currentOffset + chapters.length;
-	const totalPages = Math.max(1, Math.ceil(totalChapters / CHAPTERS_PER_PAGE));
+  const chapters = useMemo(
+    () => sortChapters(chaptersData?.items ?? []),
+    [chaptersData?.items],
+  );
+  const totalChapters = chaptersData?.total ?? 0;
+  const currentOffset = chaptersData?.offset ?? chapterPage * CHAPTERS_PER_PAGE;
+  const showingStart = chapters.length > 0 ? currentOffset + 1 : 0;
+  const showingEnd = currentOffset + chapters.length;
+  const totalPages = Math.max(1, Math.ceil(totalChapters / CHAPTERS_PER_PAGE));
 
-	const handleScrapeSuccess = () => {
-		setChapterPage(0);
-		setChaptersRefreshToken((token) => token + 1);
-	};
+  const handleScrapeSuccess = () => {
+    setChapterPage(0);
+    setChaptersRefreshToken((token) => token + 1);
+  };
 
-	return (
-		<Box py={10}>
-			<Container maxW="6xl">
-				<Button variant="ghost" mb={4} onClick={onNavigateHome}>
-					← Back to works
-				</Button>
-				{workLoading ? (
-					<Skeleton height="220px" borderRadius="lg" />
-				) : workError ? (
-					<Alert.Root status="error" borderRadius="md">
-						<Alert.Indicator />
-						<Alert.Content>
-							<Alert.Description>
-								Failed to load work: {workError}
-							</Alert.Description>
-						</Alert.Content>
-					</Alert.Root>
-				) : work ? (
-					<Stack
-						direction={{ base: "column", md: "row" }}
-						spacing={6}
-						borderWidth="1px"
-						borderRadius="lg"
-						p={6}
-						mb={8}
-					>
-						{thumbnailUrl && (
-							<Image
-								src={thumbnailUrl}
-								alt={`${work.title} thumbnail`}
-								borderRadius="md"
-								objectFit="cover"
-								maxW={{ base: "100%", md: "250px" }}
-							/>
-						)}
-						<Stack spacing={4}>
-							<Heading size="lg">{work.title}</Heading>
-							<Text color="gray.400" whiteSpace="pre-wrap">
-								{description}
-							</Text>
-						</Stack>
-					</Stack>
-				) : (
-					<Alert.Root status="warning" borderRadius="md">
-						<Alert.Indicator />
-						<Alert.Content>
-							<Alert.Description>Work not found.</Alert.Description>
-						</Alert.Content>
-					</Alert.Root>
-				)}
+  return (
+    <Box py={10}>
+      <Container maxW="6xl">
+        <Button variant="ghost" mb={4} onClick={onNavigateHome}>
+          ← Back to works
+        </Button>
+        {workLoading ? (
+          <Skeleton height="220px" borderRadius="lg" />
+        ) : workError ? (
+          <Alert.Root status="error" borderRadius="md">
+            <Alert.Indicator />
+            <Alert.Content>
+              <Alert.Description>
+                Failed to load work: {workError}
+              </Alert.Description>
+            </Alert.Content>
+          </Alert.Root>
+        ) : work ? (
+          <Stack
+            direction={{ base: "column", md: "row" }}
 
-				<Stack
-					direction={{ base: "column", lg: "row" }}
-					spacing={8}
-					align="flex-start"
-				>
-					<Box flex="2" w="full">
-						<Heading size="md" mb={4}>
-							Chapters
-						</Heading>
-						{chaptersLoading ? (
-							<Stack spacing={4}>
-								{Array.from({ length: CHAPTERS_PER_PAGE }).map((_, index) => (
-									<Skeleton key={index} height="72px" borderRadius="md" />
-								))}
-							</Stack>
-						) : chaptersError ? (
-							<Alert.Root status="error" borderRadius="md" mb={4}>
-								<Alert.Indicator />
-								<Alert.Content>
-									<Alert.Description>
-										Failed to load chapters: {chaptersError}
-									</Alert.Description>
-								</Alert.Content>
-							</Alert.Root>
-						) : chapters.length === 0 ? (
-							<Box borderWidth="1px" borderRadius="md" p={6}>
-								<Text color="gray.400">No chapters scraped yet.</Text>
-							</Box>
-						) : (
-							<Stack spacing={3}>
-								{chapters.map((chapter) => (
-									<Box
-										key={chapter.id}
-										borderWidth="1px"
-										borderRadius="md"
-										p={4}
-									>
-										<Text fontWeight="semibold" color="teal.200">
-											Chapter {formatChapterKey(chapter.idx)}
-										</Text>
-										<Text>{chapter.title}</Text>
-									</Box>
-								))}
-							</Stack>
-						)}
-						<HStack justify="space-between" mt={6}>
-							<Text color="gray.400">
-								Showing {showingStart}-{showingEnd} of {totalChapters}
-							</Text>
-							<HStack>
-								<Button
-									onClick={() =>
-										setChapterPage((page) => Math.max(0, page - 1))
-									}
-									isDisabled={chapterPage === 0}
-								>
-									Previous
-								</Button>
-								<Text color="gray.300">
-									Page {Math.min(chapterPage + 1, totalPages)} / {totalPages}
-								</Text>
-								<Button
-									onClick={() =>
-										setChapterPage((page) => Math.min(totalPages - 1, page + 1))
-									}
-									isDisabled={chapterPage >= totalPages - 1}
-								>
-									Next
-								</Button>
-							</HStack>
-						</HStack>
-					</Box>
+            borderWidth="1px"
+            borderRadius="lg"
+            p={6}
+            mb={8}
+          >
+            {thumbnailUrl && (
+              <Image
+                src={thumbnailUrl}
+                alt={`${work.title} thumbnail`}
+                borderRadius="md"
+                objectFit="cover"
+                maxW={{ base: "100%", md: "250px" }}
+              />
+            )}
+            <Stack >
+              <Heading size="lg">{work.title}</Heading>
+              <Text color="gray.400" whiteSpace="pre-wrap">
+                {description}
+              </Text>
+            </Stack>
+          </Stack>
+        ) : (
+          <Alert.Root status="warning" borderRadius="md">
+            <Alert.Indicator />
+            <Alert.Content>
+              <Alert.Description>Work not found.</Alert.Description>
+            </Alert.Content>
+          </Alert.Root>
+        )}
 
-					<Box flex="1" w="full" borderWidth="1px" borderRadius="lg" p={6}>
-						<Heading size="md" mb={4}>
-							Scrape Chapters
-						</Heading>
-						<Text fontSize="sm" color="gray.400" mb={4}>
-							Select the chapter range to scrape. Decimals (e.g. 2.1) are
-							supported.
-						</Text>
-						<ScrapeChaptersInlineForm
-							workId={workId}
-							onSuccess={handleScrapeSuccess}
-						/>
-					</Box>
-				</Stack>
-			</Container>
-		</Box>
-	);
+        <Stack
+          direction={{ base: "column", lg: "row" }}
+
+          align="flex-start"
+        >
+          <Box flex="2" w="full">
+            <Heading size="md" mb={4}>
+              Chapters
+            </Heading>
+            {chaptersLoading ? (
+              <Stack >
+                {Array.from({ length: CHAPTERS_PER_PAGE }).map((_, index) => (
+                  <Skeleton key={index} height="72px" borderRadius="md" />
+                ))}
+              </Stack>
+            ) : chaptersError ? (
+              <Alert.Root status="error" borderRadius="md" mb={4}>
+                <Alert.Indicator />
+                <Alert.Content>
+                  <Alert.Description>
+                    Failed to load chapters: {chaptersError}
+                  </Alert.Description>
+                </Alert.Content>
+              </Alert.Root>
+            ) : chapters.length === 0 ? (
+              <Box borderWidth="1px" borderRadius="md" p={6}>
+                <Text color="gray.400">No chapters scraped yet.</Text>
+              </Box>
+            ) : (
+              <Stack >
+                {chapters.map((chapter) => (
+                  <Box
+                    key={chapter.id}
+                    borderWidth="1px"
+                    borderRadius="md"
+                    p={4}
+                  >
+                    <Text fontWeight="semibold" color="teal.200">
+                      Chapter {formatChapterKey(chapter.idx)}
+                    </Text>
+                    <Text>{chapter.title}</Text>
+                  </Box>
+                ))}
+              </Stack>
+            )}
+            <HStack justify="space-between" mt={6}>
+              <Text color="gray.400">
+                Showing {showingStart}-{showingEnd} of {totalChapters}
+              </Text>
+              <HStack>
+                <Button
+                  onClick={() =>
+                    setChapterPage((page) => Math.max(0, page - 1))
+                  }
+                  isDisabled={chapterPage === 0}
+                >
+                  Previous
+                </Button>
+                <Text color="gray.300">
+                  Page {Math.min(chapterPage + 1, totalPages)} / {totalPages}
+                </Text>
+                <Button
+                  onClick={() =>
+                    setChapterPage((page) => Math.min(totalPages - 1, page + 1))
+                  }
+                  isDisabled={chapterPage >= totalPages - 1}
+                >
+                  Next
+                </Button>
+              </HStack>
+            </HStack>
+          </Box>
+
+          <Box flex="1" w="full" borderWidth="1px" borderRadius="lg" p={6}>
+            <Heading size="md" mb={4}>
+              Scrape Chapters
+            </Heading>
+            <Text fontSize="sm" color="gray.400" mb={4}>
+              Select the chapter range to scrape. Decimals (e.g. 2.1) are
+              supported.
+            </Text>
+            <ScrapeChaptersInlineForm
+              workId={workId}
+              onSuccess={handleScrapeSuccess}
+            />
+          </Box>
+        </Stack>
+      </Container>
+    </Box>
+  );
 }
 
 interface ScrapeFormProps {
-	workId: number;
-	onSuccess?: () => void;
+  workId: number;
+  onSuccess?: () => void;
 }
 
 function ScrapeChaptersInlineForm({ workId, onSuccess }: ScrapeFormProps) {
-	const [start, setStart] = useState("");
-	const [end, setEnd] = useState("");
-	const [force, setForce] = useState(false);
-	const [submitting, setSubmitting] = useState(false);
-	const [feedback, setFeedback] = useState<{
-		type: "success" | "error" | "warning";
-		message: string;
-	} | null>(null);
+  const [start, setStart] = useState("");
+  const [end, setEnd] = useState("");
+  const [force, setForce] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState<{
+    type: "success" | "error" | "warning";
+    message: string;
+  } | null>(null);
 
-	async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-		event.preventDefault();
-		const startValue = Number.parseFloat(start);
-		const endValue = Number.parseFloat(end);
-		if (Number.isNaN(startValue) || Number.isNaN(endValue)) {
-			setFeedback({
-				type: "warning",
-				message: "Enter valid chapter numbers (e.g. 1 or 2.1).",
-			});
-			return;
-		}
-		if (endValue < startValue) {
-			setFeedback({
-				type: "warning",
-				message: "End chapter must be after start chapter.",
-			});
-			return;
-		}
-		setSubmitting(true);
-		try {
-			await apiClient.post(`/works/${workId}/scrape-chapters`, {
-				start: startValue,
-				end: endValue,
-				force,
-			});
-			setStart("");
-			setEnd("");
-			setForce(false);
-			setFeedback({ type: "success", message: "Scrape request queued." });
-			onSuccess?.();
-		} catch (error) {
-			const message =
-				error instanceof Error ? error.message : "Failed to queue scrape";
-			setFeedback({ type: "error", message });
-		} finally {
-			setSubmitting(false);
-		}
-	}
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const startValue = Number.parseFloat(start);
+    const endValue = Number.parseFloat(end);
+    if (Number.isNaN(startValue) || Number.isNaN(endValue)) {
+      setFeedback({
+        type: "warning",
+        message: "Enter valid chapter numbers (e.g. 1 or 2.1).",
+      });
+      return;
+    }
+    if (endValue < startValue) {
+      setFeedback({
+        type: "warning",
+        message: "End chapter must be after start chapter.",
+      });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await apiClient.post(`/works/${workId}/scrape-chapters`, {
+        start: startValue,
+        end: endValue,
+        force,
+      });
+      setStart("");
+      setEnd("");
+      setForce(false);
+      setFeedback({ type: "success", message: "Scrape request queued." });
+      onSuccess?.();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to queue scrape";
+      setFeedback({ type: "error", message });
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
-	return (
-		<Box as="form" onSubmit={handleSubmit}>
-			<Stack spacing={4}>
-				{feedback && (
-					<Alert.Root status={feedback.type} borderRadius="md">
-						<Alert.Indicator />
-						<Alert.Content>
-							<Alert.Description>{feedback.message}</Alert.Description>
-						</Alert.Content>
-					</Alert.Root>
-				)}
-				<Field.Root required>
-					<Field.Label>Start chapter</Field.Label>
-					<Input
-						type="text"
-						placeholder="e.g. 1 or 2.1"
-						value={start}
-						onChange={(event) => setStart(event.target.value)}
-					/>
-				</Field.Root>
-				<Field.Root required>
-					<Field.Label>End chapter</Field.Label>
-					<Input
-						type="text"
-						placeholder="e.g. 5 or 5.2"
-						value={end}
-						onChange={(event) => setEnd(event.target.value)}
-					/>
-				</Field.Root>
-				<Switch.Root
-					checked={force}
-					onCheckedChange={({ checked }) => setForce(checked)}
-					display="flex"
-					alignItems="center"
-					justifyContent="space-between"
-					px={1}
-				>
-					<Switch.Label flex="1">Rescrape existing chapters</Switch.Label>
-					<Switch.Control>
-						<Switch.Thumb />
-					</Switch.Control>
-				</Switch.Root>
-				<Button type="submit" colorScheme="teal" isLoading={submitting}>
-					Queue scrape
-				</Button>
-			</Stack>
-		</Box>
-	);
+  return (
+    <Box as="form" onSubmit={handleSubmit}>
+      <Stack >
+        {feedback && (
+          <Alert.Root status={feedback.type} borderRadius="md">
+            <Alert.Indicator />
+            <Alert.Content>
+              <Alert.Description>{feedback.message}</Alert.Description>
+            </Alert.Content>
+          </Alert.Root>
+        )}
+        <Field.Root required>
+          <Field.Label>Start chapter</Field.Label>
+          <Input
+            type="text"
+            placeholder="e.g. 1 or 2.1"
+            value={start}
+            onChange={(event) => setStart(event.target.value)}
+          />
+        </Field.Root>
+        <Field.Root required>
+          <Field.Label>End chapter</Field.Label>
+          <Input
+            type="text"
+            placeholder="e.g. 5 or 5.2"
+            value={end}
+            onChange={(event) => setEnd(event.target.value)}
+          />
+        </Field.Root>
+        <Switch.Root
+          checked={force}
+          onCheckedChange={({ checked }) => setForce(checked)}
+          display="flex"
+          alignItems="center"
+          justifyContent="space-between"
+          px={1}
+        >
+          <Switch.Label flex="1">Rescrape existing chapters</Switch.Label>
+          <Switch.Control>
+            <Switch.Thumb />
+          </Switch.Control>
+        </Switch.Root>
+        <Button type="submit" colorScheme="teal" isLoading={submitting}>
+          Queue scrape
+        </Button>
+      </Stack>
+    </Box>
+  );
 }
 
 function sortChapters(chapters: Chapter[]) {
-	return [...chapters].sort((a, b) => compareChapterKey(a.idx, b.idx));
+  return [...chapters].sort((a, b) => compareChapterKey(a.idx, b.idx));
 }
 
 function compareChapterKey(aKey: Chapter["idx"], bKey: Chapter["idx"]) {
-	const aNum = Number(aKey);
-	const bNum = Number(bKey);
-	if (!Number.isNaN(aNum) && !Number.isNaN(bNum)) {
-		return aNum - bNum;
-	}
-	return String(aKey).localeCompare(String(bKey), undefined, { numeric: true });
+  const aNum = Number(aKey);
+  const bNum = Number(bKey);
+  if (!Number.isNaN(aNum) && !Number.isNaN(bNum)) {
+    return aNum - bNum;
+  }
+  return String(aKey).localeCompare(String(bKey), undefined, { numeric: true });
 }
 
 function formatChapterKey(key: Chapter["idx"]) {
-	if (typeof key === "number") {
-		return Number.isInteger(key) ? String(key) : key.toFixed(2);
-	}
-	return key;
+  if (typeof key === "number") {
+    return Number.isInteger(key) ? String(key) : key.toFixed(2);
+  }
+  return key;
 }
