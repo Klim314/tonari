@@ -1,5 +1,6 @@
-import { Box, Container, Heading, Icon, Input, SimpleGrid, Skeleton, Stack, Text } from '@chakra-ui/react';
+import { Box, Button, Container, Heading, Icon, Input, SimpleGrid, Skeleton, Stack, Text } from '@chakra-ui/react';
 import { type ComponentProps, useState } from 'react';
+import { AddWorkModal } from '../components/AddWorkModal';
 import { WorkCard } from '../components/WorkCard';
 import { useWorks } from '../hooks/useWorks';
 
@@ -14,19 +15,34 @@ const SearchIcon = (props: ComponentProps<typeof Icon>) => (
 
 export function WorksPage() {
   const [query, setQuery] = useState('');
-  const { data, loading, error } = useWorks(query);
+  const [refreshToken, setRefreshToken] = useState(0);
+  const [isAddModalOpen, setAddModalOpen] = useState(false);
+  const { data, loading, error } = useWorks(query, refreshToken);
 
   const works = data?.items ?? [];
+  const handleImportSuccess = () => {
+    setRefreshToken((token) => token + 1);
+  };
 
   return (
     <Box py={10}>
       <Container maxW="6xl">
         <Stack spacing={6}>
-          <Stack spacing={2}>
-            <Heading size="lg">Works</Heading>
-            <Text color="gray.400">
-              Showing {works.length} of {data?.total ?? 0} tracked works.
-            </Text>
+          <Stack
+            spacing={4}
+            direction={{ base: 'column', md: 'row' }}
+            justify="space-between"
+            align={{ base: 'flex-start', md: 'center' }}
+          >
+            <Stack spacing={2}>
+              <Heading size="lg">Works</Heading>
+              <Text color="gray.400">
+                Showing {works.length} of {data?.total ?? 0} tracked works.
+              </Text>
+            </Stack>
+            <Button colorScheme="teal" onClick={() => setAddModalOpen(true)}>
+              Add New Work
+            </Button>
           </Stack>
 
           <Box maxW="lg" position="relative">
@@ -57,6 +73,11 @@ export function WorksPage() {
           )}
         </Stack>
       </Container>
+      <AddWorkModal
+        isOpen={isAddModalOpen}
+        onClose={() => setAddModalOpen(false)}
+        onImported={handleImportSuccess}
+      />
     </Box>
   );
 }

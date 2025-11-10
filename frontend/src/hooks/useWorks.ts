@@ -14,7 +14,7 @@ const defaultState: WorksState = {
   error: null,
 };
 
-export function useWorks(searchQuery: string) {
+export function useWorks(searchQuery: string, refreshToken = 0) {
   const [state, setState] = useState<WorksState>(defaultState);
 
   useEffect(() => {
@@ -61,7 +61,7 @@ export function useWorks(searchQuery: string) {
       cancelled = true;
       controller.abort();
     };
-  }, [searchQuery]);
+  }, [searchQuery, refreshToken]);
 
   return state;
 }

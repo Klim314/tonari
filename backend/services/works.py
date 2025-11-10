@@ -6,6 +6,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import Work
+from app.scrapers import scraper_registry
+from app.scrapers.types import WorkMetadata
 from .exceptions import WorkNotFoundError
 from .utils import sanitize_pagination
 
@@ -38,3 +40,40 @@ class WorksService:
         if not work:
             raise WorkNotFoundError(f"work {work_id} not found")
         return work
+
+    def get_or_scrape_work(self, url: str, *, force: bool = False) -> Work:
+        scraper = scraper_registry.resolve(url)
+        descriptor = scraper.parse_descriptor(url)
+        work = self._find_by_source(descriptor.source, descriptor.source_id)
+        if work and not force:
+            return work
+
+        metadata = scraper.fetch_work_metadata(descriptor)
+        if work:
+            self._apply_metadata(work, metadata)
+        else:
+            work = Work(title=metadata.title)
+            self._apply_metadata(work, metadata)
+            self.session.add(work)
+        self.session.flush()
+        self.session.commit()
+        self.session.refresh(work)
+        return work
+
+    def _find_by_source(self, source: str, source_id: str) -> Work | None:
+        stmt = select(Work).where(Work.source == source, Work.source_id == source_id)
+        return self.session.execute(stmt).scalar_one_or_none()
+
+    @staticmethod
+    def _apply_metadata(work: Work, metadata: WorkMetadata) -> None:
+        work.title = metadata.title
+        work.source = metadata.source
+        work.source_id = metadata.source_id
+        meta = dict(metadata.extra or {})
+        if metadata.homepage_url:
+            meta["homepage_url"] = metadata.homepage_url
+        if metadata.author:
+            meta["author"] = metadata.author
+        if metadata.description:
+            meta["description"] = metadata.description
+        work.source_meta = meta or None

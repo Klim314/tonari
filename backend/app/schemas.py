@@ -1,10 +1,15 @@
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import AnyHttpUrl, BaseModel, Field
 
 
 class IngestSyosetuRequest(BaseModel):
     novel_id: str = Field(..., pattern=r"^n[a-z0-9]+$", description="Syosetu novel identifier (e.g. n4811fg)")
     chapter: int = Field(..., ge=1, description="Chapter number (1-indexed) to fetch")
+
+
+class WorkImportRequest(BaseModel):
+    url: AnyHttpUrl = Field(..., description="URL to the work homepage or chapter")
+    force: bool = Field(default=False, description="Force re-sync even if the work exists")
 
 
 class WorkOut(BaseModel):
