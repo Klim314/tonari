@@ -52,6 +52,7 @@ class SyosetuScraper:
         title = _extract_text(soup, _WORK_TITLE_SELECTORS) or descriptor.source_id
         author = _extract_text(soup, _WORK_AUTHOR_SELECTORS)
         description = _extract_text(soup, _WORK_DESC_SELECTORS)
+        thumbnail_url = _extract_thumbnail_url(soup)
         extra = {
             "raw_url": descriptor.url,
             "source": self.source,
@@ -64,6 +65,7 @@ class SyosetuScraper:
             author=author,
             description=description,
             homepage_url=descriptor.url,
+            thumbnail_url=thumbnail_url,
             extra=extra,
         )
 
@@ -81,6 +83,18 @@ def _extract_text(soup: BeautifulSoup, selectors: list[str]) -> str | None:
         node = soup.select_one(selector)
         if node:
             return node.get_text(strip=True)
+    return None
+
+
+def _extract_thumbnail_url(soup: BeautifulSoup) -> str | None:
+    meta = soup.select_one('meta[property="og:image"]') or soup.select_one(
+        'meta[name="twitter:image"]'
+    )
+    if meta and meta.has_attr("content"):
+        return meta["content"].strip() or None
+    img = soup.select_one(".p-novel__thumbnail img")
+    if img and img.has_attr("src"):
+        return img["src"].strip() or None
     return None
 
 

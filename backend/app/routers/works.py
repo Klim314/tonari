@@ -7,6 +7,8 @@ from app.db import SessionLocal
 from app.scrapers.exceptions import ScraperError, ScraperNotFoundError
 from app.schemas import (
     ChapterOut,
+    ChapterScrapeRequest,
+    ChapterScrapeResponse,
     PaginatedChaptersOut,
     PaginatedWorksOut,
     WorkImportRequest,
@@ -68,4 +70,21 @@ def list_chapters_for_work(work_id: int, limit: int = 50, offset: int = 0):
             total=total,
             limit=limit,
             offset=offset,
+        )
+
+
+@router.post("/{work_id}/scrape-chapters", response_model=ChapterScrapeResponse)
+def request_chapter_scrape(work_id: int, payload: ChapterScrapeRequest):
+    with SessionLocal() as db:  # type: Session
+        works_service = WorksService(db)
+        try:
+            work = works_service.get_work(work_id)
+        except WorkNotFoundError:
+            raise HTTPException(status_code=404, detail="work not found") from None
+        return ChapterScrapeResponse(
+            work_id=work.id,
+            start=payload.start,
+            end=payload.end,
+            force=payload.force,
+            status="queued",
         )

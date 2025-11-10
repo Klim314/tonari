@@ -1,5 +1,5 @@
-from typing import List, Optional
-from pydantic import AnyHttpUrl, BaseModel, Field
+from typing import Any, List, Optional
+from pydantic import AnyHttpUrl, BaseModel, Field, model_validator
 
 
 class IngestSyosetuRequest(BaseModel):
@@ -15,6 +15,9 @@ class WorkImportRequest(BaseModel):
 class WorkOut(BaseModel):
     id: int
     title: str
+    source: Optional[str] = None
+    source_id: Optional[str] = None
+    source_meta: Optional[dict[str, Any]] = None
 
     class Config:
         from_attributes = True
@@ -42,6 +45,26 @@ class PaginatedChaptersOut(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class ChapterScrapeRequest(BaseModel):
+    start: float = Field(..., ge=1, description="Starting chapter number (supports decimals)")
+    end: float = Field(..., ge=1, description="Ending chapter number (supports decimals)")
+    force: bool = Field(default=False, description="If true, rescrape existing chapters")
+
+    @model_validator(mode="after")
+    def validate_range(self):
+        if self.end < self.start:
+            raise ValueError("end must be greater than or equal to start")
+        return self
+
+
+class ChapterScrapeResponse(BaseModel):
+    work_id: int
+    start: float
+    end: float
+    force: bool
+    status: str
 
 
 class ChapterTranslationCreate(BaseModel):

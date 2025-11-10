@@ -20,4 +20,5 @@ class WorkMetadata:
     homepage_url: str
     author: str | None = None
     description: str | None = None
+    thumbnail_url: str | None = None
     extra: dict[str, Any] | None = None

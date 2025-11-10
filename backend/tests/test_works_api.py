@@ -83,3 +83,23 @@ def test_get_work(client, db_session):
 
     missing = client.get("/works/999")
     assert missing.status_code == 404
+
+
+def test_scrape_chapters_request(client, db_session):
+    work = _create_work(db_session, "Queued Work")
+    resp = client.post(
+        f"/works/{work.id}/scrape-chapters",
+        json={"start": 1, "end": 3.5, "force": True},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "queued"
+    assert data["work_id"] == work.id
+    assert data["force"] is True
+    assert data["start"] == 1.0
+    assert data["end"] == 3.5
+
+
+def test_scrape_chapters_missing_work(client):
+    resp = client.post("/works/999/scrape-chapters", json={"start": 1, "end": 2})
+    assert resp.status_code == 404

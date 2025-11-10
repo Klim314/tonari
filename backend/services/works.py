@@ -76,4 +76,6 @@ class WorksService:
             meta["author"] = metadata.author
         if metadata.description:
             meta["description"] = metadata.description
+        if metadata.thumbnail_url:
+            meta["thumbnail_url"] = metadata.thumbnail_url
         work.source_meta = meta or None

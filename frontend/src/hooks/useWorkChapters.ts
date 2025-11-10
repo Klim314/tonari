@@ -1,38 +1,44 @@
 import { useEffect, useState } from "react";
 import { apiClient } from "../lib/api";
-import type { PaginatedWorksResponse } from "../types/works";
+import type { PaginatedChaptersResponse } from "../types/works";
 
-interface WorksState {
-	data: PaginatedWorksResponse | null;
+interface ChaptersState {
+	data: PaginatedChaptersResponse | null;
 	loading: boolean;
 	error: string | null;
 }
 
-const defaultState: WorksState = {
+const defaultState: ChaptersState = {
 	data: null,
 	loading: false,
 	error: null,
 };
 
-export function useWorks(searchQuery: string, refreshToken = 0) {
-	const [state, setState] = useState<WorksState>(defaultState);
+export function useWorkChapters(
+	workId: number | null | undefined,
+	limit: number,
+	offset: number,
+	refreshToken = 0,
+) {
+	const [state, setState] = useState<ChaptersState>(defaultState);
 
 	useEffect(() => {
+		if (!workId) {
+			setState({ ...defaultState });
+			return;
+		}
 		let cancelled = false;
 		const controller = new AbortController();
 
-		async function fetchWorks() {
+		async function fetchChapters() {
 			setState((prev) => ({ ...prev, loading: true, error: null }));
 			try {
 				const params = new URLSearchParams();
-				params.set("limit", "50");
-				params.set("offset", "0");
-				if (searchQuery.trim()) {
-					params.set("q", searchQuery.trim());
-				}
+				params.set("limit", String(limit));
+				params.set("offset", String(offset));
 
-				const response = await apiClient.get<PaginatedWorksResponse>(
-					"/works/",
+				const response = await apiClient.get<PaginatedChaptersResponse>(
+					`/works/${workId}/chapters`,
 					{
 						params,
 						signal: controller.signal,
@@ -54,18 +60,18 @@ export function useWorks(searchQuery: string, refreshToken = 0) {
 					data: null,
 					loading: false,
 					error:
-						error instanceof Error ? error.message : "Failed to fetch works",
+						error instanceof Error ? error.message : "Failed to fetch chapters",
 				});
 			}
 		}
 
-		fetchWorks();
+		fetchChapters();
 
 		return () => {
 			cancelled = true;
 			controller.abort();
 		};
-	}, [searchQuery, refreshToken]);
+	}, [workId, limit, offset, refreshToken]);
 
 	return state;
 }
