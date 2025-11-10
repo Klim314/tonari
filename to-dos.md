@@ -18,6 +18,7 @@
 - [ ] Stop re-sorting chapters on the client by `idx`; rely on backend ordering or sort by `sort_key` to match pagination.
 - [ ] Surface backend `detail` messages (Axios `response.data.detail`) in fetch-hook errors so operators see actionable failures.
 - [ ] Harden scrape range validation in `ScrapeChaptersInlineForm` to reject malformed floats like `1.2.3` instead of coercing them.
+- [ ] Migrate the data-fetching hooks to React Query for caching/retries (lower priority).
 
 ## Docs & Ops
 - [ ] Document the new scraping workflow (curl examples, expected payloads, env vars) so manual testers can follow the flow end-to-end.
