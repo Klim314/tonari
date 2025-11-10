@@ -7,11 +7,11 @@ interface WorkCardProps {
 
 export function WorkCard({ work }: WorkCardProps) {
   return (
-    <Box borderRadius="lg" borderWidth="1px" borderColor="whiteAlpha.200" bg="gray.800" p={4}>
+    <Box borderRadius="lg" borderWidth="1px" p={4}>
       <Heading size="md" mb={2}>
         {work.title}
       </Heading>
-      <Text fontSize="sm" color="gray.400">
+      <Text fontSize="sm" >
         #{work.id}
       </Text>
     </Box>
