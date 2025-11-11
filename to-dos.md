@@ -19,6 +19,7 @@
 - [ ] Surface backend `detail` messages (Axios `response.data.detail`) in fetch-hook errors so operators see actionable failures.
 - [ ] Harden scrape range validation in `ScrapeChaptersInlineForm` to reject malformed floats like `1.2.3` instead of coercing them.
 - [ ] Migrate the data-fetching hooks to React Query for caching/retries (lower priority).
+- [ ] Make the text more readable, right now we have gray on white in many places
 
 ## Docs & Ops
 - [ ] Document the new scraping workflow (curl examples, expected payloads, env vars) so manual testers can follow the flow end-to-end.

@@ -23,3 +23,9 @@ The user writes a prompt, saves the prompt. The user then begins a translation a
 We then generate line-by-line translations, that is to say contrasting the original text against the translated text, allowing bilingual users to be able to use this as a translation tool as well.
 The user is able to then eventually retrieve both the single translation as well as the combined original text and translation.
 So now having this, let's summarise this and brainstorm as to what we want to do here and what we might be missing.
+
+## Translation Agent Reference
+
+Configuration and operational notes for the LangChain-powered translation flow now live in
+`docs/translation-agent.md`. Start there for environment variables, regeneration instructions, and
+error-handling tips.
