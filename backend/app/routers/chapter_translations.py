@@ -84,6 +84,7 @@ def list_translation_segments(ct_id: int):
             src = chapter.normalized_text[r.start : r.end]
             out.append(
                 TranslationSegmentOut(
+                    id=r.id,
                     start=r.start,
                     end=r.end,
                     order_index=r.order_index,

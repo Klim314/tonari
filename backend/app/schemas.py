@@ -92,6 +92,7 @@ class ChapterTranslationCreate(BaseModel):
 
 
 class TranslationSegmentOut(BaseModel):
+    id: int
     start: int
     end: int
     order_index: int
@@ -107,3 +108,9 @@ class ChapterTranslationOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ChapterTranslationStateOut(BaseModel):
+    chapter_translation_id: int
+    status: str
+    segments: List[TranslationSegmentOut]
