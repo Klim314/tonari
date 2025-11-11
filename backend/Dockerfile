@@ -13,18 +13,20 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
+# Install uv once so we can use it for dependency management.
+RUN pip install --no-cache-dir --upgrade pip uv
+
 # Copy project and install
 COPY . /app
-RUN pip install --no-cache-dir --upgrade pip && \
-    if [ "$INSTALL_DEV" = "true" ]; then \
+RUN if [ "$INSTALL_DEV" = "true" ]; then \
         target=".[dev]"; \
     else \
         target="."; \
     fi && \
     if [ "$EDITABLE_INSTALL" = "true" ]; then \
-        pip install --no-cache-dir -e "$target"; \
+        uv pip install --system -e "$target"; \
     else \
-        pip install --no-cache-dir "$target"; \
+        uv pip install --system "$target"; \
     fi
 
 EXPOSE 8087
