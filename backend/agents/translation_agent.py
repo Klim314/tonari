@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, AsyncGenerator, List, Mapping, Optional, Sequence, Union
 
-from app.config import settings
 from agents.prompts import SYSTEM_DEFAULT
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,6 @@ class SegmentContext:
 
 
 SegmentContextInput = Union[SegmentContext, Mapping[str, Any]]
-
 
 
 LOREM = (
@@ -46,9 +45,7 @@ def stub_translate(src: str) -> str:
     return build_lorem_text(max(len(src.strip()), 16))
 
 
-async def stream_lorem_translation(
-    src: str, *, chunk_size: int = 24
-) -> AsyncGenerator[str, None]:
+async def stream_lorem_translation(src: str, *, chunk_size: int = 24) -> AsyncGenerator[str, None]:
     lorem = stub_translate(src)
     for idx in range(0, len(lorem), chunk_size):
         await asyncio.sleep(0.05)
@@ -98,7 +95,7 @@ class TranslationAgent:
                 [
                     (
                         "system",
-                         SYSTEM_DEFAULT,
+                        SYSTEM_DEFAULT,
                     ),
                     (
                         "human",

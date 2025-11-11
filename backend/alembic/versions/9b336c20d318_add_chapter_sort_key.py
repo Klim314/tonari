@@ -4,11 +4,12 @@ Revision ID: 9b336c20d318
 Revises: 0002_add_work_source_fields
 Create Date: 2025-11-10 12:23:04.868500
 """
+
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision = "9b336c20d318"
 down_revision = "0002_add_work_source_fields"

@@ -1,6 +1,5 @@
 from app.syosetu.parser import parse_chapter
 
-
 MODERN_HTML = """
 <html>
 <body>

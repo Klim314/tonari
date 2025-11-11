@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.models import Work
 from app.scrapers import scraper_registry
 from app.scrapers.types import WorkMetadata
+
 from .exceptions import WorkNotFoundError
 from .utils import sanitize_pagination
 

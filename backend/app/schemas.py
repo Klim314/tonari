@@ -1,9 +1,12 @@
 from typing import Any, List, Optional
+
 from pydantic import AnyHttpUrl, BaseModel, Field, model_validator
 
 
 class IngestSyosetuRequest(BaseModel):
-    novel_id: str = Field(..., pattern=r"^n[a-z0-9]+$", description="Syosetu novel identifier (e.g. n4811fg)")
+    novel_id: str = Field(
+        ..., pattern=r"^n[a-z0-9]+$", description="Syosetu novel identifier (e.g. n4811fg)"
+    )
     chapter: int = Field(..., ge=1, description="Chapter number (1-indexed) to fetch")
 
 

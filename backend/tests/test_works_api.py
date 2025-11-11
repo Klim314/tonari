@@ -10,7 +10,11 @@ from app.syosetu.scraper import SyosetuScraper
 
 
 def _create_work(
-    session: Session, title: str, chapter_count: int = 0, source: str = "syosetu", source_id: str | None = None
+    session: Session,
+    title: str,
+    chapter_count: int = 0,
+    source: str = "syosetu",
+    source_id: str | None = None,
 ) -> Work:
     slug = source_id or title.lower().replace(" ", "-")
     work = Work(title=title, source=source, source_id=slug, source_meta={"source": "test"})

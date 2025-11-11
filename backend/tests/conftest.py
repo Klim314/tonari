@@ -6,8 +6,8 @@ os.environ.setdefault("DATABASE_URL", "sqlite+pysqlite:///:memory:")
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
 from app.db import Base, SessionLocal, engine
+from app.main import app
 
 
 @pytest.fixture(scope="session")

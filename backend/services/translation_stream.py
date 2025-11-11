@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import ChapterTranslation, TranslationSegment
-from app.translation_service import newline_segment_slices, hash_text
+from app.translation_service import hash_text, newline_segment_slices
 
 
 class TranslationStreamService:
@@ -93,7 +93,9 @@ class TranslationStreamService:
             return True
         return not tgt_value.strip()
 
-    def first_pending_segment(self, segments: Sequence[TranslationSegment]) -> Optional[TranslationSegment]:
+    def first_pending_segment(
+        self, segments: Sequence[TranslationSegment]
+    ) -> Optional[TranslationSegment]:
         for segment in segments:
             if self.needs_translation(segment):
                 return segment

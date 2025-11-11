@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import re
-from bs4 import BeautifulSoup
 
+from bs4 import BeautifulSoup
 
 _TITLE_SELECTORS = ["#novel_subtitle", "#novel_title", "h1.p-novel__title"]
 _BODY_SELECTORS = ["#novel_honbun", "#honbun", "div.p-novel__body"]

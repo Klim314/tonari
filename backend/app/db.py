@@ -1,12 +1,11 @@
 from datetime import datetime
-from sqlalchemy import create_engine
+
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, create_engine
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 from sqlalchemy.pool import StaticPool
-from sqlalchemy.orm import sessionmaker, DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import JSON
-from sqlalchemy import Integer, String, Text, ForeignKey, DateTime
 
 from app.config import settings
-
 
 engine_kwargs = {"future": True, "pool_pre_ping": True}
 if settings.database_url.startswith("sqlite"):
@@ -24,4 +23,5 @@ class Base(DeclarativeBase):
 
 def init_db() -> None:
     from app import models  # noqa: F401 ensure models import
+
     Base.metadata.create_all(bind=engine)

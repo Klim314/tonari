@@ -14,6 +14,7 @@ lint:
     docker compose exec api-dev ruff check .
 
 format:
+    docker compose exec api-dev ruff check --select I --fix .
     docker compose exec api-dev ruff format .
 
 dev-up:

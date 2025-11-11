@@ -10,6 +10,7 @@ from app.clients import HttpClient, RequestsClient
 from app.scrapers import scraper_registry
 from app.scrapers.exceptions import ScraperError
 from app.scrapers.types import SourceDescriptor, WorkMetadata
+
 from . import parser as syosetu_parser
 
 _WORK_TITLE_SELECTORS = ["#novel_title", "h1.p-novel__title"]

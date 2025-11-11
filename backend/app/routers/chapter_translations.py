@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
-from sqlalchemy.orm import Session
 from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from app.db import SessionLocal
 from app.models import Chapter, ChapterTranslation, TranslationSegment
 from app.schemas import (
@@ -11,7 +12,6 @@ from app.schemas import (
     TranslationSegmentOut,
 )
 from app.translation_service import segment_and_translate
-
 
 router = APIRouter()
 
@@ -94,4 +94,3 @@ def list_translation_segments(ct_id: int):
                 )
             )
         return out
-

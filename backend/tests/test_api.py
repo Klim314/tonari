@@ -46,9 +46,13 @@ def test_create_chapter_translation_flow(client, db_session):
     assert all(seg["tgt"].startswith("[EN draft]") for seg in segments)
 
     db_session.expire_all()
-    rows = db_session.execute(
-        select(TranslationSegment).where(TranslationSegment.chapter_translation_id == ct_id)
-    ).scalars().all()
+    rows = (
+        db_session.execute(
+            select(TranslationSegment).where(TranslationSegment.chapter_translation_id == ct_id)
+        )
+        .scalars()
+        .all()
+    )
     assert len(rows) == 2
     assert rows[0].order_index == 0
 

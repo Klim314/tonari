@@ -7,6 +7,7 @@ from typing import Dict, List
 
 from agents.translation_agent import get_translation_agent
 
+
 @dataclass(slots=True)
 class SegmentSlice:
     start: int
@@ -72,9 +73,7 @@ async def async_segment_and_translate(text: str) -> List[Dict]:
             flags.append("whitespace")
         else:
             preceding = list(context_buffer) if context_limit > 0 and context_buffer else None
-            tgt = await agent.translate_segment(
-                segment.text, preceding_segments=preceding
-            )
+            tgt = await agent.translate_segment(segment.text, preceding_segments=preceding)
             if context_limit > 0:
                 src_for_context = segment.text.strip()
                 tgt_for_context = tgt.strip()

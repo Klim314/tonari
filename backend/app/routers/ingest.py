@@ -1,15 +1,15 @@
-from decimal import Decimal
 import hashlib
+from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException
 from fastapi.concurrency import run_in_threadpool
-from sqlalchemy.orm import Session
 from sqlalchemy import select
-from app.db import SessionLocal
-from app.schemas import IngestSyosetuRequest, WorkOut, ChapterOut
-from app.syosetu.scraper import SyosetuScraper
-from app.models import Work, Chapter
+from sqlalchemy.orm import Session
 
+from app.db import SessionLocal
+from app.models import Chapter, Work
+from app.schemas import ChapterOut, IngestSyosetuRequest, WorkOut
+from app.syosetu.scraper import SyosetuScraper
 
 router = APIRouter()
 

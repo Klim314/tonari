@@ -8,31 +8,32 @@ from sqlalchemy.orm import Session
 from sse_starlette.sse import EventSourceResponse
 
 from app.db import SessionLocal
-from app.scrapers.exceptions import ScraperError, ScraperNotFoundError
 from app.schemas import (
     ChapterDetailOut,
     ChapterOut,
+    ChapterScrapeErrorItem,
     ChapterScrapeRequest,
     ChapterScrapeResponse,
     ChapterTranslationStateOut,
-    TranslationSegmentOut,
     PaginatedChaptersOut,
     PaginatedWorksOut,
+    TranslationSegmentOut,
     WorkImportRequest,
     WorkOut,
 )
+from app.scrapers.exceptions import ScraperError, ScraperNotFoundError
+from app.translation_service import get_translation_agent
 from services.chapters import ChaptersService
 from services.exceptions import ChapterNotFoundError, ChapterScrapeError, WorkNotFoundError
 from services.translation_stream import TranslationStreamService
 from services.works import WorksService
-from app.translation_service import get_translation_agent
 
 router = APIRouter()
 
 
 @router.get("/", response_model=PaginatedWorksOut)
 def search_works(q: str | None = Query(default=None), limit: int = 50, offset: int = 0):
-    with SessionLocal() as db:  # type: Session
+    with SessionLocal() as db:
         works_service = WorksService(db)
         rows, total, limit, offset = works_service.search(q=q, limit=limit, offset=offset)
         return PaginatedWorksOut(
@@ -45,7 +46,7 @@ def search_works(q: str | None = Query(default=None), limit: int = 50, offset: i
 
 @router.post("/import", response_model=WorkOut)
 def import_work(req: WorkImportRequest):
-    with SessionLocal() as db:  # type: Session
+    with SessionLocal() as db:
         works_service = WorksService(db)
         try:
             work = works_service.get_or_scrape_work(str(req.url), force=req.force)
@@ -58,7 +59,7 @@ def import_work(req: WorkImportRequest):
 
 @router.get("/{work_id}", response_model=WorkOut)
 def get_work(work_id: int):
-    with SessionLocal() as db:  # type: Session
+    with SessionLocal() as db:
         works_service = WorksService(db)
         try:
             work = works_service.get_work(work_id)
@@ -69,7 +70,7 @@ def get_work(work_id: int):
 
 @router.get("/{work_id}/chapters", response_model=PaginatedChaptersOut)
 def list_chapters_for_work(work_id: int, limit: int = 50, offset: int = 0):
-    with SessionLocal() as db:  # type: Session
+    with SessionLocal() as db:
         works_service = WorksService(db)
         chapters_service = ChaptersService(db)
         try:
@@ -89,7 +90,7 @@ def list_chapters_for_work(work_id: int, limit: int = 50, offset: int = 0):
 
 @router.get("/{work_id}/chapters/{chapter_id}", response_model=ChapterDetailOut)
 def get_chapter_for_work(work_id: int, chapter_id: int):
-    with SessionLocal() as db:  # type: Session
+    with SessionLocal() as db:
         works_service = WorksService(db)
         chapters_service = ChaptersService(db)
         try:
@@ -107,7 +108,7 @@ def get_chapter_for_work(work_id: int, chapter_id: int):
 
 @router.post("/{work_id}/scrape-chapters", response_model=ChapterScrapeResponse)
 def request_chapter_scrape(work_id: int, payload: ChapterScrapeRequest):
-    with SessionLocal() as db:  # type: Session
+    with SessionLocal() as db:
         works_service = WorksService(db)
         chapters_service = ChaptersService(db)
         try:
@@ -136,13 +137,18 @@ def request_chapter_scrape(work_id: int, payload: ChapterScrapeRequest):
             created=summary.created,
             updated=summary.updated,
             skipped=summary.skipped,
-            errors=[{"chapter": float(err.chapter), "reason": err.reason} for err in summary.errors],
+            errors=[
+                ChapterScrapeErrorItem(chapter=float(err.chapter), reason=err.reason)
+                for err in summary.errors
+            ],
         )
 
 
-@router.get("/{work_id}/chapters/{chapter_id}/translation", response_model=ChapterTranslationStateOut)
+@router.get(
+    "/{work_id}/chapters/{chapter_id}/translation", response_model=ChapterTranslationStateOut
+)
 def get_chapter_translation_state(work_id: int, chapter_id: int):
-    with SessionLocal() as db:  # type: Session
+    with SessionLocal() as db:
         works_service = WorksService(db)
         chapters_service = ChaptersService(db)
         translation_service = TranslationStreamService(db)
@@ -169,7 +175,7 @@ def get_chapter_translation_state(work_id: int, chapter_id: int):
     "/{work_id}/chapters/{chapter_id}/translation", response_model=ChapterTranslationStateOut
 )
 def reset_chapter_translation(work_id: int, chapter_id: int):
-    with SessionLocal() as db:  # type: Session
+    with SessionLocal() as db:
         works_service = WorksService(db)
         chapters_service = ChaptersService(db)
         translation_service = TranslationStreamService(db)
@@ -247,6 +253,7 @@ async def stream_chapter_translation(work_id: int, chapter_id: int, request: Req
         translation_agent = get_translation_agent()
 
         if not is_not_complete:
+
             async def completed_generator():
                 try:
                     translation.status = "completed"

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "0001_initial_schema"
@@ -90,7 +90,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_translation_segments_chapter_translation_id", table_name="translation_segments")
+    op.drop_index(
+        "ix_translation_segments_chapter_translation_id", table_name="translation_segments"
+    )
     op.drop_table("translation_segments")
     op.drop_index("ix_chapter_translations_chapter_id", table_name="chapter_translations")
     op.drop_table("chapter_translations")

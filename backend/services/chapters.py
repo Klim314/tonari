@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR
 import hashlib
+from dataclasses import dataclass, field
+from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
 from typing import Dict, List, Tuple
 
 from sqlalchemy import func, select
@@ -11,9 +11,9 @@ from sqlalchemy.orm import Session
 from app.models import Chapter, Work
 from app.scrapers import scraper_registry
 from app.scrapers.exceptions import ScraperError, ScraperNotFoundError
+
 from .exceptions import ChapterNotFoundError, ChapterScrapeError
 from .utils import sanitize_pagination
-
 
 SORT_KEY_STEP = Decimal("0.0001")
 
