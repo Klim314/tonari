@@ -17,6 +17,12 @@ format:
     docker compose exec api-dev ruff check --select I --fix .
     docker compose exec api-dev ruff format .
 
+make_migrations name="auto":
+    docker compose exec api-dev alembic revision --autogenerate -m '{{name}}'
+
+migrate:
+    docker compose exec api-dev alembic upgrade head
+
 dev-up:
     docker compose up -d db api-dev
 
