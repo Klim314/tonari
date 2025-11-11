@@ -1,5 +1,9 @@
 set shell := ["bash", "-lc"]
 
+# Show available commands
+default:
+    @just --list
+
 sanity:
     docker compose exec -e DATABASE_URL=sqlite+pysqlite:///:memory: api-dev python scripts/sanity_check.py
 
