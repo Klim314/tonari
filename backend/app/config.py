@@ -9,6 +9,7 @@ class Settings(BaseSettings):
         default="postgresql+psycopg2://postgres:postgres@localhost:5432/tonari"
     )
     api_port: int = Field(default=8087)
+    translation_api_key: str | None = Field(default=None)
 
     class Config:
         env_file = ".env"

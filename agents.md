@@ -6,6 +6,10 @@
 - Python tooling is not installed on the host, so running tests or scripts locally will fail unless you add the dependencies—stick to the containerized environment unless you explicitly install them.
 - Frontend linting runs through `just lint-web` (Biome). Use that target instead of calling `npm run lint` directly so it picks up the right toolchain.
 
+## Frontend Iconography
+
+- Use `lucide-react` for icons (already in `frontend/package.json`); avoid Chakra's built-in icon set unless explicitly requested.
+
 ## Dependency Notes
 
 - The frontend uses **Chakra UI v3** (Chakra Next), not v2. Component imports and theming APIs should follow the v3 docs when adding UI features.

@@ -64,7 +64,7 @@ class TranslationSegment(Base):
     start: Mapped[int] = mapped_column(Integer)
     end: Mapped[int] = mapped_column(Integer)
     order_index: Mapped[int] = mapped_column(Integer)
-    tgt: Mapped[str] = mapped_column(Text)
+    tgt: Mapped[str] = mapped_column(Text)  # target-language text for this segment
     flags: Mapped[list | None] = mapped_column(JSON, default=list)
     cache_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
     src_hash: Mapped[str] = mapped_column(String(128))
