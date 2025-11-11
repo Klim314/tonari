@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from "react";
 import {
 	Alert,
 	Badge,
@@ -13,7 +14,7 @@ import {
 	Stack,
 	Text,
 } from "@chakra-ui/react";
-import { Pause, Play } from "lucide-react";
+import { Pause, Play, RotateCcw } from "lucide-react";
 import { useChapter } from "../hooks/useChapter";
 import {
 	type TranslationStreamStatus,
@@ -21,6 +22,8 @@ import {
 } from "../hooks/useChapterTranslationStream";
 import { useWork } from "../hooks/useWork";
 import type { Chapter } from "../types/works";
+
+type PrimaryAction = "start" | "resume" | "regenerate";
 
 interface ChapterDetailPageProps {
 	workId: number;
@@ -43,7 +46,80 @@ export function ChapterDetailPage({
 		loading: chapterLoading,
 		error: chapterError,
 	} = useChapter(workId, chapterId);
-	const translation = useChapterTranslationStream({ workId, chapterId });
+	const {
+		status: translationStatus,
+		error: translationError,
+		segments: translationSegments,
+		isStreaming: isTranslationStreaming,
+		start: startTranslation,
+		pause: pauseTranslation,
+		isResetting: translationResetting,
+		regenerate: regenerateTranslation,
+	} = useChapterTranslationStream({ workId, chapterId });
+
+	const handleRegenerate = useCallback(async () => {
+		const ok = await regenerateTranslation();
+		if (ok) {
+			startTranslation();
+		}
+	}, [regenerateTranslation, startTranslation]);
+
+	const primaryAction = useMemo<PrimaryAction>(() => {
+		const translatableSegments = translationSegments.filter(
+			(segment) => (segment.src ?? "").trim().length > 0,
+		);
+		if (translationStatus === "completed") {
+			return "regenerate";
+		}
+		if (translatableSegments.length === 0) {
+			return "start";
+		}
+		const completedCount = translatableSegments.filter(
+			(segment) =>
+				segment.status === "completed" &&
+				(segment.text ?? "").trim().length > 0,
+		).length;
+		if (completedCount === translatableSegments.length) {
+			return "regenerate";
+		}
+		return "resume";
+	}, [translationSegments, translationStatus]);
+
+	const handlePrimaryAction = useCallback(async () => {
+		if (isTranslationStreaming) {
+			pauseTranslation();
+			return;
+		}
+		if (primaryAction === "regenerate") {
+			await handleRegenerate();
+			return;
+		}
+		startTranslation();
+	}, [
+		handleRegenerate,
+		isTranslationStreaming,
+		pauseTranslation,
+		primaryAction,
+		startTranslation,
+	]);
+
+	const primaryLabel = isTranslationStreaming
+		? "Pause Translation"
+		: getPrimaryActionLabel(primaryAction);
+	const primaryIcon = isTranslationStreaming
+		? Pause
+		: primaryAction === "regenerate"
+			? RotateCcw
+			: Play;
+	const primaryColorScheme = isTranslationStreaming
+		? "gray"
+		: primaryAction === "regenerate"
+			? "orange"
+			: "teal";
+	const isPrimaryLoading =
+		primaryAction === "regenerate" &&
+		!isTranslationStreaming &&
+		translationResetting;
 
 	const loading = workLoading || chapterLoading;
 	const error = workError || chapterError;
@@ -126,49 +202,44 @@ export function ChapterDetailPage({
 										<Heading size="md">Translation</Heading>
 										<Badge
 											variant="solid"
-											colorPalette={getStatusColorScheme(translation.status)}
+											colorPalette={getStatusColorScheme(translationStatus)}
 										>
-											{formatStatusLabel(translation.status)}
+											{formatStatusLabel(translationStatus)}
 										</Badge>
 									</HStack>
 
-									<Button
-										variant="outline"
-										colorScheme={translation.isStreaming ? "gray" : "teal"}
-										onClick={
-											translation.isStreaming
-												? translation.pause
-												: translation.start
-										}
-										disabled={!translation.isStreaming && (!work || !chapter)}
-									>
-										<HStack gap={2} align="center">
-											<Text>{getControlLabel(translation.status)}</Text>
-										</HStack>
-										<Icon
-											as={translation.isStreaming ? Pause : Play}
-											boxSize={4}
-										/>
-									</Button>
+									<HStack gap={3} flexWrap="wrap">
+										<Button
+											variant="outline"
+											colorScheme={primaryColorScheme}
+											onClick={handlePrimaryAction}
+											isLoading={isPrimaryLoading}
+											disabled={!isTranslationStreaming && (!work || !chapter)}
+										>
+											<HStack gap={2} align="center">
+												<Text>{primaryLabel}</Text>
+											</HStack>
+											<Icon as={primaryIcon} boxSize={4} />
+										</Button>
+									</HStack>
 								</Flex>
-								{translation.error ? (
+								{translationError ? (
 									<Alert.Root status="error" borderRadius="md" mb={4}>
 										<Alert.Indicator />
 										<Alert.Content>
-											<Alert.Description>{translation.error}</Alert.Description>
+											<Alert.Description>{translationError}</Alert.Description>
 										</Alert.Content>
 									</Alert.Root>
 								) : null}
 								<Separator mb={4} />
-								{translation.segments.length === 0 ? (
+								{translationSegments.length === 0 ? (
 									<Text color="gray.400">
-										Start streaming to generate lorem ipsum placeholder
-										translations aligned with each newline-delimited source
-										segment.
+										Start streaming to generate LangChain-powered translations
+										aligned with each newline-delimited source segment.
 									</Text>
 								) : (
 									<Stack gap={5}>
-										{translation.segments.map((segment) => {
+										{translationSegments.map((segment) => {
 											const srcText = segment.src || "";
 											const tgtText =
 												segment.text ||
@@ -245,14 +316,12 @@ function getStatusColorScheme(status: TranslationStreamStatus) {
 	}
 }
 
-function getControlLabel(status: TranslationStreamStatus) {
-	switch (status) {
-		case "running":
-			return "Pause Translation";
-		case "connecting":
-			return "Connecting";
-		case "completed":
+function getPrimaryActionLabel(action: PrimaryAction) {
+	switch (action) {
+		case "resume":
 			return "Resume Translation";
+		case "regenerate":
+			return "Regenerate Translation";
 		default:
 			return "Start Translation";
 	}
