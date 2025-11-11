@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { useBrowserLocation } from "./hooks/useBrowserLocation";
 import { ChapterDetailPage } from "./pages/ChapterDetailPage";
+import { LandingPage } from "./pages/LandingPage";
 import { WorkDetailPage } from "./pages/WorkDetailPage";
-import { WorksPage } from "./pages/WorksPage";
 
 function App() {
 	const { path, navigate } = useBrowserLocation();
@@ -43,7 +43,9 @@ function App() {
 		}
 	}
 
-	return <WorksPage onSelectWork={(workId) => navigate(`/works/${workId}`)} />;
+	return (
+		<LandingPage onSelectWork={(workId) => navigate(`/works/${workId}`)} />
+	);
 }
 
 export default App;

@@ -133,23 +133,26 @@ export function useChapterTranslationStream({
 		setError(null);
 	}, [closeStream]);
 
-	const applyPayload = useCallback((payload: ChapterTranslationStateResponse) => {
-		setStatus(normalizeStatus(payload.status));
-		const mapped: Record<number, SegmentState> = {};
-		for (const segment of payload.segments) {
-			const isWhitespace = segment.flags?.includes("whitespace");
-			mapped[segment.id] = {
-				segmentId: segment.id,
-				orderIndex: segment.order_index,
-				start: segment.start,
-				end: segment.end,
-				src: segment.src,
-				text: segment.tgt ?? "",
-				status: segment.tgt || isWhitespace ? "completed" : "pending",
-			};
-		}
-		setSegmentsMap(mapped);
-	}, []);
+	const applyPayload = useCallback(
+		(payload: ChapterTranslationStateResponse) => {
+			setStatus(normalizeStatus(payload.status));
+			const mapped: Record<number, SegmentState> = {};
+			for (const segment of payload.segments) {
+				const isWhitespace = segment.flags?.includes("whitespace");
+				mapped[segment.id] = {
+					segmentId: segment.id,
+					orderIndex: segment.order_index,
+					start: segment.start,
+					end: segment.end,
+					src: segment.src,
+					text: segment.tgt ?? "",
+					status: segment.tgt || isWhitespace ? "completed" : "pending",
+				};
+			}
+			setSegmentsMap(mapped);
+		},
+		[],
+	);
 
 	const handleSegmentStart = useCallback((event: MessageEvent<string>) => {
 		const payload = parseEventData<{

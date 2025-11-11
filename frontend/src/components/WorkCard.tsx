@@ -39,23 +39,29 @@ export function WorkCard({ work, onSelect, href }: WorkCardProps) {
 			href={href}
 			borderRadius="lg"
 			borderWidth="1px"
+			borderColor="gray.200"
+			bg="white"
 			p={4}
 			cursor={isInteractive ? "pointer" : undefined}
 			role={hasSelectHandler && !href ? "button" : undefined}
 			tabIndex={hasSelectHandler && !href ? 0 : undefined}
 			onClick={hasSelectHandler ? handleClick : undefined}
 			onKeyDown={hasSelectHandler ? handleKeyDown : undefined}
-			transition="transform 0.15s ease"
+			transition="all 0.15s ease"
 			_hover={
 				isInteractive
-					? { transform: "translateY(-2px)", borderColor: "teal.300" }
+					? {
+							transform: "translateY(-2px)",
+							borderColor: "teal.400",
+							boxShadow: "md",
+						}
 					: undefined
 			}
 		>
-			<Heading size="md" mb={2}>
+			<Heading size="md" mb={2} color="gray.800">
 				{work.title}
 			</Heading>
-			<Text fontSize="sm" color="gray.400">
+			<Text fontSize="sm" color="gray.600">
 				#{work.id}
 			</Text>
 		</Box>
