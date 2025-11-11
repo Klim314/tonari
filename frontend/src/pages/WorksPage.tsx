@@ -43,14 +43,14 @@ export function WorksPage({ onSelectWork }: WorksPageProps) {
 	return (
 		<Box py={10}>
 			<Container maxW="6xl">
-				<Stack spacing={6}>
+				<Stack gap={6}>
 					<Stack
-						spacing={4}
+						gap={4}
 						direction={{ base: "column", md: "row" }}
 						justify="space-between"
 						align={{ base: "flex-start", md: "center" }}
 					>
-						<Stack spacing={2}>
+						<Stack gap={2}>
 							<Heading size="lg">Works</Heading>
 							<Text color="gray.400">
 								Showing {works.length} of {data?.total ?? 0} tracked works.

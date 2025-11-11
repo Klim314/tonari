@@ -127,7 +127,7 @@ export function AddWorkModal({
 						<DialogTitle>Add New Work</DialogTitle>
 					</DialogHeader>
 					<DialogBody>
-						<Stack spacing={4}>
+						<Stack gap={4}>
 							<FieldRoot required>
 								<FieldLabel htmlFor="work-urls-input">Work URLs</FieldLabel>
 								<Textarea
@@ -162,11 +162,11 @@ export function AddWorkModal({
 									<Text fontWeight="semibold" mb={2}>
 										Import results
 									</Text>
-									<Stack spacing={2}>
+									<Stack gap={2}>
 										{results.map((result, index) => (
 											<HStack
 												key={`${result.url}-${index}`}
-												spacing={3}
+												gap={3}
 												align="flex-start"
 											>
 												<Icon
