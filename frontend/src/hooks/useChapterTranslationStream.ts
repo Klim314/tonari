@@ -32,6 +32,8 @@ interface TranslationStreamHook {
 	start: () => void;
 	pause: () => void;
 	reset: () => void;
+	isResetting: boolean;
+	regenerate: () => Promise<boolean>;
 }
 
 interface ChapterTranslationStateResponse {
@@ -108,6 +110,7 @@ export function useChapterTranslationStream({
 	const [segmentsMap, setSegmentsMap] = useState<Record<number, SegmentState>>(
 		{},
 	);
+	const [isResetting, setIsResetting] = useState(false);
 	const eventSourceRef = useRef<EventSource | null>(null);
 
 	const closeStream = useCallback((nextStatus?: TranslationStreamStatus) => {
@@ -129,6 +132,24 @@ export function useChapterTranslationStream({
 		setSegmentsMap({});
 		setError(null);
 	}, [closeStream]);
+
+	const applyPayload = useCallback((payload: ChapterTranslationStateResponse) => {
+		setStatus(normalizeStatus(payload.status));
+		const mapped: Record<number, SegmentState> = {};
+		for (const segment of payload.segments) {
+			const isWhitespace = segment.flags?.includes("whitespace");
+			mapped[segment.id] = {
+				segmentId: segment.id,
+				orderIndex: segment.order_index,
+				start: segment.start,
+				end: segment.end,
+				src: segment.src,
+				text: segment.tgt ?? "",
+				status: segment.tgt || isWhitespace ? "completed" : "pending",
+			};
+		}
+		setSegmentsMap(mapped);
+	}, []);
 
 	const handleSegmentStart = useCallback((event: MessageEvent<string>) => {
 		const payload = parseEventData<{
@@ -230,6 +251,14 @@ export function useChapterTranslationStream({
 			"segment-complete",
 			handleSegmentComplete as EventListener,
 		);
+		source.addEventListener("translation-error", (event) => {
+			const payload = parseEventData<{ error?: string }>(
+				event as MessageEvent<string>,
+			);
+			setError(payload?.error ?? "Translation run failed");
+			setStatus("error");
+			closeStream("error");
+		});
 		source.addEventListener("translation-complete", () => {
 			setStatus("completed");
 			closeStream("completed");
@@ -273,21 +302,7 @@ export function useChapterTranslationStream({
 				});
 				if (cancelled) return;
 				const payload = response.data as ChapterTranslationStateResponse;
-				setStatus(normalizeStatus(payload.status));
-				const mapped: Record<number, SegmentState> = {};
-				for (const segment of payload.segments) {
-					const isWhitespace = segment.flags?.includes("whitespace");
-					mapped[segment.id] = {
-						segmentId: segment.id,
-						orderIndex: segment.order_index,
-						start: segment.start,
-						end: segment.end,
-						src: segment.src,
-						text: segment.tgt ?? "",
-						status: segment.tgt || isWhitespace ? "completed" : "pending",
-					};
-				}
-				setSegmentsMap(mapped);
+				applyPayload(payload);
 				setError(null);
 			} catch (err) {
 				if (!cancelled) {
@@ -300,7 +315,32 @@ export function useChapterTranslationStream({
 		return () => {
 			cancelled = true;
 		};
-	}, [chapterId, workId, reset]);
+	}, [chapterId, workId, reset, applyPayload]);
+
+	const regenerate = useCallback(async () => {
+		if (!workId || !chapterId) {
+			setError("Missing work or chapter identifier");
+			return false;
+		}
+		reset();
+		setIsResetting(true);
+		setError(null);
+		try {
+			const response = await client.delete({
+				url: `/works/${workId}/chapters/${chapterId}/translation`,
+				responseType: "json",
+				throwOnError: true,
+			});
+			const payload = response.data as ChapterTranslationStateResponse;
+			applyPayload(payload);
+			return true;
+		} catch (err) {
+			setError("Failed to reset translation");
+			return false;
+		} finally {
+			setIsResetting(false);
+		}
+	}, [applyPayload, chapterId, workId, reset]);
 
 	useEffect(() => {
 		if (autoStart) {
@@ -322,5 +362,7 @@ export function useChapterTranslationStream({
 		start,
 		pause,
 		reset,
+		isResetting,
+		regenerate,
 	};
 }

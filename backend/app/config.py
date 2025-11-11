@@ -10,6 +10,10 @@ class Settings(BaseSettings):
     )
     api_port: int = Field(default=8087)
     translation_api_key: str | None = Field(default=None)
+    translation_model: str = Field(default="gpt-4o-mini")
+    translation_api_base_url: str | None = Field(default=None)
+    translation_chunk_chars: int = Field(default=160)
+    translation_context_segments: int = Field(default=3)
 
     class Config:
         env_file = ".env"

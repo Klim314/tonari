@@ -1,14 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from dataclasses import dataclass
-from typing import AsyncGenerator, Dict, List
+from typing import Dict, List
 
-LOREM = (
-    "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed non risus. Suspendisse "
-    "lectus tortor, dignissim sit amet, adipiscing nec, ultricies sed, dolor."
-)
-
+from agents.translation_agent import get_translation_agent
 
 @dataclass(slots=True)
 class SegmentSlice:
@@ -59,37 +56,35 @@ def newline_segment_slices(text: str) -> List[SegmentSlice]:
     return segments
 
 
-def build_lorem_text(min_chars: int) -> str:
-    if min_chars <= 0:
-        return ""
-    repeats = (min_chars // len(LOREM)) + 1
-    text = (LOREM + " ") * repeats
-    return text[:min_chars].strip()
+def hash_text(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
-def stub_translate(src: str) -> str:
-    """Placeholder translation that emits lorem ipsum proportionate to src length."""
-    return build_lorem_text(max(len(src.strip()), 16))
-
-
-async def stream_lorem_translation(src: str, *, chunk_size: int = 24) -> AsyncGenerator[str, None]:
-    lorem = stub_translate(src)
-    for idx in range(0, len(lorem), chunk_size):
-        await asyncio.sleep(0.05)
-        yield lorem[idx : idx + chunk_size]
-
-
-def segment_and_translate(text: str) -> List[Dict]:
-    """Produce a list of {start,end,tgt,flags} dicts as a stand-in for LLM output."""
+async def async_segment_and_translate(text: str) -> List[Dict]:
+    agent = get_translation_agent()
     out: List[Dict] = []
+    context_limit = max(0, getattr(agent, "context_window", 0))
+    context_buffer: List[Dict[str, str]] = []
     for segment in newline_segment_slices(text):
         flags: List[str] = []
+        tgt = ""
         if not segment.requires_translation:
             flags.append("whitespace")
-            tgt = ""
         else:
-            src = segment.text
-            tgt = stub_translate(src)
+            preceding = list(context_buffer) if context_limit > 0 and context_buffer else None
+            tgt = await agent.translate_segment(
+                segment.text, preceding_segments=preceding
+            )
+            if context_limit > 0:
+                src_for_context = segment.text.strip()
+                tgt_for_context = tgt.strip()
+                if src_for_context and tgt_for_context:
+                    context_buffer.append({"src": src_for_context, "tgt": tgt_for_context})
+                    if len(context_buffer) > context_limit:
+                        context_buffer.pop(0)
         out.append({"start": segment.start, "end": segment.end, "tgt": tgt, "flags": flags})
     return out
 
+
+def segment_and_translate(text: str) -> List[Dict]:
+    return asyncio.run(async_segment_and_translate(text))

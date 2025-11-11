@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List, Optional, Sequence, cast
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import ChapterTranslation, TranslationSegment
-from app.translation_service import newline_segment_slices
+from app.translation_service import newline_segment_slices, hash_text
 
 
 class TranslationStreamService:
@@ -34,10 +34,24 @@ class TranslationStreamService:
             self.session.refresh(translation)
         return translation
 
-    def ensure_segments(self, translation: ChapterTranslation, chapter_text: str) -> List[TranslationSegment]:
-        segments = self.list_segments(translation.id)
-        if segments:
-            return segments
+    def ensure_segments(
+        self, translation: ChapterTranslation, chapter_text: str, *, force: bool = False
+    ) -> List[TranslationSegment]:
+        """Ensure translation segments mirror the chapter text.
+
+        - When segments already exist and `force` is false, they are returned as-is.
+        - When no segments exist or `force` is true, the chapter text is re-sliced into
+          newline-delimited chunks and fresh `TranslationSegment` rows are created.
+        """
+        segments = self.get_segments_for_translation(translation.id)
+        if segments and not force:
+            return list(segments)
+
+        if force and segments:
+            self.session.query(TranslationSegment).filter(
+                TranslationSegment.chapter_translation_id == translation.id
+            ).delete(synchronize_session=False)
+            self.session.commit()
 
         slices = newline_segment_slices(chapter_text)
         new_segments: List[TranslationSegment] = []
@@ -54,14 +68,14 @@ class TranslationStreamService:
                     tgt="",
                     flags=flags,
                     cache_key=None,
-                    src_hash="",
+                    src_hash=hash_text(slice_.text),
                 )
             )
         self.session.add_all(new_segments)
         self.session.commit()
-        return self.list_segments(translation.id)
+        return list(self.get_segments_for_translation(translation.id))
 
-    def list_segments(self, translation_id: int) -> List[TranslationSegment]:
+    def get_segments_for_translation(self, translation_id: int) -> Sequence[TranslationSegment]:
         stmt = (
             select(TranslationSegment)
             .where(TranslationSegment.chapter_translation_id == translation_id)
@@ -74,10 +88,52 @@ class TranslationStreamService:
         flags = segment.flags or []
         if "whitespace" in flags or "empty" in flags:
             return False
-        return not bool(segment.tgt)
+        tgt_value = cast(Optional[str], segment.tgt)
+        if tgt_value is None:
+            return True
+        return not tgt_value.strip()
 
-    def first_pending_segment(self, segments: List[TranslationSegment]) -> Optional[TranslationSegment]:
+    def first_pending_segment(self, segments: Sequence[TranslationSegment]) -> Optional[TranslationSegment]:
         for segment in segments:
             if self.needs_translation(segment):
                 return segment
         return None
+
+    def build_context_window(
+        self,
+        segments: List[TranslationSegment],
+        current: TranslationSegment,
+        chapter_text: str,
+        *,
+        limit: int = 3,
+    ) -> List[dict[str, str]]:
+        if limit <= 0:
+            return []
+        context: List[dict[str, str]] = []
+        # Keep the logic intentionally simple; segment counts are small.
+        for segment in reversed(segments):
+            if segment.order_index >= current.order_index:
+                continue
+            tgt = (segment.tgt or "").strip()
+            if not tgt:
+                continue
+            src = chapter_text[segment.start : segment.end].strip()
+            if not src:
+                continue
+            context.append({"src": src, "tgt": tgt})
+            if len(context) >= limit:
+                break
+        return list(reversed(context))
+
+    def reset_translation(self, chapter_id: int) -> ChapterTranslation:
+        translation = self.get_or_create_translation(chapter_id)
+        self.session.query(TranslationSegment).filter(
+            TranslationSegment.chapter_translation_id == translation.id
+        ).delete(synchronize_session=False)
+        translation.status = "pending"
+        translation.cost_cents = None
+        translation.meta = None
+        self.session.add(translation)
+        self.session.commit()
+        self.session.refresh(translation)
+        return translation
