@@ -34,3 +34,7 @@ alembic *args:
 
 lint-web:
     cd frontend && npx @biomejs/biome check --write
+
+generate:api:
+    curl -s http://localhost:8087/openapi.json > frontend/openapi.json && \
+    cd frontend && npm run generate:api
