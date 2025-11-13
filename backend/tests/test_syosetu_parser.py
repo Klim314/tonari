@@ -21,3 +21,26 @@ def test_parse_chapter_modern_layout():
     assert title == "幼年期　五歳の夏"
     assert "ライン三重帝国" in text
     assert "三つの広範な領地" in text
+
+
+RUBY_HTML = """
+<html>
+<body>
+<h1 id="novel_subtitle">Test Title</h1>
+<div id="novel_honbun">
+<p>これは<ruby>物<rp>(</rp><rt>もの</rt><rp>)</rp></ruby><ruby>語<rp>(</rp><rt>がたり</rt><rp>)</rp></ruby>です。</p>
+<p><ruby>物<rp>(</rp><rt>・</rt><rp>)</rp></ruby><ruby>語<rp>(</rp><rt>・</rt><rp>)</rp></ruby><ruby>を<rp>(</rp><rt>・</rt><rp>)</rp></ruby><ruby>楽<rp>(</rp><rt>・</rt><rp>)</rp></ruby><ruby>し<rp>(</rp><rt>・</rt><rp>)</rp></ruby><ruby>む<rp>(</rp><rt>・</rt><rp>)</rp></ruby>こと</p>
+</div>
+</body>
+</html>
+"""
+
+
+def test_parse_chapter_removes_ruby_annotations():
+    title, text = parse_chapter(RUBY_HTML)
+    assert title == "Test Title"
+    assert "これは物語です。" in text
+    assert "物語を楽しむこと" in text
+    assert "・" not in text
+    assert "もの" not in text
+    assert "がたり" not in text
