@@ -197,6 +197,35 @@ def reset_chapter_translation(work_id: int, chapter_id: int):
         return _build_translation_state(chapter, translation, segments)
 
 
+@router.post("/{work_id}/chapters/{chapter_id}/regenerate-segments")
+def regenerate_chapter_segments(work_id: int, chapter_id: int):
+    """Regenerate all segments for a chapter, discarding existing translations.
+
+    This endpoint deletes all existing segments for all translations of the chapter
+    and recreates them based on the current chapter text. This is useful when the
+    chapter source text changes and needs to be re-segmented.
+    """
+    with SessionLocal() as db:
+        works_service = WorksService(db)
+        chapters_service = ChaptersService(db)
+        translation_service = TranslationStreamService(db)
+        try:
+            work = works_service.get_work(work_id)
+        except WorkNotFoundError:
+            raise HTTPException(status_code=404, detail="work not found") from None
+        try:
+            chapter = chapters_service.get_chapter(chapter_id)
+        except ChapterNotFoundError:
+            raise HTTPException(status_code=404, detail="chapter not found") from None
+        if chapter.work_id != work.id:
+            raise HTTPException(status_code=404, detail="chapter not found") from None
+
+        translation_service.regenerate_chapter_segments(chapter)
+        translation = translation_service.get_or_create_translation(chapter.id)
+        segments = list(translation_service.get_segments_for_translation(translation.id))
+        return _build_translation_state(chapter, translation, segments)
+
+
 def _sse_event(event: str, payload: dict) -> dict:
     return {"event": event, "data": json.dumps(payload)}
 

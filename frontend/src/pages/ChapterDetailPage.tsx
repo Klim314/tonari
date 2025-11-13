@@ -8,13 +8,17 @@ import {
 	HStack,
 	Heading,
 	Icon,
+	Menu,
+	MenuContent,
+	MenuItem,
+	MenuTrigger,
 	Separator,
 	Skeleton,
 	Stack,
 	Text,
 } from "@chakra-ui/react";
-import { Pause, Play, RotateCcw } from "lucide-react";
-import { useCallback, useMemo } from "react";
+import { Pause, Play, RotateCcw, Settings } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
 import { useChapter } from "../hooks/useChapter";
 import {
 	type TranslationStreamStatus,
@@ -36,6 +40,7 @@ export function ChapterDetailPage({
 	chapterId,
 	onNavigateBack,
 }: ChapterDetailPageProps) {
+	const [isRegeneratingSegments, setIsRegeneratingSegments] = useState(false);
 	const {
 		data: work,
 		loading: workLoading,
@@ -63,6 +68,26 @@ export function ChapterDetailPage({
 			startTranslation();
 		}
 	}, [regenerateTranslation, startTranslation]);
+
+	const handleRegenerateSegments = useCallback(async () => {
+		if (!workId || !chapterId) return;
+		setIsRegeneratingSegments(true);
+		try {
+			const response = await fetch(
+				`/api/works/${workId}/chapters/${chapterId}/regenerate-segments`,
+				{ method: "POST" },
+			);
+			if (!response.ok) {
+				throw new Error("Failed to regenerate segments");
+			}
+			// Refresh translations after regenerating segments
+			await regenerateTranslation();
+		} catch (error) {
+			console.error("Error regenerating segments:", error);
+		} finally {
+			setIsRegeneratingSegments(false);
+		}
+	}, [workId, chapterId, regenerateTranslation]);
 
 	const primaryAction = useMemo<PrimaryAction>(() => {
 		const translatableSegments = translationSegments.filter(
@@ -158,16 +183,40 @@ export function ChapterDetailPage({
 					</Alert.Root>
 				) : (
 					<Stack gap={8}>
-						<Box borderWidth="1px" borderRadius="lg" p={6}>
+						<Box borderWidth="1px" borderRadius="lg" p={6} position="relative">
 							<Text color="gray.400" fontSize="sm" mb={2}>
 								{work.title}
 							</Text>
 							<Heading size="lg" mb={2}>
 								Chapter {formatChapterKey(chapter.idx)}: {chapter.title}
 							</Heading>
-							<Text color="gray.400" fontSize="sm">
+							<Text color="gray.400" fontSize="sm" mb={4}>
 								Sort key {chapter.sort_key.toFixed(4)}
 							</Text>
+							<Box position="absolute" top={4} right={4}>
+								<Menu.Root positioning={{ placement: "bottom-end" }}>
+									<Menu.Trigger asChild>
+										<Button
+											variant="outline"
+											size="sm"
+											disabled={!work || !chapter}
+										>
+											<Icon as={Settings} boxSize={4} />
+										</Button>
+									</Menu.Trigger>
+									<Menu.Positioner>
+										<Menu.Content>
+											<Menu.Item
+												value="regenerate-segments"
+												onClick={handleRegenerateSegments}
+												disabled={isRegeneratingSegments}
+											>
+												Regenerate Segments
+											</Menu.Item>
+										</Menu.Content>
+									</Menu.Positioner>
+								</Menu.Root>
+							</Box>
 						</Box>
 
 						<Stack

@@ -5,7 +5,7 @@ from typing import List, Optional, Sequence, cast
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import ChapterTranslation, TranslationSegment
+from app.models import Chapter, ChapterTranslation, TranslationSegment
 from app.translation_service import hash_text, newline_segment_slices
 
 
@@ -139,3 +139,29 @@ class TranslationStreamService:
         self.session.commit()
         self.session.refresh(translation)
         return translation
+
+    def regenerate_chapter_segments(self, chapter: Chapter) -> None:
+        """Delete and regenerate segments for the most recent translation of a chapter.
+
+        This is useful when chapter text changes and segments need to be
+        re-segmented with new character positions. Only regenerates for the most
+        recent translation (which is the one displayed on the chapter page).
+        """
+        stmt = (
+            select(ChapterTranslation)
+            .where(ChapterTranslation.chapter_id == chapter.id)
+            .order_by(ChapterTranslation.id.desc())
+            .limit(1)
+        )
+        translation = self.session.execute(stmt).scalars().first()
+        if translation is None:
+            return
+
+        # Delete existing segments
+        self.session.query(TranslationSegment).filter(
+            TranslationSegment.chapter_translation_id == translation.id
+        ).delete(synchronize_session=False)
+        self.session.commit()
+
+        # Recreate segments
+        self.ensure_segments(translation, chapter.normalized_text, force=True)
