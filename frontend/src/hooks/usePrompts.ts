@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Prompts } from "../client";
 import { getApiErrorMessage } from "../lib/api";
 import type { PaginatedPromptsResponse } from "../types/prompts";
@@ -15,8 +15,11 @@ const defaultState: PromptsState = {
 	error: null,
 };
 
+const SEARCH_DEBOUNCE_MS = 300;
+
 export function usePrompts(searchQuery: string, refreshToken = 0) {
 	const [state, setState] = useState<PromptsState>(defaultState);
+	const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const refreshKey = refreshToken;
 
 	useEffect(() => {
@@ -25,7 +28,6 @@ export function usePrompts(searchQuery: string, refreshToken = 0) {
 		const controller = new AbortController();
 
 		async function fetchPrompts() {
-			setState((prev) => ({ ...prev, loading: true, error: null }));
 			try {
 				const trimmedQuery = searchQuery.trim();
 				const query: NonNullable<
@@ -63,7 +65,17 @@ export function usePrompts(searchQuery: string, refreshToken = 0) {
 			}
 		}
 
-		fetchPrompts();
+		// Set loading state immediately
+		setState((prev) => ({ ...prev, loading: true, error: null }));
+
+		// Debounce the actual fetch
+		if (debounceTimerRef.current) {
+			clearTimeout(debounceTimerRef.current);
+		}
+
+		debounceTimerRef.current = setTimeout(() => {
+			fetchPrompts();
+		}, SEARCH_DEBOUNCE_MS);
 
 		return () => {
 			cancelled = true;

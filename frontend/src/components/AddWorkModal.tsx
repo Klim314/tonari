@@ -136,7 +136,7 @@ export function AddWorkModal({
 									minH="140px"
 									value={inputValue}
 									onChange={(event) => setInputValue(event.target.value)}
-									isDisabled={submitting}
+									disabled={submitting}
 								/>
 								<FieldHelperText>
 									Supports multiple URLs. Each URL will be imported in sequence.
@@ -209,15 +209,15 @@ export function AddWorkModal({
 							variant="ghost"
 							mr={3}
 							onClick={onClose}
-							isDisabled={submitting}
+							disabled={submitting}
 						>
 							Cancel
 						</Button>
 						<Button
 							colorScheme="teal"
 							onClick={handleSubmit}
-							isLoading={submitting}
-							isDisabled={!hasUrls && !submitting}
+							loading={submitting}
+							disabled={!hasUrls && !submitting}
 						>
 							Import
 						</Button>

@@ -4,7 +4,6 @@ import {
 	Button,
 	Container,
 	Heading,
-	HStack,
 	Input,
 	Stack,
 	Text,
@@ -13,16 +12,12 @@ import {
 	Textarea,
 	FieldLabel,
 	FieldRoot,
-	DialogRoot,
-	DialogBackdrop,
-	DialogPositioner,
-	DialogContent,
-	DialogCloseTrigger,
-	DialogHeader,
-	DialogTitle,
-	DialogBody,
-	DialogFooter,
+	MenuRoot,
+	MenuTrigger,
+	MenuContent,
+	MenuItem,
 } from "@chakra-ui/react";
+import { SquarePen } from "lucide-react";
 import { usePrompts } from "../hooks/usePrompts";
 import { usePrompt } from "../hooks/usePrompt";
 import { usePromptVersions } from "../hooks/usePromptVersions";
@@ -32,10 +27,23 @@ export function PromptsLandingPane() {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [selectedPromptId, setSelectedPromptId] = useState<number | null>(null);
 	const [refreshToken, setRefreshToken] = useState(0);
-	const [isDialogOpen, setIsDialogOpen] = useState(false);
 	const [newVersionModel, setNewVersionModel] = useState("");
 	const [newVersionTemplate, setNewVersionTemplate] = useState("");
 	const [isSubmittingVersion, setIsSubmittingVersion] = useState(false);
+
+	// Edit mode for metadata
+	const [isEditingMetadata, setIsEditingMetadata] = useState(false);
+	const [editingName, setEditingName] = useState("");
+	const [editingDescription, setEditingDescription] = useState("");
+	const [isSubmittingMetadata, setIsSubmittingMetadata] = useState(false);
+
+	// Version selector
+	const [selectedVersionId, setSelectedVersionId] = useState<number | null>(
+		null,
+	);
+
+	// Create version inline form
+	const [isCreatingVersion, setIsCreatingVersion] = useState(false);
 
 	const promptsState = usePrompts(searchQuery, refreshToken);
 	const promptState = usePrompt(selectedPromptId, refreshToken);
@@ -43,6 +51,67 @@ export function PromptsLandingPane() {
 
 	const handleSelectPrompt = (promptId: number) => {
 		setSelectedPromptId(promptId);
+		setIsEditingMetadata(false);
+		setSelectedVersionId(null);
+	};
+
+	const handleCreateNewPrompt = async () => {
+		try {
+			const response = await Prompts.createPromptPromptsPost({
+				body: {
+					name: "Untitled Prompt",
+					description: null,
+				},
+				throwOnError: true,
+			});
+
+			const promptId = response.data.id;
+			setSelectedPromptId(promptId);
+			setEditingName("Untitled Prompt");
+			setEditingDescription("");
+			setIsEditingMetadata(true);
+			setIsCreatingVersion(true);
+			setRefreshToken((prev) => prev + 1);
+		} catch (error) {
+			console.error("Failed to create prompt:", error);
+		}
+	};
+
+	const handleStartEditMetadata = () => {
+		if (promptState.data) {
+			setEditingName(promptState.data.name);
+			setEditingDescription(promptState.data.description || "");
+			setIsEditingMetadata(true);
+		}
+	};
+
+	const handleSaveMetadata = async () => {
+		if (!selectedPromptId || !editingName.trim()) {
+			return;
+		}
+
+		setIsSubmittingMetadata(true);
+		try {
+			await Prompts.updatePromptPromptsPromptIdPatch({
+				path: { prompt_id: selectedPromptId },
+				body: {
+					name: editingName,
+					description: editingDescription || null,
+				},
+				throwOnError: true,
+			});
+
+			setIsEditingMetadata(false);
+			setRefreshToken((prev) => prev + 1);
+		} catch (error) {
+			console.error("Failed to save metadata:", error);
+		} finally {
+			setIsSubmittingMetadata(false);
+		}
+	};
+
+	const handleCancelEditMetadata = () => {
+		setIsEditingMetadata(false);
 	};
 
 	const handleAddVersion = async () => {
@@ -63,7 +132,8 @@ export function PromptsLandingPane() {
 
 			setNewVersionModel("");
 			setNewVersionTemplate("");
-			setIsDialogOpen(false);
+			setIsCreatingVersion(false);
+			setSelectedVersionId(null);
 			setRefreshToken((prev) => prev + 1);
 		} catch (error) {
 			console.error("Failed to add version:", error);
@@ -72,12 +142,22 @@ export function PromptsLandingPane() {
 		}
 	};
 
-	const handleOpenDialog = () => {
-		setIsDialogOpen(true);
+	const handleToggleCreateVersion = () => {
+		setIsCreatingVersion(!isCreatingVersion);
+		if (isCreatingVersion) {
+			setNewVersionModel("");
+			setNewVersionTemplate("");
+		}
 	};
 
-	const handleCloseDialog = () => {
-		setIsDialogOpen(false);
+	const handleCancelCreateVersion = () => {
+		setIsCreatingVersion(false);
+		setNewVersionModel("");
+		setNewVersionTemplate("");
+	};
+
+	const handleSelectVersion = (versionId: number) => {
+		setSelectedVersionId(versionId);
 	};
 
 	return (
@@ -94,7 +174,12 @@ export function PromptsLandingPane() {
 				>
 					<Stack gap={4}>
 						<Stack gap={2}>
-							<Heading size="sm">Prompts</Heading>
+							<Stack direction="row" justify="space-between" align="center">
+								<Heading size="sm">Prompts</Heading>
+								<Button size="xs" colorScheme="blue" onClick={handleCreateNewPrompt}>
+									+ New
+								</Button>
+							</Stack>
 							<Input
 								placeholder="Search prompts..."
 								value={searchQuery}
@@ -114,7 +199,8 @@ export function PromptsLandingPane() {
 								<Text color="red.400" fontSize="sm">
 									{promptsState.error}
 								</Text>
-							) : !promptsState.data?.items || promptsState.data.items.length === 0 ? (
+							) : !promptsState.data?.items ||
+								promptsState.data.items.length === 0 ? (
 								<Text color="gray.400" fontSize="sm">
 									No prompts found
 								</Text>
@@ -148,7 +234,7 @@ export function PromptsLandingPane() {
 													color="gray.400"
 													fontSize="xs"
 													mt={1}
-													noOfLines={2}
+													lineClamp={2}
 												>
 													{prompt.description}
 												</Text>
@@ -186,97 +272,251 @@ export function PromptsLandingPane() {
 						<Text color="red.400">{promptState.error}</Text>
 					) : promptState.data ? (
 						<Stack gap={4}>
-							{/* Prompt Header */}
-							<Stack gap={2}>
-								<Heading size="lg">{promptState.data.name}</Heading>
-								{promptState.data.description && (
-									<Text color="gray.400" fontSize="sm">
-										{promptState.data.description}
-									</Text>
-								)}
-								{promptState.data.latest_version && (
-									<HStack gap={2} flexWrap="wrap">
-										<Badge colorScheme="blue">
-											v{promptState.data.latest_version.version_number}
-										</Badge>
-										<Badge colorScheme="gray">
-											{promptState.data.latest_version.model}
-										</Badge>
-										{promptState.data.latest_version.created_by && (
-											<Text fontSize="xs" color="gray.400">
-												by {promptState.data.latest_version.created_by}
-											</Text>
-										)}
-									</HStack>
-								)}
-							</Stack>
-
-							<Box height="1px" bg="whiteAlpha.200" />
-
-							{/* Latest Version Preview */}
-							{promptState.data.latest_version && (
+							{/* Prompt Header / Edit Mode */}
+							{isEditingMetadata ? (
+								<Stack gap={3}>
+									<FieldRoot>
+										<FieldLabel htmlFor="edit-name-input">Name</FieldLabel>
+										<Input
+											id="edit-name-input"
+											value={editingName}
+											onChange={(e) => setEditingName(e.target.value)}
+											disabled={isSubmittingMetadata}
+											autoFocus
+										/>
+									</FieldRoot>
+									<FieldRoot>
+										<FieldLabel htmlFor="edit-description-input">
+											Description
+										</FieldLabel>
+										<Textarea
+											id="edit-description-input"
+											value={editingDescription}
+											onChange={(e) => setEditingDescription(e.target.value)}
+											disabled={isSubmittingMetadata}
+											minH="80px"
+											fontSize="sm"
+										/>
+									</FieldRoot>
+									<Stack direction="row" gap={2}>
+										<Button
+											size="sm"
+											colorScheme="blue"
+											onClick={handleSaveMetadata}
+											loading={isSubmittingMetadata}
+											disabled={!editingName.trim() || isSubmittingMetadata}
+										>
+											Save
+										</Button>
+										<Button
+											size="sm"
+											variant="ghost"
+											onClick={handleCancelEditMetadata}
+											disabled={isSubmittingMetadata}
+										>
+											Cancel
+										</Button>
+									</Stack>
+								</Stack>
+							) : (
 								<Stack gap={2}>
-									<Heading size="sm">Latest Version Template</Heading>
-									<Box
-										p={3}
-										borderWidth="1px"
-										borderColor="whiteAlpha.100"
-										borderRadius="md"
-										bg="whiteAlpha.50"
-										fontFamily="mono"
-										fontSize="xs"
-										maxH="200px"
-										overflowY="auto"
-										whiteSpace="pre-wrap"
-										wordBreak="break-word"
+									<Stack
+										direction="row"
+										justify="space-between"
+										align="flex-start"
 									>
-										{promptState.data.latest_version.template}
-									</Box>
+										<Heading size="lg">{promptState.data.name}</Heading>
+										<Button
+											size="xs"
+											variant="ghost"
+											onClick={handleStartEditMetadata}
+										>
+											<SquarePen size={16} />
+											Edit
+										</Button>
+									</Stack>
+									{promptState.data.description && (
+										<Text color="gray.400" fontSize="sm">
+											{promptState.data.description}
+										</Text>
+									)}
+									{promptState.data.latest_version && (
+										<Stack direction="row" gap={2} flexWrap="wrap">
+											<Badge colorScheme="blue">
+												v{promptState.data.latest_version.version_number}
+											</Badge>
+											<Badge colorScheme="gray">
+												{promptState.data.latest_version.model}
+											</Badge>
+											{promptState.data.latest_version.created_by && (
+												<Text fontSize="xs" color="gray.400">
+													by {promptState.data.latest_version.created_by}
+												</Text>
+											)}
+										</Stack>
+									)}
 								</Stack>
 							)}
 
-							{/* Action Buttons */}
-							<HStack gap={2}>
+							<Box height="1px" bg="whiteAlpha.200" />
+
+							{/* Version Selector and Preview */}
+							{promptState.data.latest_version ? (
+								<Stack gap={2}>
+									<Stack direction="row" justify="space-between" align="center">
+										<Heading size="sm">Template</Heading>
+										{versionsState.data &&
+											versionsState.data.items.length > 1 && (
+												<MenuRoot>
+													<MenuTrigger asChild>
+														<Button size="xs" variant="outline">
+															v
+															{selectedVersionId
+																? versionsState.data.items.find(
+																		(v) => v.id === selectedVersionId,
+																	)?.version_number
+																: promptState.data.latest_version
+																		.version_number}{" "}
+															▼
+														</Button>
+													</MenuTrigger>
+													<MenuContent maxH="300px" overflowY="auto">
+														{versionsState.data.items.map((version) => (
+															<MenuItem
+																key={version.id}
+																value={version.id.toString()}
+																onClick={() => handleSelectVersion(version.id)}
+																fontFamily="body"
+																fontSize="sm"
+															>
+																v{version.version_number} - {version.model}
+																{selectedVersionId === version.id && " ✓"}
+															</MenuItem>
+														))}
+													</MenuContent>
+												</MenuRoot>
+											)}
+									</Stack>
+									{selectedVersionId &&
+									versionsState.data &&
+									versionsState.data.items.find(
+										(v) => v.id === selectedVersionId,
+									) ? (
+										<Box
+											p={3}
+											borderWidth="2px"
+											borderColor="blue.400"
+											borderRadius="md"
+											bg="whiteAlpha.50"
+											fontFamily="mono"
+											fontSize="xs"
+											maxH="200px"
+											overflowY="auto"
+											whiteSpace="pre-wrap"
+											wordBreak="break-word"
+										>
+											{
+												versionsState.data.items.find(
+													(v) => v.id === selectedVersionId,
+												)?.template
+											}
+											<Text fontSize="xs" color="blue.300" mt={2}>
+												Unsaved preview - click "Create New Version" to save
+											</Text>
+										</Box>
+									) : (
+										<Box
+											p={3}
+											borderWidth="1px"
+											borderColor="whiteAlpha.100"
+											borderRadius="md"
+											bg="whiteAlpha.50"
+											fontFamily="mono"
+											fontSize="xs"
+											maxH="200px"
+											overflowY="auto"
+											whiteSpace="pre-wrap"
+											wordBreak="break-word"
+										>
+											{promptState.data.latest_version.template}
+										</Box>
+									)}
+								</Stack>
+							) : (
+								<Stack gap={2}>
+									<Heading size="sm">No Versions Yet</Heading>
+									<Text color="gray.400" fontSize="sm">
+										Create the first version to begin using this prompt
+									</Text>
+								</Stack>
+							)}
+
+							{/* Create New Version Button / Inline Form */}
+							{!isCreatingVersion ? (
 								<Button
 									size="sm"
 									colorScheme="blue"
-									onClick={handleOpenDialog}
+									onClick={handleToggleCreateVersion}
 								>
 									Create New Version
 								</Button>
-								{versionsState.data && versionsState.data.total > 1 && (
-									<Button size="sm" variant="outline">
-										View History ({versionsState.data.total})
-									</Button>
-								)}
-							</HStack>
-
-							{/* Versions List */}
-							{versionsState.data && versionsState.data.items.length > 1 && (
-								<Stack gap={2}>
-									<Heading size="sm">Version History</Heading>
-									<Stack gap={2} maxH="300px" overflowY="auto">
-										{versionsState.data.items.slice(1).map((version) => (
-											<Box
-												key={version.id}
-												p={2}
-												borderWidth="1px"
-												borderColor="whiteAlpha.100"
-												borderRadius="md"
-												width="100%"
-												fontSize="xs"
-											>
-												<HStack gap={2}>
-													<Badge>v{version.version_number}</Badge>
-													<Text color="gray.400">{version.model}</Text>
-													{version.created_by && (
-														<Text color="gray.500">
-															by {version.created_by}
-														</Text>
-													)}
-												</HStack>
-											</Box>
-										))}
+							) : (
+								<Stack
+									gap={3}
+									p={4}
+									borderWidth="1px"
+									borderColor="whiteAlpha.100"
+									borderRadius="md"
+									bg="whiteAlpha.50"
+								>
+									<FieldRoot>
+										<FieldLabel htmlFor="inline-model-input">Model</FieldLabel>
+										<Input
+											id="inline-model-input"
+											placeholder="e.g., gpt-4"
+											value={newVersionModel}
+											onChange={(e) => setNewVersionModel(e.target.value)}
+											disabled={isSubmittingVersion}
+											size="sm"
+										/>
+									</FieldRoot>
+									<FieldRoot>
+										<FieldLabel htmlFor="inline-template-input">
+											Template
+										</FieldLabel>
+										<Textarea
+											id="inline-template-input"
+											placeholder="Enter template with {variables}..."
+											value={newVersionTemplate}
+											onChange={(e) => setNewVersionTemplate(e.target.value)}
+											minH="150px"
+											fontFamily="mono"
+											fontSize="sm"
+											disabled={isSubmittingVersion}
+										/>
+									</FieldRoot>
+									<Stack direction="row" gap={2}>
+										<Button
+											size="sm"
+											colorScheme="blue"
+											onClick={handleAddVersion}
+											loading={isSubmittingVersion}
+											disabled={
+												!newVersionModel ||
+												!newVersionTemplate ||
+												isSubmittingVersion
+											}
+										>
+											Create Version
+										</Button>
+										<Button
+											size="sm"
+											variant="ghost"
+											onClick={handleCancelCreateVersion}
+											disabled={isSubmittingVersion}
+										>
+											Cancel
+										</Button>
 									</Stack>
 								</Stack>
 							)}
@@ -284,69 +524,6 @@ export function PromptsLandingPane() {
 					) : null}
 				</Box>
 			</Stack>
-
-			{/* Add Version Dialog */}
-			<DialogRoot
-				open={isDialogOpen}
-				onOpenChange={(details) => setIsDialogOpen(details.open)}
-				lazyMount
-				unmountOnExit
-			>
-				<DialogBackdrop />
-				<DialogPositioner>
-					<DialogContent>
-						<DialogCloseTrigger />
-						<DialogHeader>
-							<DialogTitle>Create New Version</DialogTitle>
-						</DialogHeader>
-						<DialogBody>
-							<Stack gap={4}>
-								<FieldRoot>
-									<FieldLabel htmlFor="model-input">Model</FieldLabel>
-									<Input
-										id="model-input"
-										placeholder="e.g., gpt-4"
-										value={newVersionModel}
-										onChange={(e) => setNewVersionModel(e.target.value)}
-										size="sm"
-									/>
-								</FieldRoot>
-								<FieldRoot>
-									<FieldLabel htmlFor="template-input">Template</FieldLabel>
-									<Textarea
-										id="template-input"
-										placeholder="Enter template with {variables}..."
-										value={newVersionTemplate}
-										onChange={(e) => setNewVersionTemplate(e.target.value)}
-										minH="150px"
-										fontFamily="mono"
-										fontSize="sm"
-									/>
-								</FieldRoot>
-							</Stack>
-						</DialogBody>
-						<DialogFooter gap={2}>
-							<Button
-								variant="ghost"
-								onClick={handleCloseDialog}
-								isDisabled={isSubmittingVersion}
-							>
-								Cancel
-							</Button>
-							<Button
-								colorScheme="blue"
-								onClick={handleAddVersion}
-								isLoading={isSubmittingVersion}
-								isDisabled={
-									!newVersionModel || !newVersionTemplate || isSubmittingVersion
-								}
-							>
-								Create Version
-							</Button>
-						</DialogFooter>
-					</DialogContent>
-				</DialogPositioner>
-			</DialogRoot>
 		</Container>
 	);
 }
