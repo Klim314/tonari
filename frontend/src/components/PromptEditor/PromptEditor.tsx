@@ -1,10 +1,14 @@
-import { useEffect, useState, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import {
+	useEffect,
+	useState,
+	useCallback,
+	forwardRef,
+	useImperativeHandle,
+} from "react";
 import {
 	Box,
 	Button,
 	Container,
-	Heading,
 	Stack,
 	Text,
 	Skeleton,
@@ -28,6 +32,7 @@ export interface EditorDraft {
 	template: string;
 }
 
+
 export interface PromptEditorState {
 	promptId: number;
 	draft: EditorDraft;
@@ -37,31 +42,72 @@ export interface PromptEditorState {
 	selectedVersionId: number | null;
 }
 
-export function PromptEditor() {
-	const { promptId } = useParams<{ promptId: string }>();
-	const navigate = useNavigate();
-	const { isOpen, onOpen, onClose } = useDisclosure();
-	const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+export interface PromptEditorHandle {
+	saveChanges: () => Promise<void>;
+	discardChanges: () => void;
+}
 
-	const id = promptId ? parseInt(promptId, 10) : null;
+interface PromptEditorProps {
+	promptId: number | null;
+	variant?: "page" | "embedded";
+	onDirtyChange?: (dirty: boolean) => void;
+	onPromptSaved?: () => void;
+	onRequestNavigate?: (path: string) => void;
+	showVersionSidebar?: boolean;
+	onSavingChange?: (saving: boolean) => void;
+}
+
+const emptyDraft: EditorDraft = {
+	name: "",
+	description: "",
+	model: "",
+	template: "",
+};
+
+export const PromptEditor = forwardRef<PromptEditorHandle, PromptEditorProps>(
+	function PromptEditor(
+		{
+			promptId,
+			variant = "page",
+			onDirtyChange,
+			onPromptSaved,
+			onRequestNavigate,
+			showVersionSidebar = true,
+			onSavingChange,
+		}: PromptEditorProps,
+		ref,
+	) {
+	const { open: isOpen, onOpen, onClose } = useDisclosure();
+	const [pendingNavigation, setPendingNavigation] = useState<string | null>(
+		null,
+	);
+
+	const resolvedPromptId = promptId;
 	const [refreshToken, setRefreshToken] = useState(0);
 
-	const promptState = usePrompt(id, refreshToken);
-	const versionsState = usePromptVersions(id, refreshToken);
+	const promptState = usePrompt(resolvedPromptId, refreshToken);
+	const versionsState = usePromptVersions(resolvedPromptId, refreshToken);
 
 	const [editorState, setEditorState] = useState<PromptEditorState>({
-		promptId: id || 0,
-		draft: {
-			name: "",
-			description: "",
-			model: "",
-			template: "",
-		},
+		promptId: resolvedPromptId || 0,
+		draft: emptyDraft,
 		isDirty: false,
 		isSaving: false,
 		lastSaveTime: null,
 		selectedVersionId: null,
 	});
+
+	// Reset local editor state when prompt id changes
+	useEffect(() => {
+		setEditorState({
+			promptId: resolvedPromptId || 0,
+			draft: emptyDraft,
+			isDirty: false,
+			isSaving: false,
+			lastSaveTime: null,
+			selectedVersionId: null,
+		});
+	}, [resolvedPromptId]);
 
 	// Initialize draft from loaded prompt
 	useEffect(() => {
@@ -79,6 +125,14 @@ export function PromptEditor() {
 		}
 	}, [promptState.data]);
 
+	useEffect(() => {
+		onDirtyChange?.(editorState.isDirty);
+	}, [editorState.isDirty, onDirtyChange]);
+
+	useEffect(() => {
+		onSavingChange?.(editorState.isSaving);
+	}, [editorState.isSaving, onSavingChange]);
+
 	const handleDraftChange = useCallback(
 		(field: keyof EditorDraft, value: string) => {
 			setEditorState((prev) => ({
@@ -90,7 +144,7 @@ export function PromptEditor() {
 				isDirty: true,
 			}));
 		},
-		[]
+		[],
 	);
 
 	const handleSelectVersion = useCallback((versionId: number) => {
@@ -103,8 +157,8 @@ export function PromptEditor() {
 		// (not into draft - just for viewing)
 	}, []);
 
-	const handleSaveChanges = async () => {
-		if (!id || editorState.isSaving) return;
+	const handleSaveChanges = useCallback(async () => {
+		if (!resolvedPromptId || editorState.isSaving) return;
 
 		setEditorState((prev) => ({
 			...prev,
@@ -114,7 +168,7 @@ export function PromptEditor() {
 		try {
 			// First, update metadata (name, description)
 			await Prompts.updatePromptPromptsPromptIdPatch({
-				path: { prompt_id: id },
+				path: { prompt_id: resolvedPromptId },
 				body: {
 					name: editorState.draft.name,
 					description: editorState.draft.description || null,
@@ -125,7 +179,7 @@ export function PromptEditor() {
 			// Then, create or update version
 			// TODO: Backend will handle 5-min window logic
 			await Prompts.appendPromptVersionPromptsPromptIdVersionsPost({
-				path: { prompt_id: id },
+				path: { prompt_id: resolvedPromptId },
 				body: {
 					model: editorState.draft.model,
 					template: editorState.draft.template,
@@ -142,6 +196,7 @@ export function PromptEditor() {
 			}));
 
 			setRefreshToken((prev) => prev + 1);
+			onPromptSaved?.();
 		} catch (error) {
 			console.error("Failed to save changes:", error);
 			setEditorState((prev) => ({
@@ -149,9 +204,9 @@ export function PromptEditor() {
 				isSaving: false,
 			}));
 		}
-	};
+	}, [editorState.draft.description, editorState.draft.model, editorState.draft.name, editorState.draft.template, editorState.isSaving, onPromptSaved, resolvedPromptId]);
 
-	const handleDiscardChanges = () => {
+	const handleDiscardChanges = useCallback(() => {
 		// Reset draft to last saved state
 		if (promptState.data) {
 			const latestVersion = promptState.data.latest_version;
@@ -167,21 +222,24 @@ export function PromptEditor() {
 				selectedVersionId: null,
 			}));
 		}
-	};
+	}, [promptState.data]);
 
-	const handleNavigateAway = (path: string) => {
-		if (editorState.isDirty) {
-			setPendingNavigation(path);
-			onOpen();
-		} else {
-			navigate(path);
-		}
-	};
+	const handleNavigateAway = useCallback(
+		(path: string) => {
+			if (editorState.isDirty) {
+				setPendingNavigation(path);
+				onOpen();
+			} else {
+				onRequestNavigate?.(path);
+			}
+		},
+		[editorState.isDirty, onOpen, onRequestNavigate],
+	);
 
 	const handleConfirmDiscard = () => {
 		onClose();
 		if (pendingNavigation) {
-			navigate(pendingNavigation);
+			onRequestNavigate?.(pendingNavigation);
 		}
 	};
 
@@ -189,7 +247,7 @@ export function PromptEditor() {
 		await handleSaveChanges();
 		onClose();
 		if (pendingNavigation) {
-			navigate(pendingNavigation);
+			onRequestNavigate?.(pendingNavigation);
 		}
 	};
 
@@ -197,10 +255,133 @@ export function PromptEditor() {
 	const hasError = promptState.error || versionsState.error;
 	const latestVersion = promptState.data?.latest_version;
 
-	// For viewing selected version (not editing)
-	const selectedVersion = editorState.selectedVersionId
-		? versionsState.data?.items.find((v) => v.id === editorState.selectedVersionId)
-		: latestVersion;
+	useImperativeHandle(
+		ref,
+		() => ({
+			saveChanges: handleSaveChanges,
+			discardChanges: handleDiscardChanges,
+		}),
+		[handleDiscardChanges, handleSaveChanges],
+	);
+
+	const editorBody = (
+		<Stack gap={6} flex="1">
+			{/* Metadata Section */}
+			<MetadataEditor
+				name={editorState.draft.name}
+				description={editorState.draft.description}
+				onNameChange={(name) => handleDraftChange("name", name)}
+				onDescriptionChange={(desc) =>
+					handleDraftChange("description", desc)
+				}
+			/>
+
+			{/* Main Editor Area */}
+			<HStack align="stretch" spacing={6} h="600px">
+				{/* Left Sidebar: Version History */}
+				{showVersionSidebar && (
+					<Box
+						flex="0 0 250px"
+						borderWidth="1px"
+						borderColor="whiteAlpha.200"
+						borderRadius="md"
+						p={4}
+						overflowY="auto"
+					>
+						<VersionHistory
+							versions={versionsState.data?.items || []}
+							selectedVersionId={editorState.selectedVersionId}
+							latestVersionId={latestVersion?.id}
+							onSelectVersion={handleSelectVersion}
+						/>
+					</Box>
+				)}
+
+				{/* Right Main Area: Template Editor */}
+				<Box flex="1" display="flex" flexDirection="column" gap={4}>
+					<TemplateEditor
+						model={editorState.draft.model}
+						template={editorState.draft.template}
+						onModelChange={(model) => handleDraftChange("model", model)}
+						onTemplateChange={(template) =>
+							handleDraftChange("template", template)
+						}
+						isViewOnly={editorState.selectedVersionId !== null}
+					/>
+
+					{/* Action Buttons */}
+					<HStack spacing={2} justify="flex-end">
+						{editorState.isDirty && (
+							<Button
+								size="sm"
+								variant="ghost"
+								onClick={handleDiscardChanges}
+								disabled={editorState.isSaving}
+							>
+								Discard
+							</Button>
+						)}
+						<Button
+							size="sm"
+							colorScheme="blue"
+							onClick={handleSaveChanges}
+							disabled={!editorState.isDirty || editorState.isSaving}
+							loading={editorState.isSaving}
+						>
+							{editorState.isDirty ? "Save Changes" : "No Changes"}
+						</Button>
+					</HStack>
+				</Box>
+			</HStack>
+
+			{/* Unsaved indicator */}
+			{editorState.isDirty && (
+				<Box
+					p={3}
+					borderRadius="md"
+					bg="yellow.900"
+					borderLeftWidth="4px"
+					borderLeftColor="yellow.400"
+				>
+					<Text fontSize="sm" color="yellow.100">
+						You have unsaved changes
+					</Text>
+				</Box>
+			)}
+		</Stack>
+	);
+
+	if (variant === "embedded") {
+		if (!resolvedPromptId) {
+			return (
+				<VStack gap={4} justify="center" h="100%">
+					<Text color="gray.400" fontSize="sm">
+						Select a prompt to view details and manage versions
+					</Text>
+				</VStack>
+			);
+		}
+
+		return (
+			<Box flex="1" display="flex" flexDirection="column" gap={6}>
+				{isLoading ? (
+					<Stack gap={4}>
+						<Skeleton height="40px" width="100%" />
+						<Skeleton height="60px" width="100%" />
+						<Skeleton height="400px" width="100%" />
+					</Stack>
+				) : hasError ? (
+					<Text color="red.400">
+						{promptState.error || versionsState.error}
+					</Text>
+				) : !promptState.data ? (
+					<Text color="gray.400">Prompt not found</Text>
+				) : (
+					editorBody
+				)}
+			</Box>
+		);
+	}
 
 	return (
 		<Container maxW="7xl" py={6}>
@@ -235,85 +416,9 @@ export function PromptEditor() {
 			) : !promptState.data ? (
 				<Text color="gray.400">Prompt not found</Text>
 			) : (
-				<Stack gap={6}>
-					{/* Metadata Section */}
-					<MetadataEditor
-						name={editorState.draft.name}
-						description={editorState.draft.description}
-						onNameChange={(name) => handleDraftChange("name", name)}
-						onDescriptionChange={(desc) => handleDraftChange("description", desc)}
-					/>
-
-					{/* Main Editor Area */}
-					<HStack align="stretch" spacing={6} h="600px">
-						{/* Left Sidebar: Version History */}
-						<Box
-							flex="0 0 250px"
-							borderWidth="1px"
-							borderColor="whiteAlpha.200"
-							borderRadius="md"
-							p={4}
-							overflowY="auto"
-						>
-							<VersionHistory
-								versions={versionsState.data?.items || []}
-								selectedVersionId={editorState.selectedVersionId}
-								latestVersionId={latestVersion?.id}
-								onSelectVersion={handleSelectVersion}
-							/>
-						</Box>
-
-						{/* Right Main Area: Template Editor */}
-						<Box flex="1" display="flex" flexDirection="column" gap={4}>
-							<TemplateEditor
-								model={editorState.draft.model}
-								template={editorState.draft.template}
-								onModelChange={(model) => handleDraftChange("model", model)}
-								onTemplateChange={(template) => handleDraftChange("template", template)}
-								isViewOnly={editorState.selectedVersionId !== null}
-							/>
-
-							{/* Action Buttons */}
-							<HStack spacing={2} justify="flex-end">
-								{editorState.isDirty && (
-									<Button
-										size="sm"
-										variant="ghost"
-										onClick={handleDiscardChanges}
-										disabled={editorState.isSaving}
-									>
-										Discard
-									</Button>
-								)}
-								<Button
-									size="sm"
-									colorScheme="blue"
-									onClick={handleSaveChanges}
-									disabled={!editorState.isDirty || editorState.isSaving}
-									loading={editorState.isSaving}
-								>
-									{editorState.isDirty ? "Save Changes" : "No Changes"}
-								</Button>
-							</HStack>
-						</Box>
-					</HStack>
-
-					{/* Unsaved indicator */}
-					{editorState.isDirty && (
-						<Box
-							p={3}
-							borderRadius="md"
-							bg="yellow.900"
-							borderLeftWidth="4px"
-							borderLeftColor="yellow.400"
-						>
-							<Text fontSize="sm" color="yellow.100">
-								You have unsaved changes
-							</Text>
-						</Box>
-					)}
-				</Stack>
+				editorBody
 			)}
 		</Container>
 	);
-}
+	},
+);

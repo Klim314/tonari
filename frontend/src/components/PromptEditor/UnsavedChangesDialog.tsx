@@ -6,6 +6,8 @@ import {
 	DialogBody,
 	DialogFooter,
 	DialogCloseTrigger,
+	DialogBackdrop,
+	DialogPositioner,
 } from "@chakra-ui/react";
 import { Button, Text, VStack } from "@chakra-ui/react";
 
@@ -25,8 +27,17 @@ export function UnsavedChangesDialog({
 	isSaving,
 }: UnsavedChangesDialogProps) {
 	return (
-		<DialogRoot open={isOpen} onOpenChange={(e) => { if (!e.open) onClose(); }}>
-			<DialogContent>
+		<DialogRoot
+			open={isOpen}
+			onOpenChange={(event) => {
+				if (!event.open) onClose();
+			}}
+			trapFocus
+			motionPreset="scale"
+		>
+			<DialogBackdrop bg="blackAlpha.600" />
+			<DialogPositioner>
+				<DialogContent maxW="sm" w="100%">
 				<DialogCloseTrigger />
 				<DialogHeader>
 					<DialogTitle>Unsaved Changes</DialogTitle>
@@ -56,6 +67,7 @@ export function UnsavedChangesDialog({
 					</Button>
 				</DialogFooter>
 			</DialogContent>
+			</DialogPositioner>
 		</DialogRoot>
 	);
 }
