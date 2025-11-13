@@ -183,6 +183,24 @@ export type ChapterTranslationOut = {
 };
 
 /**
+ * ChapterTranslationStateOut
+ */
+export type ChapterTranslationStateOut = {
+    /**
+     * Chapter Translation Id
+     */
+    chapter_translation_id: number;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Segments
+     */
+    segments: Array<TranslationSegmentOut>;
+};
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -233,6 +251,50 @@ export type PaginatedChaptersOut = {
 };
 
 /**
+ * PaginatedPromptVersionsOut
+ */
+export type PaginatedPromptVersionsOut = {
+    /**
+     * Items
+     */
+    items: Array<PromptVersionOut>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Limit
+     */
+    limit: number;
+    /**
+     * Offset
+     */
+    offset: number;
+};
+
+/**
+ * PaginatedPromptsOut
+ */
+export type PaginatedPromptsOut = {
+    /**
+     * Items
+     */
+    items: Array<PromptOut>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Limit
+     */
+    limit: number;
+    /**
+     * Offset
+     */
+    offset: number;
+};
+
+/**
  * PaginatedWorksOut
  */
 export type PaginatedWorksOut = {
@@ -255,9 +317,184 @@ export type PaginatedWorksOut = {
 };
 
 /**
+ * PromptCreateRequest
+ */
+export type PromptCreateRequest = {
+    /**
+     * Name
+     *
+     * Prompt name
+     */
+    name: string;
+    /**
+     * Description
+     *
+     * Optional description
+     */
+    description?: string | null;
+};
+
+/**
+ * PromptDetailOut
+ *
+ * Prompt with latest version info included.
+ */
+export type PromptDetailOut = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Owner Work Id
+     */
+    owner_work_id?: number | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+    latest_version?: PromptVersionOut | null;
+};
+
+/**
+ * PromptOut
+ */
+export type PromptOut = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Owner Work Id
+     */
+    owner_work_id?: number | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+};
+
+/**
+ * PromptUpdateRequest
+ */
+export type PromptUpdateRequest = {
+    /**
+     * Name
+     *
+     * New prompt name
+     */
+    name?: string | null;
+    /**
+     * Description
+     *
+     * New description
+     */
+    description?: string | null;
+};
+
+/**
+ * PromptVersionCreateRequest
+ */
+export type PromptVersionCreateRequest = {
+    /**
+     * Model
+     *
+     * Model name (e.g., gpt-4)
+     */
+    model: string;
+    /**
+     * Template
+     *
+     * F-string template for the prompt
+     */
+    template: string;
+    /**
+     * Parameters
+     *
+     * Optional metadata parameters
+     */
+    parameters?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Created By
+     *
+     * Optional creator identifier
+     */
+    created_by?: string | null;
+};
+
+/**
+ * PromptVersionOut
+ */
+export type PromptVersionOut = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Prompt Id
+     */
+    prompt_id: number;
+    /**
+     * Version Number
+     */
+    version_number: number;
+    /**
+     * Model
+     */
+    model: string;
+    /**
+     * Template
+     */
+    template: string;
+    /**
+     * Parameters
+     */
+    parameters?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Created By
+     */
+    created_by?: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+};
+
+/**
  * TranslationSegmentOut
  */
 export type TranslationSegmentOut = {
+    /**
+     * Id
+     */
+    id: number;
     /**
      * Start
      */
@@ -474,6 +711,262 @@ export type ListTranslationSegmentsChapterTranslationsCtIdSegmentsGetResponses =
 
 export type ListTranslationSegmentsChapterTranslationsCtIdSegmentsGetResponse = ListTranslationSegmentsChapterTranslationsCtIdSegmentsGetResponses[keyof ListTranslationSegmentsChapterTranslationsCtIdSegmentsGetResponses];
 
+export type ListPromptsPromptsGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Q
+         */
+        q?: string | null;
+        /**
+         * Limit
+         */
+        limit?: number;
+        /**
+         * Offset
+         */
+        offset?: number;
+    };
+    url: '/prompts/';
+};
+
+export type ListPromptsPromptsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListPromptsPromptsGetError = ListPromptsPromptsGetErrors[keyof ListPromptsPromptsGetErrors];
+
+export type ListPromptsPromptsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: PaginatedPromptsOut;
+};
+
+export type ListPromptsPromptsGetResponse = ListPromptsPromptsGetResponses[keyof ListPromptsPromptsGetResponses];
+
+export type CreatePromptPromptsPostData = {
+    body: PromptCreateRequest;
+    path?: never;
+    query?: never;
+    url: '/prompts/';
+};
+
+export type CreatePromptPromptsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreatePromptPromptsPostError = CreatePromptPromptsPostErrors[keyof CreatePromptPromptsPostErrors];
+
+export type CreatePromptPromptsPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: PromptOut;
+};
+
+export type CreatePromptPromptsPostResponse = CreatePromptPromptsPostResponses[keyof CreatePromptPromptsPostResponses];
+
+export type GetPromptPromptsPromptIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Prompt Id
+         */
+        prompt_id: number;
+    };
+    query?: never;
+    url: '/prompts/{prompt_id}';
+};
+
+export type GetPromptPromptsPromptIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetPromptPromptsPromptIdGetError = GetPromptPromptsPromptIdGetErrors[keyof GetPromptPromptsPromptIdGetErrors];
+
+export type GetPromptPromptsPromptIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: PromptDetailOut;
+};
+
+export type GetPromptPromptsPromptIdGetResponse = GetPromptPromptsPromptIdGetResponses[keyof GetPromptPromptsPromptIdGetResponses];
+
+export type UpdatePromptPromptsPromptIdPatchData = {
+    body: PromptUpdateRequest;
+    path: {
+        /**
+         * Prompt Id
+         */
+        prompt_id: number;
+    };
+    query?: never;
+    url: '/prompts/{prompt_id}';
+};
+
+export type UpdatePromptPromptsPromptIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdatePromptPromptsPromptIdPatchError = UpdatePromptPromptsPromptIdPatchErrors[keyof UpdatePromptPromptsPromptIdPatchErrors];
+
+export type UpdatePromptPromptsPromptIdPatchResponses = {
+    /**
+     * Successful Response
+     */
+    200: PromptOut;
+};
+
+export type UpdatePromptPromptsPromptIdPatchResponse = UpdatePromptPromptsPromptIdPatchResponses[keyof UpdatePromptPromptsPromptIdPatchResponses];
+
+export type ListPromptVersionsPromptsPromptIdVersionsGetData = {
+    body?: never;
+    path: {
+        /**
+         * Prompt Id
+         */
+        prompt_id: number;
+    };
+    query?: {
+        /**
+         * Limit
+         */
+        limit?: number;
+        /**
+         * Offset
+         */
+        offset?: number;
+    };
+    url: '/prompts/{prompt_id}/versions';
+};
+
+export type ListPromptVersionsPromptsPromptIdVersionsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListPromptVersionsPromptsPromptIdVersionsGetError = ListPromptVersionsPromptsPromptIdVersionsGetErrors[keyof ListPromptVersionsPromptsPromptIdVersionsGetErrors];
+
+export type ListPromptVersionsPromptsPromptIdVersionsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: PaginatedPromptVersionsOut;
+};
+
+export type ListPromptVersionsPromptsPromptIdVersionsGetResponse = ListPromptVersionsPromptsPromptIdVersionsGetResponses[keyof ListPromptVersionsPromptsPromptIdVersionsGetResponses];
+
+export type AppendPromptVersionPromptsPromptIdVersionsPostData = {
+    body: PromptVersionCreateRequest;
+    path: {
+        /**
+         * Prompt Id
+         */
+        prompt_id: number;
+    };
+    query?: never;
+    url: '/prompts/{prompt_id}/versions';
+};
+
+export type AppendPromptVersionPromptsPromptIdVersionsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AppendPromptVersionPromptsPromptIdVersionsPostError = AppendPromptVersionPromptsPromptIdVersionsPostErrors[keyof AppendPromptVersionPromptsPromptIdVersionsPostErrors];
+
+export type AppendPromptVersionPromptsPromptIdVersionsPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: PromptVersionOut;
+};
+
+export type AppendPromptVersionPromptsPromptIdVersionsPostResponse = AppendPromptVersionPromptsPromptIdVersionsPostResponses[keyof AppendPromptVersionPromptsPromptIdVersionsPostResponses];
+
+export type GetPromptVersionPromptsPromptIdVersionsVersionIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Prompt Id
+         */
+        prompt_id: number;
+        /**
+         * Version Id
+         */
+        version_id: number;
+    };
+    query?: never;
+    url: '/prompts/{prompt_id}/versions/{version_id}';
+};
+
+export type GetPromptVersionPromptsPromptIdVersionsVersionIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetPromptVersionPromptsPromptIdVersionsVersionIdGetError = GetPromptVersionPromptsPromptIdVersionsVersionIdGetErrors[keyof GetPromptVersionPromptsPromptIdVersionsVersionIdGetErrors];
+
+export type GetPromptVersionPromptsPromptIdVersionsVersionIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: PromptVersionOut;
+};
+
+export type GetPromptVersionPromptsPromptIdVersionsVersionIdGetResponse = GetPromptVersionPromptsPromptIdVersionsVersionIdGetResponses[keyof GetPromptVersionPromptsPromptIdVersionsVersionIdGetResponses];
+
+export type GetWorkPromptPromptsWorksWorkIdPromptGetData = {
+    body?: never;
+    path: {
+        /**
+         * Work Id
+         */
+        work_id: number;
+    };
+    query?: never;
+    url: '/prompts/works/{work_id}/prompt';
+};
+
+export type GetWorkPromptPromptsWorksWorkIdPromptGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetWorkPromptPromptsWorksWorkIdPromptGetError = GetWorkPromptPromptsWorksWorkIdPromptGetErrors[keyof GetWorkPromptPromptsWorksWorkIdPromptGetErrors];
+
+export type GetWorkPromptPromptsWorksWorkIdPromptGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: PromptDetailOut;
+};
+
+export type GetWorkPromptPromptsWorksWorkIdPromptGetResponse = GetWorkPromptPromptsWorksWorkIdPromptGetResponses[keyof GetWorkPromptPromptsWorksWorkIdPromptGetResponses];
+
 export type SearchWorksWorksGetData = {
     body?: never;
     path?: never;
@@ -669,3 +1162,135 @@ export type RequestChapterScrapeWorksWorkIdScrapeChaptersPostResponses = {
 };
 
 export type RequestChapterScrapeWorksWorkIdScrapeChaptersPostResponse = RequestChapterScrapeWorksWorkIdScrapeChaptersPostResponses[keyof RequestChapterScrapeWorksWorkIdScrapeChaptersPostResponses];
+
+export type ResetChapterTranslationWorksWorkIdChaptersChapterIdTranslationDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Work Id
+         */
+        work_id: number;
+        /**
+         * Chapter Id
+         */
+        chapter_id: number;
+    };
+    query?: never;
+    url: '/works/{work_id}/chapters/{chapter_id}/translation';
+};
+
+export type ResetChapterTranslationWorksWorkIdChaptersChapterIdTranslationDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ResetChapterTranslationWorksWorkIdChaptersChapterIdTranslationDeleteError = ResetChapterTranslationWorksWorkIdChaptersChapterIdTranslationDeleteErrors[keyof ResetChapterTranslationWorksWorkIdChaptersChapterIdTranslationDeleteErrors];
+
+export type ResetChapterTranslationWorksWorkIdChaptersChapterIdTranslationDeleteResponses = {
+    /**
+     * Successful Response
+     */
+    200: ChapterTranslationStateOut;
+};
+
+export type ResetChapterTranslationWorksWorkIdChaptersChapterIdTranslationDeleteResponse = ResetChapterTranslationWorksWorkIdChaptersChapterIdTranslationDeleteResponses[keyof ResetChapterTranslationWorksWorkIdChaptersChapterIdTranslationDeleteResponses];
+
+export type GetChapterTranslationStateWorksWorkIdChaptersChapterIdTranslationGetData = {
+    body?: never;
+    path: {
+        /**
+         * Work Id
+         */
+        work_id: number;
+        /**
+         * Chapter Id
+         */
+        chapter_id: number;
+    };
+    query?: never;
+    url: '/works/{work_id}/chapters/{chapter_id}/translation';
+};
+
+export type GetChapterTranslationStateWorksWorkIdChaptersChapterIdTranslationGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetChapterTranslationStateWorksWorkIdChaptersChapterIdTranslationGetError = GetChapterTranslationStateWorksWorkIdChaptersChapterIdTranslationGetErrors[keyof GetChapterTranslationStateWorksWorkIdChaptersChapterIdTranslationGetErrors];
+
+export type GetChapterTranslationStateWorksWorkIdChaptersChapterIdTranslationGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: ChapterTranslationStateOut;
+};
+
+export type GetChapterTranslationStateWorksWorkIdChaptersChapterIdTranslationGetResponse = GetChapterTranslationStateWorksWorkIdChaptersChapterIdTranslationGetResponses[keyof GetChapterTranslationStateWorksWorkIdChaptersChapterIdTranslationGetResponses];
+
+export type RegenerateChapterSegmentsWorksWorkIdChaptersChapterIdRegenerateSegmentsPostData = {
+    body?: never;
+    path: {
+        /**
+         * Work Id
+         */
+        work_id: number;
+        /**
+         * Chapter Id
+         */
+        chapter_id: number;
+    };
+    query?: never;
+    url: '/works/{work_id}/chapters/{chapter_id}/regenerate-segments';
+};
+
+export type RegenerateChapterSegmentsWorksWorkIdChaptersChapterIdRegenerateSegmentsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RegenerateChapterSegmentsWorksWorkIdChaptersChapterIdRegenerateSegmentsPostError = RegenerateChapterSegmentsWorksWorkIdChaptersChapterIdRegenerateSegmentsPostErrors[keyof RegenerateChapterSegmentsWorksWorkIdChaptersChapterIdRegenerateSegmentsPostErrors];
+
+export type RegenerateChapterSegmentsWorksWorkIdChaptersChapterIdRegenerateSegmentsPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type StreamChapterTranslationWorksWorkIdChaptersChapterIdTranslateStreamGetData = {
+    body?: never;
+    path: {
+        /**
+         * Work Id
+         */
+        work_id: number;
+        /**
+         * Chapter Id
+         */
+        chapter_id: number;
+    };
+    query?: never;
+    url: '/works/{work_id}/chapters/{chapter_id}/translate/stream';
+};
+
+export type StreamChapterTranslationWorksWorkIdChaptersChapterIdTranslateStreamGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type StreamChapterTranslationWorksWorkIdChaptersChapterIdTranslateStreamGetError = StreamChapterTranslationWorksWorkIdChaptersChapterIdTranslateStreamGetErrors[keyof StreamChapterTranslationWorksWorkIdChaptersChapterIdTranslateStreamGetErrors];
+
+export type StreamChapterTranslationWorksWorkIdChaptersChapterIdTranslateStreamGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};

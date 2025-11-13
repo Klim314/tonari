@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any, List, Optional
 
 from pydantic import AnyHttpUrl, BaseModel, Field, model_validator
@@ -117,3 +118,70 @@ class ChapterTranslationStateOut(BaseModel):
     chapter_translation_id: int
     status: str
     segments: List[TranslationSegmentOut]
+
+
+# Prompt-related schemas
+class PromptVersionOut(BaseModel):
+    id: int
+    prompt_id: int
+    version_number: int
+    model: str
+    template: str
+    parameters: Optional[dict[str, Any]] = None
+    created_by: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PromptOut(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    owner_work_id: Optional[int] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PromptDetailOut(PromptOut):
+    """Prompt with latest version info included."""
+
+    latest_version: Optional[PromptVersionOut] = None
+
+    class Config:
+        from_attributes = True
+
+
+class PaginatedPromptsOut(BaseModel):
+    items: List[PromptOut]
+    total: int
+    limit: int
+    offset: int
+
+
+class PaginatedPromptVersionsOut(BaseModel):
+    items: List[PromptVersionOut]
+    total: int
+    limit: int
+    offset: int
+
+
+class PromptCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1, description="Prompt name")
+    description: Optional[str] = Field(None, description="Optional description")
+
+
+class PromptUpdateRequest(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, description="New prompt name")
+    description: Optional[str] = Field(None, description="New description")
+
+
+class PromptVersionCreateRequest(BaseModel):
+    model: str = Field(..., min_length=1, description="Model name (e.g., gpt-4)")
+    template: str = Field(..., min_length=1, description="F-string template for the prompt")
+    parameters: Optional[dict[str, Any]] = Field(None, description="Optional metadata parameters")
+    created_by: Optional[str] = Field(None, description="Optional creator identifier")

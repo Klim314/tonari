@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateChapterTranslationChapterTranslationsPostData, CreateChapterTranslationChapterTranslationsPostErrors, CreateChapterTranslationChapterTranslationsPostResponses, GetChapterForWorkWorksWorkIdChaptersChapterIdGetData, GetChapterForWorkWorksWorkIdChaptersChapterIdGetErrors, GetChapterForWorkWorksWorkIdChaptersChapterIdGetResponses, GetChapterTranslationChapterTranslationsCtIdGetData, GetChapterTranslationChapterTranslationsCtIdGetErrors, GetChapterTranslationChapterTranslationsCtIdGetResponses, GetWorkWorksWorkIdGetData, GetWorkWorksWorkIdGetErrors, GetWorkWorksWorkIdGetResponses, HealthHealthGetData, HealthHealthGetResponses, ImportWorkWorksImportPostData, ImportWorkWorksImportPostErrors, ImportWorkWorksImportPostResponses, IngestSyosetuIngestSyosetuPostData, IngestSyosetuIngestSyosetuPostErrors, IngestSyosetuIngestSyosetuPostResponses, ListChaptersForWorkWorksWorkIdChaptersGetData, ListChaptersForWorkWorksWorkIdChaptersGetErrors, ListChaptersForWorkWorksWorkIdChaptersGetResponses, ListTranslationSegmentsChapterTranslationsCtIdSegmentsGetData, ListTranslationSegmentsChapterTranslationsCtIdSegmentsGetErrors, ListTranslationSegmentsChapterTranslationsCtIdSegmentsGetResponses, RequestChapterScrapeWorksWorkIdScrapeChaptersPostData, RequestChapterScrapeWorksWorkIdScrapeChaptersPostErrors, RequestChapterScrapeWorksWorkIdScrapeChaptersPostResponses, SearchWorksWorksGetData, SearchWorksWorksGetErrors, SearchWorksWorksGetResponses } from './types.gen';
+import type { AppendPromptVersionPromptsPromptIdVersionsPostData, AppendPromptVersionPromptsPromptIdVersionsPostErrors, AppendPromptVersionPromptsPromptIdVersionsPostResponses, CreateChapterTranslationChapterTranslationsPostData, CreateChapterTranslationChapterTranslationsPostErrors, CreateChapterTranslationChapterTranslationsPostResponses, CreatePromptPromptsPostData, CreatePromptPromptsPostErrors, CreatePromptPromptsPostResponses, GetChapterForWorkWorksWorkIdChaptersChapterIdGetData, GetChapterForWorkWorksWorkIdChaptersChapterIdGetErrors, GetChapterForWorkWorksWorkIdChaptersChapterIdGetResponses, GetChapterTranslationChapterTranslationsCtIdGetData, GetChapterTranslationChapterTranslationsCtIdGetErrors, GetChapterTranslationChapterTranslationsCtIdGetResponses, GetChapterTranslationStateWorksWorkIdChaptersChapterIdTranslationGetData, GetChapterTranslationStateWorksWorkIdChaptersChapterIdTranslationGetErrors, GetChapterTranslationStateWorksWorkIdChaptersChapterIdTranslationGetResponses, GetPromptPromptsPromptIdGetData, GetPromptPromptsPromptIdGetErrors, GetPromptPromptsPromptIdGetResponses, GetPromptVersionPromptsPromptIdVersionsVersionIdGetData, GetPromptVersionPromptsPromptIdVersionsVersionIdGetErrors, GetPromptVersionPromptsPromptIdVersionsVersionIdGetResponses, GetWorkPromptPromptsWorksWorkIdPromptGetData, GetWorkPromptPromptsWorksWorkIdPromptGetErrors, GetWorkPromptPromptsWorksWorkIdPromptGetResponses, GetWorkWorksWorkIdGetData, GetWorkWorksWorkIdGetErrors, GetWorkWorksWorkIdGetResponses, HealthHealthGetData, HealthHealthGetResponses, ImportWorkWorksImportPostData, ImportWorkWorksImportPostErrors, ImportWorkWorksImportPostResponses, IngestSyosetuIngestSyosetuPostData, IngestSyosetuIngestSyosetuPostErrors, IngestSyosetuIngestSyosetuPostResponses, ListChaptersForWorkWorksWorkIdChaptersGetData, ListChaptersForWorkWorksWorkIdChaptersGetErrors, ListChaptersForWorkWorksWorkIdChaptersGetResponses, ListPromptsPromptsGetData, ListPromptsPromptsGetErrors, ListPromptsPromptsGetResponses, ListPromptVersionsPromptsPromptIdVersionsGetData, ListPromptVersionsPromptsPromptIdVersionsGetErrors, ListPromptVersionsPromptsPromptIdVersionsGetResponses, ListTranslationSegmentsChapterTranslationsCtIdSegmentsGetData, ListTranslationSegmentsChapterTranslationsCtIdSegmentsGetErrors, ListTranslationSegmentsChapterTranslationsCtIdSegmentsGetResponses, RegenerateChapterSegmentsWorksWorkIdChaptersChapterIdRegenerateSegmentsPostData, RegenerateChapterSegmentsWorksWorkIdChaptersChapterIdRegenerateSegmentsPostErrors, RegenerateChapterSegmentsWorksWorkIdChaptersChapterIdRegenerateSegmentsPostResponses, RequestChapterScrapeWorksWorkIdScrapeChaptersPostData, RequestChapterScrapeWorksWorkIdScrapeChaptersPostErrors, RequestChapterScrapeWorksWorkIdScrapeChaptersPostResponses, ResetChapterTranslationWorksWorkIdChaptersChapterIdTranslationDeleteData, ResetChapterTranslationWorksWorkIdChaptersChapterIdTranslationDeleteErrors, ResetChapterTranslationWorksWorkIdChaptersChapterIdTranslationDeleteResponses, SearchWorksWorksGetData, SearchWorksWorksGetErrors, SearchWorksWorksGetResponses, StreamChapterTranslationWorksWorkIdChaptersChapterIdTranslateStreamGetData, StreamChapterTranslationWorksWorkIdChaptersChapterIdTranslateStreamGetErrors, StreamChapterTranslationWorksWorkIdChaptersChapterIdTranslateStreamGetResponses, UpdatePromptPromptsPromptIdPatchData, UpdatePromptPromptsPromptIdPatchErrors, UpdatePromptPromptsPromptIdPatchResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean> = Options2<TData, ThrowOnError> & {
     /**
@@ -87,6 +87,124 @@ export class ChapterTranslations {
     }
 }
 
+export class Prompts {
+    /**
+     * List Prompts
+     *
+     * List all prompts globally with optional search.
+     */
+    public static listPromptsPromptsGet<ThrowOnError extends boolean = false>(options?: Options<ListPromptsPromptsGetData, ThrowOnError>) {
+        return (options?.client ?? client).get<ListPromptsPromptsGetResponses, ListPromptsPromptsGetErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/prompts/',
+            ...options
+        });
+    }
+    
+    /**
+     * Create Prompt
+     *
+     * Create a new global prompt.
+     */
+    public static createPromptPromptsPost<ThrowOnError extends boolean = false>(options: Options<CreatePromptPromptsPostData, ThrowOnError>) {
+        return (options.client ?? client).post<CreatePromptPromptsPostResponses, CreatePromptPromptsPostErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/prompts/',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Get Prompt
+     *
+     * Get a prompt and its metadata including latest version.
+     */
+    public static getPromptPromptsPromptIdGet<ThrowOnError extends boolean = false>(options: Options<GetPromptPromptsPromptIdGetData, ThrowOnError>) {
+        return (options.client ?? client).get<GetPromptPromptsPromptIdGetResponses, GetPromptPromptsPromptIdGetErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/prompts/{prompt_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Update Prompt
+     *
+     * Update prompt metadata (name and/or description).
+     */
+    public static updatePromptPromptsPromptIdPatch<ThrowOnError extends boolean = false>(options: Options<UpdatePromptPromptsPromptIdPatchData, ThrowOnError>) {
+        return (options.client ?? client).patch<UpdatePromptPromptsPromptIdPatchResponses, UpdatePromptPromptsPromptIdPatchErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/prompts/{prompt_id}',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * List Prompt Versions
+     *
+     * List all versions of a prompt.
+     */
+    public static listPromptVersionsPromptsPromptIdVersionsGet<ThrowOnError extends boolean = false>(options: Options<ListPromptVersionsPromptsPromptIdVersionsGetData, ThrowOnError>) {
+        return (options.client ?? client).get<ListPromptVersionsPromptsPromptIdVersionsGetResponses, ListPromptVersionsPromptsPromptIdVersionsGetErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/prompts/{prompt_id}/versions',
+            ...options
+        });
+    }
+    
+    /**
+     * Append Prompt Version
+     *
+     * Append a new version to a prompt.
+     */
+    public static appendPromptVersionPromptsPromptIdVersionsPost<ThrowOnError extends boolean = false>(options: Options<AppendPromptVersionPromptsPromptIdVersionsPostData, ThrowOnError>) {
+        return (options.client ?? client).post<AppendPromptVersionPromptsPromptIdVersionsPostResponses, AppendPromptVersionPromptsPromptIdVersionsPostErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/prompts/{prompt_id}/versions',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Get Prompt Version
+     *
+     * Get a specific version of a prompt.
+     */
+    public static getPromptVersionPromptsPromptIdVersionsVersionIdGet<ThrowOnError extends boolean = false>(options: Options<GetPromptVersionPromptsPromptIdVersionsVersionIdGetData, ThrowOnError>) {
+        return (options.client ?? client).get<GetPromptVersionPromptsPromptIdVersionsVersionIdGetResponses, GetPromptVersionPromptsPromptIdVersionsVersionIdGetErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/prompts/{prompt_id}/versions/{version_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Get Work Prompt
+     *
+     * Get the prompt assigned to a work.
+     */
+    public static getWorkPromptPromptsWorksWorkIdPromptGet<ThrowOnError extends boolean = false>(options: Options<GetWorkPromptPromptsWorksWorkIdPromptGetData, ThrowOnError>) {
+        return (options.client ?? client).get<GetWorkPromptPromptsWorksWorkIdPromptGetResponses, GetWorkPromptPromptsWorksWorkIdPromptGetErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/prompts/works/{work_id}/prompt',
+            ...options
+        });
+    }
+}
+
 export class Works {
     /**
      * Search Works
@@ -159,6 +277,56 @@ export class Works {
                 'Content-Type': 'application/json',
                 ...options.headers
             }
+        });
+    }
+    
+    /**
+     * Reset Chapter Translation
+     */
+    public static resetChapterTranslationWorksWorkIdChaptersChapterIdTranslationDelete<ThrowOnError extends boolean = false>(options: Options<ResetChapterTranslationWorksWorkIdChaptersChapterIdTranslationDeleteData, ThrowOnError>) {
+        return (options.client ?? client).delete<ResetChapterTranslationWorksWorkIdChaptersChapterIdTranslationDeleteResponses, ResetChapterTranslationWorksWorkIdChaptersChapterIdTranslationDeleteErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/works/{work_id}/chapters/{chapter_id}/translation',
+            ...options
+        });
+    }
+    
+    /**
+     * Get Chapter Translation State
+     */
+    public static getChapterTranslationStateWorksWorkIdChaptersChapterIdTranslationGet<ThrowOnError extends boolean = false>(options: Options<GetChapterTranslationStateWorksWorkIdChaptersChapterIdTranslationGetData, ThrowOnError>) {
+        return (options.client ?? client).get<GetChapterTranslationStateWorksWorkIdChaptersChapterIdTranslationGetResponses, GetChapterTranslationStateWorksWorkIdChaptersChapterIdTranslationGetErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/works/{work_id}/chapters/{chapter_id}/translation',
+            ...options
+        });
+    }
+    
+    /**
+     * Regenerate Chapter Segments
+     *
+     * Regenerate all segments for a chapter, discarding existing translations.
+     *
+     * This endpoint deletes all existing segments for all translations of the chapter
+     * and recreates them based on the current chapter text. This is useful when the
+     * chapter source text changes and needs to be re-segmented.
+     */
+    public static regenerateChapterSegmentsWorksWorkIdChaptersChapterIdRegenerateSegmentsPost<ThrowOnError extends boolean = false>(options: Options<RegenerateChapterSegmentsWorksWorkIdChaptersChapterIdRegenerateSegmentsPostData, ThrowOnError>) {
+        return (options.client ?? client).post<RegenerateChapterSegmentsWorksWorkIdChaptersChapterIdRegenerateSegmentsPostResponses, RegenerateChapterSegmentsWorksWorkIdChaptersChapterIdRegenerateSegmentsPostErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/works/{work_id}/chapters/{chapter_id}/regenerate-segments',
+            ...options
+        });
+    }
+    
+    /**
+     * Stream Chapter Translation
+     */
+    public static streamChapterTranslationWorksWorkIdChaptersChapterIdTranslateStreamGet<ThrowOnError extends boolean = false>(options: Options<StreamChapterTranslationWorksWorkIdChaptersChapterIdTranslateStreamGetData, ThrowOnError>) {
+        return (options.client ?? client).get<StreamChapterTranslationWorksWorkIdChaptersChapterIdTranslateStreamGetResponses, StreamChapterTranslationWorksWorkIdChaptersChapterIdTranslateStreamGetErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/works/{work_id}/chapters/{chapter_id}/translate/stream',
+            ...options
         });
     }
 }

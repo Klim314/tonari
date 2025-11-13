@@ -16,3 +16,11 @@ class ChapterNotFoundError(NotFoundError):
 
 class ChapterScrapeError(ServiceError):
     """Raised when a chapter scrape request cannot be fulfilled."""
+
+
+class PromptNotFoundError(NotFoundError):
+    """Raised when a prompt lookup fails."""
+
+
+class PromptVersionNotFoundError(NotFoundError):
+    """Raised when a prompt version lookup fails."""
