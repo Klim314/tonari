@@ -5,11 +5,11 @@ from typing import List, Tuple
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models import Work
+from app.models import Work, WorkPrompt
 from app.scrapers import scraper_registry
 from app.scrapers.types import WorkMetadata
 
-from .exceptions import WorkNotFoundError
+from .exceptions import PromptNotFoundError, WorkNotFoundError
 from .utils import sanitize_pagination
 
 
@@ -64,6 +64,49 @@ class WorksService:
     def _find_by_source(self, source: str, source_id: str) -> Work | None:
         stmt = select(Work).where(Work.source == source, Work.source_id == source_id)
         return self.session.execute(stmt).scalar_one_or_none()
+
+    def set_work_default_prompt(self, work_id: int, prompt_id: int) -> WorkPrompt:
+        """Set or update the default prompt for a work.
+
+        Args:
+            work_id: The work ID
+            prompt_id: The prompt ID to set as default
+
+        Returns:
+            WorkPrompt object
+
+        Raises:
+            WorkNotFoundError: If work not found
+            PromptNotFoundError: If prompt not found
+        """
+        from app.models import Prompt
+
+        # Verify work and prompt exist
+        work = self.get_work(work_id)
+        prompt = self.session.get(Prompt, prompt_id)
+        if not prompt:
+            raise PromptNotFoundError(f"prompt {prompt_id} not found")
+
+        # Check if work already has a prompt assigned
+        existing = self.session.execute(
+            select(WorkPrompt).where(WorkPrompt.work_id == work_id)
+        ).scalar_one_or_none()
+
+        if existing:
+            # Update existing assignment
+            existing.prompt_id = prompt_id
+            self.session.add(existing)
+        else:
+            # Create new assignment
+            work_prompt = WorkPrompt(work_id=work_id, prompt_id=prompt_id, is_default=True)
+            self.session.add(work_prompt)
+
+        self.session.commit()
+        # Re-fetch to ensure we have the updated object
+        result = self.session.execute(
+            select(WorkPrompt).where(WorkPrompt.work_id == work_id)
+        ).scalar_one()
+        return result
 
     @staticmethod
     def _apply_metadata(work: Work, metadata: WorkMetadata) -> None:

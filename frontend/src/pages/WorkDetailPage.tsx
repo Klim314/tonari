@@ -18,6 +18,7 @@ import { Works } from "../client";
 import { useWork } from "../hooks/useWork";
 import { useWorkChapters } from "../hooks/useWorkChapters";
 import { getApiErrorMessage } from "../lib/api";
+import { WorkPromptSelector } from "../components/WorkPromptSelector";
 import type { Chapter } from "../types/works";
 
 const CHAPTERS_PER_PAGE = 10;
@@ -206,17 +207,28 @@ export function WorkDetailPage({
 					</Box>
 
 					<Box flex="1" w="full" borderWidth="1px" borderRadius="lg" p={6}>
-						<Heading size="md" mb={4}>
-							Scrape Chapters
-						</Heading>
-						<Text fontSize="sm" color="gray.400" mb={4}>
-							Select the chapter range to scrape. Decimals (e.g. 2.1) are
-							supported.
-						</Text>
-						<ScrapeChaptersInlineForm
-							workId={workId}
-							onSuccess={handleScrapeSuccess}
-						/>
+						<Stack gap={6}>
+							<Box>
+								<Heading size="md" mb={4}>
+									Prompt
+								</Heading>
+								<WorkPromptSelector workId={workId} />
+							</Box>
+
+							<Box borderTopWidth="1px" pt={6}>
+								<Heading size="md" mb={4}>
+									Scrape Chapters
+								</Heading>
+								<Text fontSize="sm" color="gray.400" mb={4}>
+									Select the chapter range to scrape. Decimals (e.g. 2.1) are
+									supported.
+								</Text>
+								<ScrapeChaptersInlineForm
+									workId={workId}
+									onSuccess={handleScrapeSuccess}
+								/>
+							</Box>
+						</Stack>
 					</Box>
 				</Stack>
 			</Container>

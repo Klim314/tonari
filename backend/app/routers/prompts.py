@@ -12,6 +12,7 @@ from app.schemas import (
     PromptUpdateRequest,
     PromptVersionCreateRequest,
     PromptVersionOut,
+    WorkPromptUpdateRequest,
 )
 from services.exceptions import PromptNotFoundError, PromptVersionNotFoundError
 from services.prompt import PromptService
@@ -144,6 +145,30 @@ def get_prompt_version(prompt_id: int, version_id: int):
         return PromptVersionOut.model_validate(version)
 
 
+@router.get("/works/{work_id}/prompts", response_model=PaginatedPromptsOut)
+def list_work_prompts(work_id: int, q: str | None = Query(default=None), limit: int = 50, offset: int = 0):
+    """List prompts available for a specific work."""
+    with SessionLocal() as db:
+        works_service = WorksService(db)
+        prompt_service = PromptService(db)
+
+        # Verify work exists
+        try:
+            works_service.get_work(work_id)
+        except Exception:
+            raise HTTPException(status_code=404, detail="work not found") from None
+
+        rows, total, limit, offset = prompt_service.get_prompts_for_work(
+            work_id, q=q, limit=limit, offset=offset
+        )
+        return PaginatedPromptsOut(
+            items=[PromptOut.model_validate(row) for row in rows],
+            total=total,
+            limit=limit,
+            offset=offset,
+        )
+
+
 @router.get("/works/{work_id}/prompt", response_model=PromptDetailOut)
 def get_work_prompt(work_id: int):
     """Get the prompt assigned to a work."""
@@ -161,6 +186,40 @@ def get_work_prompt(work_id: int):
         prompt = prompt_service.get_prompt_for_work(work_id)
         if not prompt:
             raise HTTPException(status_code=404, detail="no prompt assigned to this work") from None
+
+        # Get latest version if it exists
+        latest_version = None
+        versions, _, _, _ = prompt_service.get_prompt_versions(prompt.id, limit=1, offset=0)
+        if versions:
+            latest_version = PromptVersionOut.model_validate(versions[0])
+
+        result = PromptDetailOut.model_validate(prompt)
+        result.latest_version = latest_version
+        return result
+
+
+@router.patch("/works/{work_id}/prompt", response_model=PromptDetailOut)
+def update_work_prompt(work_id: int, req: WorkPromptUpdateRequest):
+    """Set or update the default prompt for a work."""
+    with SessionLocal() as db:
+        works_service = WorksService(db)
+        prompt_service = PromptService(db)
+
+        try:
+            works_service.set_work_default_prompt(work_id, req.prompt_id)
+        except Exception as exc:
+            from services.exceptions import PromptNotFoundError, WorkNotFoundError
+
+            if isinstance(exc, WorkNotFoundError):
+                raise HTTPException(status_code=404, detail="work not found") from None
+            if isinstance(exc, PromptNotFoundError):
+                raise HTTPException(status_code=404, detail="prompt not found") from None
+            raise
+
+        # Get updated work's prompt
+        prompt = prompt_service.get_prompt_for_work(work_id)
+        if not prompt:
+            raise HTTPException(status_code=404, detail="prompt not found") from None
 
         # Get latest version if it exists
         latest_version = None

@@ -80,6 +80,43 @@ class PromptService:
         )
         return self.session.execute(stmt).scalar_one_or_none()
 
+    def get_prompts_for_work(
+        self, work_id: int, q: str | None = None, limit: int = 50, offset: int = 0, max_limit: int = 100
+    ) -> Tuple[List[Prompt], int, int, int]:
+        """Search and list all available prompts that can be assigned to a work.
+
+        Returns all non-deleted prompts available for selection by a work.
+
+        Args:
+            work_id: The work ID (used for context, all global prompts are returned)
+            q: Optional search query to filter by prompt name
+            limit: Number of results to return
+            offset: Pagination offset
+            max_limit: Maximum allowed limit
+
+        Returns:
+            Tuple of (prompts, total_count, limit, offset)
+        """
+        limit, offset = sanitize_pagination(limit, offset, max_limit=max_limit)
+
+        stmt = select(Prompt).where(Prompt.deleted_at.is_(None))
+        count_stmt = (
+            select(func.count())
+            .select_from(Prompt)
+            .where(Prompt.deleted_at.is_(None))
+        )
+
+        if q:
+            like = f"%{q.lower()}%"
+            stmt = stmt.where(func.lower(Prompt.name).like(like))
+            count_stmt = count_stmt.where(func.lower(Prompt.name).like(like))
+
+        stmt = stmt.order_by(Prompt.created_at.desc(), Prompt.id.desc()).limit(limit).offset(offset)
+        rows = self.session.execute(stmt).scalars().all()
+        total = self.session.execute(count_stmt).scalar_one()
+
+        return list(rows), total, limit, offset
+
     def create_prompt(self, name: str, description: str | None = None) -> Prompt:
         """Create a new global prompt.
 

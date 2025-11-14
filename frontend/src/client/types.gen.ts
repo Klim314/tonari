@@ -585,6 +585,18 @@ export type WorkOut = {
     } | null;
 };
 
+/**
+ * WorkPromptUpdateRequest
+ */
+export type WorkPromptUpdateRequest = {
+    /**
+     * Prompt Id
+     *
+     * The prompt ID to set as default for the work
+     */
+    prompt_id: number;
+};
+
 export type HealthHealthGetData = {
     body?: never;
     path?: never;
@@ -967,6 +979,49 @@ export type GetPromptVersionPromptsPromptIdVersionsVersionIdGetResponses = {
 
 export type GetPromptVersionPromptsPromptIdVersionsVersionIdGetResponse = GetPromptVersionPromptsPromptIdVersionsVersionIdGetResponses[keyof GetPromptVersionPromptsPromptIdVersionsVersionIdGetResponses];
 
+export type ListWorkPromptsPromptsWorksWorkIdPromptsGetData = {
+    body?: never;
+    path: {
+        /**
+         * Work Id
+         */
+        work_id: number;
+    };
+    query?: {
+        /**
+         * Q
+         */
+        q?: string | null;
+        /**
+         * Limit
+         */
+        limit?: number;
+        /**
+         * Offset
+         */
+        offset?: number;
+    };
+    url: '/prompts/works/{work_id}/prompts';
+};
+
+export type ListWorkPromptsPromptsWorksWorkIdPromptsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListWorkPromptsPromptsWorksWorkIdPromptsGetError = ListWorkPromptsPromptsWorksWorkIdPromptsGetErrors[keyof ListWorkPromptsPromptsWorksWorkIdPromptsGetErrors];
+
+export type ListWorkPromptsPromptsWorksWorkIdPromptsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: PaginatedPromptsOut;
+};
+
+export type ListWorkPromptsPromptsWorksWorkIdPromptsGetResponse = ListWorkPromptsPromptsWorksWorkIdPromptsGetResponses[keyof ListWorkPromptsPromptsWorksWorkIdPromptsGetResponses];
+
 export type GetWorkPromptPromptsWorksWorkIdPromptGetData = {
     body?: never;
     path: {
@@ -996,6 +1051,36 @@ export type GetWorkPromptPromptsWorksWorkIdPromptGetResponses = {
 };
 
 export type GetWorkPromptPromptsWorksWorkIdPromptGetResponse = GetWorkPromptPromptsWorksWorkIdPromptGetResponses[keyof GetWorkPromptPromptsWorksWorkIdPromptGetResponses];
+
+export type UpdateWorkPromptPromptsWorksWorkIdPromptPatchData = {
+    body: WorkPromptUpdateRequest;
+    path: {
+        /**
+         * Work Id
+         */
+        work_id: number;
+    };
+    query?: never;
+    url: '/prompts/works/{work_id}/prompt';
+};
+
+export type UpdateWorkPromptPromptsWorksWorkIdPromptPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdateWorkPromptPromptsWorksWorkIdPromptPatchError = UpdateWorkPromptPromptsWorksWorkIdPromptPatchErrors[keyof UpdateWorkPromptPromptsWorksWorkIdPromptPatchErrors];
+
+export type UpdateWorkPromptPromptsWorksWorkIdPromptPatchResponses = {
+    /**
+     * Successful Response
+     */
+    200: PromptDetailOut;
+};
+
+export type UpdateWorkPromptPromptsWorksWorkIdPromptPatchResponse = UpdateWorkPromptPromptsWorksWorkIdPromptPatchResponses[keyof UpdateWorkPromptPromptsWorksWorkIdPromptPatchResponses];
 
 export type SearchWorksWorksGetData = {
     body?: never;

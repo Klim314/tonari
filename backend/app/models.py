@@ -154,3 +154,4 @@ class WorkPrompt(Base):
 
     work: Mapped[Work] = relationship("Work", back_populates="prompt_links")
     prompt: Mapped[Prompt] = relationship("Prompt", back_populates="work_prompts")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

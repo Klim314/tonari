@@ -185,3 +185,7 @@ class PromptVersionCreateRequest(BaseModel):
     template: str = Field(..., min_length=1, description="F-string template for the prompt")
     parameters: Optional[dict[str, Any]] = Field(None, description="Optional metadata parameters")
     created_by: Optional[str] = Field(None, description="Optional creator identifier")
+
+
+class WorkPromptUpdateRequest(BaseModel):
+    prompt_id: int = Field(..., description="The prompt ID to set as default for the work")

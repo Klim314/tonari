@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AppendPromptVersionPromptsPromptIdVersionsPostData, AppendPromptVersionPromptsPromptIdVersionsPostErrors, AppendPromptVersionPromptsPromptIdVersionsPostResponses, CreateChapterTranslationChapterTranslationsPostData, CreateChapterTranslationChapterTranslationsPostErrors, CreateChapterTranslationChapterTranslationsPostResponses, CreatePromptPromptsPostData, CreatePromptPromptsPostErrors, CreatePromptPromptsPostResponses, DeletePromptPromptsPromptIdDeleteData, DeletePromptPromptsPromptIdDeleteErrors, DeletePromptPromptsPromptIdDeleteResponses, GetChapterForWorkWorksWorkIdChaptersChapterIdGetData, GetChapterForWorkWorksWorkIdChaptersChapterIdGetErrors, GetChapterForWorkWorksWorkIdChaptersChapterIdGetResponses, GetChapterTranslationChapterTranslationsCtIdGetData, GetChapterTranslationChapterTranslationsCtIdGetErrors, GetChapterTranslationChapterTranslationsCtIdGetResponses, GetChapterTranslationStateWorksWorkIdChaptersChapterIdTranslationGetData, GetChapterTranslationStateWorksWorkIdChaptersChapterIdTranslationGetErrors, GetChapterTranslationStateWorksWorkIdChaptersChapterIdTranslationGetResponses, GetPromptPromptsPromptIdGetData, GetPromptPromptsPromptIdGetErrors, GetPromptPromptsPromptIdGetResponses, GetPromptVersionPromptsPromptIdVersionsVersionIdGetData, GetPromptVersionPromptsPromptIdVersionsVersionIdGetErrors, GetPromptVersionPromptsPromptIdVersionsVersionIdGetResponses, GetWorkPromptPromptsWorksWorkIdPromptGetData, GetWorkPromptPromptsWorksWorkIdPromptGetErrors, GetWorkPromptPromptsWorksWorkIdPromptGetResponses, GetWorkWorksWorkIdGetData, GetWorkWorksWorkIdGetErrors, GetWorkWorksWorkIdGetResponses, HealthHealthGetData, HealthHealthGetResponses, ImportWorkWorksImportPostData, ImportWorkWorksImportPostErrors, ImportWorkWorksImportPostResponses, IngestSyosetuIngestSyosetuPostData, IngestSyosetuIngestSyosetuPostErrors, IngestSyosetuIngestSyosetuPostResponses, ListChaptersForWorkWorksWorkIdChaptersGetData, ListChaptersForWorkWorksWorkIdChaptersGetErrors, ListChaptersForWorkWorksWorkIdChaptersGetResponses, ListPromptsPromptsGetData, ListPromptsPromptsGetErrors, ListPromptsPromptsGetResponses, ListPromptVersionsPromptsPromptIdVersionsGetData, ListPromptVersionsPromptsPromptIdVersionsGetErrors, ListPromptVersionsPromptsPromptIdVersionsGetResponses, ListTranslationSegmentsChapterTranslationsCtIdSegmentsGetData, ListTranslationSegmentsChapterTranslationsCtIdSegmentsGetErrors, ListTranslationSegmentsChapterTranslationsCtIdSegmentsGetResponses, RegenerateChapterSegmentsWorksWorkIdChaptersChapterIdRegenerateSegmentsPostData, RegenerateChapterSegmentsWorksWorkIdChaptersChapterIdRegenerateSegmentsPostErrors, RegenerateChapterSegmentsWorksWorkIdChaptersChapterIdRegenerateSegmentsPostResponses, RequestChapterScrapeWorksWorkIdScrapeChaptersPostData, RequestChapterScrapeWorksWorkIdScrapeChaptersPostErrors, RequestChapterScrapeWorksWorkIdScrapeChaptersPostResponses, ResetChapterTranslationWorksWorkIdChaptersChapterIdTranslationDeleteData, ResetChapterTranslationWorksWorkIdChaptersChapterIdTranslationDeleteErrors, ResetChapterTranslationWorksWorkIdChaptersChapterIdTranslationDeleteResponses, SearchWorksWorksGetData, SearchWorksWorksGetErrors, SearchWorksWorksGetResponses, StreamChapterTranslationWorksWorkIdChaptersChapterIdTranslateStreamGetData, StreamChapterTranslationWorksWorkIdChaptersChapterIdTranslateStreamGetErrors, StreamChapterTranslationWorksWorkIdChaptersChapterIdTranslateStreamGetResponses, UpdatePromptPromptsPromptIdPatchData, UpdatePromptPromptsPromptIdPatchErrors, UpdatePromptPromptsPromptIdPatchResponses } from './types.gen';
+import type { AppendPromptVersionPromptsPromptIdVersionsPostData, AppendPromptVersionPromptsPromptIdVersionsPostErrors, AppendPromptVersionPromptsPromptIdVersionsPostResponses, CreateChapterTranslationChapterTranslationsPostData, CreateChapterTranslationChapterTranslationsPostErrors, CreateChapterTranslationChapterTranslationsPostResponses, CreatePromptPromptsPostData, CreatePromptPromptsPostErrors, CreatePromptPromptsPostResponses, DeletePromptPromptsPromptIdDeleteData, DeletePromptPromptsPromptIdDeleteErrors, DeletePromptPromptsPromptIdDeleteResponses, GetChapterForWorkWorksWorkIdChaptersChapterIdGetData, GetChapterForWorkWorksWorkIdChaptersChapterIdGetErrors, GetChapterForWorkWorksWorkIdChaptersChapterIdGetResponses, GetChapterTranslationChapterTranslationsCtIdGetData, GetChapterTranslationChapterTranslationsCtIdGetErrors, GetChapterTranslationChapterTranslationsCtIdGetResponses, GetChapterTranslationStateWorksWorkIdChaptersChapterIdTranslationGetData, GetChapterTranslationStateWorksWorkIdChaptersChapterIdTranslationGetErrors, GetChapterTranslationStateWorksWorkIdChaptersChapterIdTranslationGetResponses, GetPromptPromptsPromptIdGetData, GetPromptPromptsPromptIdGetErrors, GetPromptPromptsPromptIdGetResponses, GetPromptVersionPromptsPromptIdVersionsVersionIdGetData, GetPromptVersionPromptsPromptIdVersionsVersionIdGetErrors, GetPromptVersionPromptsPromptIdVersionsVersionIdGetResponses, GetWorkPromptPromptsWorksWorkIdPromptGetData, GetWorkPromptPromptsWorksWorkIdPromptGetErrors, GetWorkPromptPromptsWorksWorkIdPromptGetResponses, GetWorkWorksWorkIdGetData, GetWorkWorksWorkIdGetErrors, GetWorkWorksWorkIdGetResponses, HealthHealthGetData, HealthHealthGetResponses, ImportWorkWorksImportPostData, ImportWorkWorksImportPostErrors, ImportWorkWorksImportPostResponses, IngestSyosetuIngestSyosetuPostData, IngestSyosetuIngestSyosetuPostErrors, IngestSyosetuIngestSyosetuPostResponses, ListChaptersForWorkWorksWorkIdChaptersGetData, ListChaptersForWorkWorksWorkIdChaptersGetErrors, ListChaptersForWorkWorksWorkIdChaptersGetResponses, ListPromptsPromptsGetData, ListPromptsPromptsGetErrors, ListPromptsPromptsGetResponses, ListPromptVersionsPromptsPromptIdVersionsGetData, ListPromptVersionsPromptsPromptIdVersionsGetErrors, ListPromptVersionsPromptsPromptIdVersionsGetResponses, ListTranslationSegmentsChapterTranslationsCtIdSegmentsGetData, ListTranslationSegmentsChapterTranslationsCtIdSegmentsGetErrors, ListTranslationSegmentsChapterTranslationsCtIdSegmentsGetResponses, ListWorkPromptsPromptsWorksWorkIdPromptsGetData, ListWorkPromptsPromptsWorksWorkIdPromptsGetErrors, ListWorkPromptsPromptsWorksWorkIdPromptsGetResponses, RegenerateChapterSegmentsWorksWorkIdChaptersChapterIdRegenerateSegmentsPostData, RegenerateChapterSegmentsWorksWorkIdChaptersChapterIdRegenerateSegmentsPostErrors, RegenerateChapterSegmentsWorksWorkIdChaptersChapterIdRegenerateSegmentsPostResponses, RequestChapterScrapeWorksWorkIdScrapeChaptersPostData, RequestChapterScrapeWorksWorkIdScrapeChaptersPostErrors, RequestChapterScrapeWorksWorkIdScrapeChaptersPostResponses, ResetChapterTranslationWorksWorkIdChaptersChapterIdTranslationDeleteData, ResetChapterTranslationWorksWorkIdChaptersChapterIdTranslationDeleteErrors, ResetChapterTranslationWorksWorkIdChaptersChapterIdTranslationDeleteResponses, SearchWorksWorksGetData, SearchWorksWorksGetErrors, SearchWorksWorksGetResponses, StreamChapterTranslationWorksWorkIdChaptersChapterIdTranslateStreamGetData, StreamChapterTranslationWorksWorkIdChaptersChapterIdTranslateStreamGetErrors, StreamChapterTranslationWorksWorkIdChaptersChapterIdTranslateStreamGetResponses, UpdatePromptPromptsPromptIdPatchData, UpdatePromptPromptsPromptIdPatchErrors, UpdatePromptPromptsPromptIdPatchResponses, UpdateWorkPromptPromptsWorksWorkIdPromptPatchData, UpdateWorkPromptPromptsWorksWorkIdPromptPatchErrors, UpdateWorkPromptPromptsWorksWorkIdPromptPatchResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean> = Options2<TData, ThrowOnError> & {
     /**
@@ -204,6 +204,19 @@ export class Prompts {
     }
     
     /**
+     * List Work Prompts
+     *
+     * List prompts available for a specific work.
+     */
+    public static listWorkPromptsPromptsWorksWorkIdPromptsGet<ThrowOnError extends boolean = false>(options: Options<ListWorkPromptsPromptsWorksWorkIdPromptsGetData, ThrowOnError>) {
+        return (options.client ?? client).get<ListWorkPromptsPromptsWorksWorkIdPromptsGetResponses, ListWorkPromptsPromptsWorksWorkIdPromptsGetErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/prompts/works/{work_id}/prompts',
+            ...options
+        });
+    }
+    
+    /**
      * Get Work Prompt
      *
      * Get the prompt assigned to a work.
@@ -213,6 +226,23 @@ export class Prompts {
             responseType: 'json',
             url: '/prompts/works/{work_id}/prompt',
             ...options
+        });
+    }
+    
+    /**
+     * Update Work Prompt
+     *
+     * Set or update the default prompt for a work.
+     */
+    public static updateWorkPromptPromptsWorksWorkIdPromptPatch<ThrowOnError extends boolean = false>(options: Options<UpdateWorkPromptPromptsWorksWorkIdPromptPatchData, ThrowOnError>) {
+        return (options.client ?? client).patch<UpdateWorkPromptPromptsWorksWorkIdPromptPatchResponses, UpdateWorkPromptPromptsWorksWorkIdPromptPatchErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/prompts/works/{work_id}/prompt',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
         });
     }
 }

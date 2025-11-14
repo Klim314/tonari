@@ -354,16 +354,16 @@ export function PromptEditor({
 			<HStack justify="space-between" align="center">
 				<Heading size="md">{currentTitle}</Heading>
 				{resolvedPromptId && (
-						<IconButton
-							aria-label="Delete prompt"
-							size="sm"
-							variant="ghost"
-							colorScheme="red"
-							onClick={onOpenDeleteDialog}
-							disabled={editorState.isSaving || promptState.loading}
-						>
-							<Trash2 size={16} />
-						</IconButton>
+					<IconButton
+						aria-label="Delete prompt"
+						size="sm"
+						variant="ghost"
+						colorScheme="red"
+						onClick={onOpenDeleteDialog}
+						disabled={editorState.isSaving || promptState.loading}
+					>
+						<Trash2 size={16} />
+					</IconButton>
 				)}
 			</HStack>
 			{/* Metadata Section */}
