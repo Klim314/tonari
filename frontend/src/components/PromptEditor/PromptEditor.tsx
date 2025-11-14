@@ -79,6 +79,7 @@ export function PromptEditor({
 
 	const promptState = usePrompt(resolvedPromptId, refreshToken);
 	const versionsState = usePromptVersions(resolvedPromptId, refreshToken);
+	const latestVersionId = promptState.data?.latest_version?.id ?? null;
 
 	const [editorState, setEditorState] = useState<PromptEditorState>({
 		promptId: resolvedPromptId || 0,
@@ -139,18 +140,22 @@ export function PromptEditor({
 		[],
 	);
 
-	const handleSelectVersion = useCallback((versionId: number) => {
-		setEditorState((prev) => ({
-			...prev,
-			selectedVersionId: versionId,
-		}));
+	const handleSelectVersion = useCallback(
+		(versionId: number) => {
+			setEditorState((prev) => ({
+				...prev,
+				selectedVersionId:
+					latestVersionId && versionId === latestVersionId ? null : versionId,
+			}));
 
-		// Load the selected version's template and model into view
-		// (not into draft - just for viewing)
-	}, []);
+			// Load the selected version's template and model into view
+			// (not into draft - just for viewing)
+		},
+		[latestVersionId],
+	);
 
 	const handleSaveChanges = useCallback(async () => {
-		if (!resolvedPromptId || editorState.isSaving) return;
+		if (!resolvedPromptId || editorState.isSaving || !editorState.isDirty) return;
 
 		setEditorState((prev) => ({
 			...prev,
@@ -246,6 +251,14 @@ export function PromptEditor({
 	const isLoading = promptState.loading || versionsState.loading;
 	const hasError = promptState.error || versionsState.error;
 	const latestVersion = promptState.data?.latest_version;
+	const selectedVersion =
+		editorState.selectedVersionId && versionsState.data?.items
+			? versionsState.data.items.find(
+					(version) => version.id === editorState.selectedVersionId,
+				) ?? null
+			: null;
+	const templateModel = selectedVersion?.model ?? editorState.draft.model;
+	const templateBody = selectedVersion?.template ?? editorState.draft.template;
 
 	useEffect(() => {
 		if (!onRegisterEditor) {
@@ -300,8 +313,8 @@ export function PromptEditor({
 				{/* Right Main Area: Template Editor */}
 				<Box flex="1" display="flex" flexDirection="column" gap={4}>
 					<TemplateEditor
-						model={editorState.draft.model}
-						template={editorState.draft.template}
+						model={templateModel}
+						template={templateBody}
 						onModelChange={(model) => handleDraftChange("model", model)}
 						onTemplateChange={(template) =>
 							handleDraftChange("template", template)
@@ -315,25 +328,25 @@ export function PromptEditor({
 
 					{/* Action Buttons */}
 					<HStack gap={2} justify="flex-end">
-						{editorState.isDirty && (
+							{editorState.isDirty && (
+								<Button
+									size="sm"
+									variant="ghost"
+									onClick={handleDiscardChanges}
+									isDisabled={editorState.isSaving}
+								>
+									Discard
+								</Button>
+							)}
 							<Button
 								size="sm"
-								variant="ghost"
-								onClick={handleDiscardChanges}
-								disabled={editorState.isSaving}
+								colorScheme="blue"
+								onClick={handleSaveChanges}
+								isDisabled={!editorState.isDirty || editorState.isSaving}
+								isLoading={editorState.isSaving}
 							>
-								Discard
+								{editorState.isDirty ? "Save Changes" : "No Changes"}
 							</Button>
-						)}
-						<Button
-							size="sm"
-							colorScheme="blue"
-							onClick={handleSaveChanges}
-							disabled={!editorState.isDirty || editorState.isSaving}
-							loading={editorState.isSaving}
-						>
-							{editorState.isDirty ? "Save Changes" : "No Changes"}
-						</Button>
 					</HStack>
 				</Box>
 			</HStack>

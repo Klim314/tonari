@@ -98,7 +98,6 @@ export function MetadataEditor({
 			borderWidth="1px"
 			borderColor="whiteAlpha.200"
 			borderRadius="md"
-			p={6}
 		>
 			<VStack align="stretch" gap={2}>
 				{/* Name */}
