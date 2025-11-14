@@ -4,25 +4,16 @@ import {
 	Container,
 	HStack,
 	Heading,
-	Icon,
 	Input,
 	SimpleGrid,
 	Skeleton,
 	Stack,
 	Text,
 } from "@chakra-ui/react";
-import { type ComponentProps, useState } from "react";
+import { Search } from "lucide-react";
+import { useState } from "react";
 import { useWorks } from "../hooks/useWorks";
 import { WorkCard } from "./WorkCard";
-
-const SearchIcon = (props: ComponentProps<typeof Icon>) => (
-	<Icon viewBox="0 0 24 24" {...props}>
-		<path
-			fill="currentColor"
-			d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.71.71l.27.28v.79l4.25 4.25a1 1 0 0 0 1.42-1.42L15.5 14Zm-6 0A4.5 4.5 0 1 1 10 5a4.5 4.5 0 0 1-.5 9Z"
-		/>
-	</Icon>
-);
 
 interface LandingWorksPaneProps {
 	onSelectWork: (workId: number) => void;
@@ -55,7 +46,7 @@ export function LandingWorksPane({ onSelectWork }: LandingWorksPaneProps) {
 							transform="translateY(-50%)"
 							pointerEvents="none"
 						>
-							<SearchIcon color="gray.500" />
+							<Search size={18} color="var(--chakra-colors-gray-500)" />
 						</Box>
 						<Input
 							pl="10"

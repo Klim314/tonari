@@ -3,17 +3,21 @@ import {
 	Button,
 	Container,
 	HStack,
+	Heading,
+	IconButton,
 	Skeleton,
 	Stack,
 	Text,
 	VStack,
 	useDisclosure,
 } from "@chakra-ui/react";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Prompts } from "../../client";
 import { usePrompt } from "../../hooks/usePrompt";
 import { usePromptVersions } from "../../hooks/usePromptVersions";
+import { getApiErrorMessage } from "../../lib/api";
+import { DeletePromptDialog } from "./DeletePromptDialog";
 import { MetadataEditor } from "./MetadataEditor";
 import { TemplateEditor } from "./TemplateEditor";
 import { UnsavedChangesDialog } from "./UnsavedChangesDialog";
@@ -49,6 +53,7 @@ interface PromptEditorProps {
 	showVersionSidebar?: boolean;
 	onSavingChange?: (saving: boolean) => void;
 	onRegisterEditor?: (handle: PromptEditorHandle | null) => void;
+	onPromptDeleted?: () => void;
 }
 
 const emptyDraft: EditorDraft = {
@@ -67,8 +72,14 @@ export function PromptEditor({
 	showVersionSidebar = true,
 	onSavingChange,
 	onRegisterEditor,
+	onPromptDeleted,
 }: PromptEditorProps) {
 	const { open: isOpen, onOpen, onClose } = useDisclosure();
+	const {
+		open: isDeleteDialogOpen,
+		onOpen: onOpenDeleteDialog,
+		onClose: onCloseDeleteDialog,
+	} = useDisclosure();
 	const [pendingNavigation, setPendingNavigation] = useState<string | null>(
 		null,
 	);
@@ -79,6 +90,8 @@ export function PromptEditor({
 	const promptState = usePrompt(resolvedPromptId, refreshToken);
 	const versionsState = usePromptVersions(resolvedPromptId, refreshToken);
 	const latestVersionId = promptState.data?.latest_version?.id ?? null;
+	const [isDeleting, setIsDeleting] = useState(false);
+	const [deleteError, setDeleteError] = useState<string | null>(null);
 
 	const [editorState, setEditorState] = useState<PromptEditorState>({
 		promptId: resolvedPromptId || 0,
@@ -257,7 +270,54 @@ export function PromptEditor({
 		}
 	};
 
-	const isLoading = promptState.loading || versionsState.loading;
+	const handleCloseDeleteDialog = useCallback(() => {
+		setDeleteError(null);
+		onCloseDeleteDialog();
+	}, [onCloseDeleteDialog]);
+
+	const handleDeletePrompt = useCallback(async () => {
+		if (
+			!resolvedPromptId ||
+			isDeleting ||
+			editorState.isSaving ||
+			promptState.loading
+		)
+			return;
+
+		setIsDeleting(true);
+		setDeleteError(null);
+		try {
+			await Prompts.deletePromptPromptsPromptIdDelete({
+				path: { prompt_id: resolvedPromptId },
+				throwOnError: true,
+			});
+			setEditorState({
+				promptId: 0,
+				draft: { ...emptyDraft },
+				isDirty: false,
+				isSaving: false,
+				lastSaveTime: null,
+				selectedVersionId: null,
+			});
+			handleCloseDeleteDialog();
+			onPromptDeleted?.();
+		} catch (error) {
+			setDeleteError(
+				getApiErrorMessage(error, "Failed to delete prompt. Please try again."),
+			);
+		} finally {
+			setIsDeleting(false);
+		}
+	}, [
+		editorState.isSaving,
+		handleCloseDeleteDialog,
+		isDeleting,
+		onPromptDeleted,
+		promptState.loading,
+		resolvedPromptId,
+	]);
+
+	const loading = promptState.loading || versionsState.loading;
 	const hasError = promptState.error || versionsState.error;
 	const latestVersion = promptState.data?.latest_version;
 	const selectedVersion =
@@ -286,8 +346,26 @@ export function PromptEditor({
 		};
 	}, [handleDiscardChanges, handleSaveChanges, onRegisterEditor]);
 
+	const currentTitle =
+		editorState.draft.name || promptState.data?.name || "Untitled Prompt";
+
 	const editorBody = (
 		<Stack gap={6} flex="1">
+			<HStack justify="space-between" align="center">
+				<Heading size="md">{currentTitle}</Heading>
+				{resolvedPromptId && (
+						<IconButton
+							aria-label="Delete prompt"
+							size="sm"
+							variant="ghost"
+							colorScheme="red"
+							onClick={onOpenDeleteDialog}
+							disabled={editorState.isSaving || promptState.loading}
+						>
+							<Trash2 size={16} />
+						</IconButton>
+				)}
+			</HStack>
 			{/* Metadata Section */}
 			<MetadataEditor
 				name={editorState.draft.name}
@@ -340,7 +418,7 @@ export function PromptEditor({
 								size="sm"
 								variant="ghost"
 								onClick={handleDiscardChanges}
-								isDisabled={editorState.isSaving}
+								disabled={editorState.isSaving}
 							>
 								Discard
 							</Button>
@@ -349,8 +427,8 @@ export function PromptEditor({
 							size="sm"
 							colorScheme="blue"
 							onClick={handleSaveChanges}
-							isDisabled={!editorState.isDirty || editorState.isSaving}
-							isLoading={editorState.isSaving}
+							disabled={!editorState.isDirty || editorState.isSaving}
+							loading={editorState.isSaving}
 						>
 							{editorState.isDirty ? "Save Changes" : "No Changes"}
 						</Button>
@@ -388,7 +466,15 @@ export function PromptEditor({
 
 		return (
 			<Box flex="1" display="flex" flexDirection="column" gap={6}>
-				{isLoading ? (
+				<DeletePromptDialog
+					isOpen={isDeleteDialogOpen}
+					onClose={handleCloseDeleteDialog}
+					onConfirm={handleDeletePrompt}
+					isDeleting={isDeleting}
+					promptName={promptState.data?.name}
+					error={deleteError}
+				/>
+				{loading ? (
 					<Stack gap={4}>
 						<Skeleton height="40px" width="100%" />
 						<Skeleton height="60px" width="100%" />
@@ -416,20 +502,27 @@ export function PromptEditor({
 				onSave={handleConfirmSave}
 				isSaving={editorState.isSaving}
 			/>
+			<DeletePromptDialog
+				isOpen={isDeleteDialogOpen}
+				onClose={handleCloseDeleteDialog}
+				onConfirm={handleDeletePrompt}
+				isDeleting={isDeleting}
+				promptName={promptState.data?.name}
+				error={deleteError}
+			/>
 
 			{/* Header with back button */}
 			<HStack mb={6}>
 				<Button
 					size="sm"
 					variant="ghost"
-					leftIcon={<ChevronLeft size={16} />}
 					onClick={() => handleNavigateAway("/")}
 				>
-					Back
+					<ChevronLeft size={16} /> Back
 				</Button>
 			</HStack>
 
-			{isLoading ? (
+			{loading ? (
 				<Stack gap={4}>
 					<Skeleton height="40px" width="100%" />
 					<Skeleton height="60px" width="100%" />

@@ -85,6 +85,12 @@ export function PromptsLandingPane() {
 		setRefreshToken((prev) => prev + 1);
 	}, []);
 
+	const handlePromptDeleted = useCallback(() => {
+		setSelectedPromptId(null);
+		setIsEditorDirty(false);
+		setRefreshToken((prev) => prev + 1);
+	}, []);
+
 	return (
 		<>
 			<UnsavedChangesDialog
@@ -213,6 +219,7 @@ export function PromptsLandingPane() {
 								onPromptSaved={handlePromptSaved}
 								showVersionSidebar={false}
 								onRegisterEditor={registerEditor}
+								onPromptDeleted={handlePromptDeleted}
 							/>
 						)}
 					</Box>

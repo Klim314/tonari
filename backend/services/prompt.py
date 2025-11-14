@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import List, Tuple
 
 from sqlalchemy import func, select
@@ -32,8 +33,8 @@ class PromptService:
         """
         limit, offset = sanitize_pagination(limit, offset, max_limit=max_limit)
 
-        stmt = select(Prompt)
-        count_stmt = select(func.count()).select_from(Prompt)
+        stmt = select(Prompt).where(Prompt.deleted_at.is_(None))
+        count_stmt = select(func.count()).select_from(Prompt).where(Prompt.deleted_at.is_(None))
 
         if q:
             like = f"%{q.lower()}%"
@@ -44,9 +45,9 @@ class PromptService:
         rows = self.session.execute(stmt).scalars().all()
         total = self.session.execute(count_stmt).scalar_one()
 
-        return rows, total, limit, offset
+        return list(rows), total, limit, offset
 
-    def get_prompt(self, prompt_id: int) -> Prompt:
+    def get_prompt(self, prompt_id: int, *, include_deleted: bool = False) -> Prompt:
         """Fetch a single prompt by ID.
 
         Args:
@@ -59,7 +60,7 @@ class PromptService:
             PromptNotFoundError: If prompt not found
         """
         prompt = self.session.get(Prompt, prompt_id)
-        if not prompt:
+        if not prompt or (not include_deleted and prompt.deleted_at is not None):
             raise PromptNotFoundError(f"prompt {prompt_id} not found")
         return prompt
 
@@ -72,7 +73,11 @@ class PromptService:
         Returns:
             Prompt object if assigned, None otherwise
         """
-        stmt = select(Prompt).join(WorkPrompt).where(WorkPrompt.work_id == work_id)
+        stmt = (
+            select(Prompt)
+            .join(WorkPrompt)
+            .where(WorkPrompt.work_id == work_id, Prompt.deleted_at.is_(None))
+        )
         return self.session.execute(stmt).scalar_one_or_none()
 
     def create_prompt(self, name: str, description: str | None = None) -> Prompt:
@@ -92,7 +97,9 @@ class PromptService:
         self.session.refresh(prompt)
         return prompt
 
-    def update_prompt(self, prompt_id: int, name: str | None = None, description: str | None = None) -> Prompt:
+    def update_prompt(
+        self, prompt_id: int, name: str | None = None, description: str | None = None
+    ) -> Prompt:
         """Update prompt metadata.
 
         Args:
@@ -115,6 +122,16 @@ class PromptService:
         self.session.commit()
         self.session.refresh(prompt)
         return prompt
+
+    def soft_delete_prompt(self, prompt_id: int) -> None:
+        """Soft delete a prompt by marking deleted_at."""
+
+        prompt = self.get_prompt(prompt_id)
+        if prompt.deleted_at is not None:
+            return
+        prompt.deleted_at = datetime.now(timezone.utc)
+        self.session.add(prompt)
+        self.session.commit()
 
     def get_prompt_versions(
         self, prompt_id: int, limit: int = 50, offset: int = 0, max_limit: int = 100
@@ -139,7 +156,11 @@ class PromptService:
         limit, offset = sanitize_pagination(limit, offset, max_limit=max_limit)
 
         stmt = select(PromptVersion).where(PromptVersion.prompt_id == prompt_id)
-        count_stmt = select(func.count()).select_from(PromptVersion).where(PromptVersion.prompt_id == prompt_id)
+        count_stmt = (
+            select(func.count())
+            .select_from(PromptVersion)
+            .where(PromptVersion.prompt_id == prompt_id)
+        )
 
         stmt = stmt.order_by(PromptVersion.version_number.desc()).limit(limit).offset(offset)
         rows = self.session.execute(stmt).scalars().all()
@@ -166,7 +187,9 @@ class PromptService:
 
         version = self.session.get(PromptVersion, version_id)
         if not version or version.prompt_id != prompt_id:
-            raise PromptVersionNotFoundError(f"version {version_id} not found for prompt {prompt_id}")
+            raise PromptVersionNotFoundError(
+                f"version {version_id} not found for prompt {prompt_id}"
+            )
         return version
 
     def append_version(
@@ -195,9 +218,14 @@ class PromptService:
         prompt = self.get_prompt(prompt_id)
 
         # Get the next version number
-        max_version = self.session.execute(
-            select(func.max(PromptVersion.version_number)).where(PromptVersion.prompt_id == prompt_id)
-        ).scalar() or 0
+        max_version = (
+            self.session.execute(
+                select(func.max(PromptVersion.version_number)).where(
+                    PromptVersion.prompt_id == prompt_id
+                )
+            ).scalar()
+            or 0
+        )
 
         version = PromptVersion(
             prompt_id=prompt_id,

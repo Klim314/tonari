@@ -109,6 +109,7 @@ class Prompt(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     owner_work: Mapped[Work | None] = relationship(
         "Work", back_populates="owned_prompts", foreign_keys=[owner_work_id]

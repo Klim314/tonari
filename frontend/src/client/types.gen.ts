@@ -774,6 +774,36 @@ export type CreatePromptPromptsPostResponses = {
 
 export type CreatePromptPromptsPostResponse = CreatePromptPromptsPostResponses[keyof CreatePromptPromptsPostResponses];
 
+export type DeletePromptPromptsPromptIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Prompt Id
+         */
+        prompt_id: number;
+    };
+    query?: never;
+    url: '/prompts/{prompt_id}';
+};
+
+export type DeletePromptPromptsPromptIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeletePromptPromptsPromptIdDeleteError = DeletePromptPromptsPromptIdDeleteErrors[keyof DeletePromptPromptsPromptIdDeleteErrors];
+
+export type DeletePromptPromptsPromptIdDeleteResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeletePromptPromptsPromptIdDeleteResponse = DeletePromptPromptsPromptIdDeleteResponses[keyof DeletePromptPromptsPromptIdDeleteResponses];
+
 export type GetPromptPromptsPromptIdGetData = {
     body?: never;
     path: {

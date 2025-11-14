@@ -78,6 +78,18 @@ def update_prompt(prompt_id: int, req: PromptUpdateRequest):
         return PromptOut.model_validate(prompt)
 
 
+@router.delete("/{prompt_id}", status_code=204)
+def delete_prompt(prompt_id: int):
+    """Soft delete a prompt while retaining historical versions."""
+    with SessionLocal() as db:
+        service = PromptService(db)
+        try:
+            service.soft_delete_prompt(prompt_id)
+        except PromptNotFoundError:
+            raise HTTPException(status_code=404, detail="prompt not found") from None
+    return None
+
+
 @router.get("/{prompt_id}/versions", response_model=PaginatedPromptVersionsOut)
 def list_prompt_versions(prompt_id: int, limit: int = 50, offset: int = 0):
     """List all versions of a prompt."""
