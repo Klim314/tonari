@@ -1,4 +1,4 @@
-import { Button, Menu, HStack, Text } from "@chakra-ui/react";
+import { Button, HStack, Menu, Text } from "@chakra-ui/react";
 import type { PromptVersionOut } from "../../client";
 
 function formatTimeAgo(date: string | Date): string {
@@ -32,13 +32,19 @@ export function VersionSelector({
 	latestVersionId,
 	onSelectVersion,
 }: VersionSelectorProps) {
-	const sortedVersions = [...versions].sort((a, b) => b.version_number - a.version_number);
+	const sortedVersions = [...versions].sort(
+		(a, b) => b.version_number - a.version_number,
+	);
 	const selectedVersion = selectedVersionId
 		? sortedVersions.find((v) => v.id === selectedVersionId)
 		: sortedVersions[0];
 
 	if (sortedVersions.length === 0) {
-		return <Text fontSize="sm" color="gray.500">No versions yet</Text>;
+		return (
+			<Text fontSize="sm" color="gray.500">
+				No versions yet
+			</Text>
+		);
 	}
 
 	return (

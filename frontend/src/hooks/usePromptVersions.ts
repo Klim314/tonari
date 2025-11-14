@@ -32,15 +32,16 @@ export function usePromptVersions(promptId: number | null, refreshToken = 0) {
 		async function fetchVersions() {
 			setState((prev) => ({ ...prev, loading: true, error: null }));
 			try {
-				const response = await Prompts.listPromptVersionsPromptsPromptIdVersionsGet({
-					path: { prompt_id: promptId },
-					query: {
-						limit: 50,
-						offset: 0,
-					},
-					signal: controller.signal,
-					throwOnError: true,
-				});
+				const response =
+					await Prompts.listPromptVersionsPromptsPromptIdVersionsGet({
+						path: { prompt_id: promptId },
+						query: {
+							limit: 50,
+							offset: 0,
+						},
+						signal: controller.signal,
+						throwOnError: true,
+					});
 
 				if (!cancelled) {
 					setState({

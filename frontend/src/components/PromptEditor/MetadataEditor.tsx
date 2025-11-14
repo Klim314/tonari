@@ -1,12 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import {
-	Box,
-	Input,
-	Textarea,
-	Heading,
-	Text,
-	VStack,
-} from "@chakra-ui/react";
+import { Box, Heading, Input, Text, Textarea, VStack } from "@chakra-ui/react";
+import { useEffect, useRef, useState } from "react";
 
 interface MetadataEditorProps {
 	name: string;
@@ -25,7 +18,9 @@ export function MetadataEditor({
 	const [isEditingDescription, setIsEditingDescription] = useState(false);
 	const [editName, setEditName] = useState(name);
 	const [editDescription, setEditDescription] = useState(description);
-	const descriptionSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const descriptionSaveTimeoutRef = useRef<ReturnType<
+		typeof setTimeout
+	> | null>(null);
 
 	useEffect(() => {
 		setEditName(name);
@@ -63,7 +58,9 @@ export function MetadataEditor({
 		setIsEditingDescription(true);
 	};
 
-	const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+	const handleDescriptionChange = (
+		e: React.ChangeEvent<HTMLTextAreaElement>,
+	) => {
 		const newDesc = e.target.value;
 		setEditDescription(newDesc);
 
@@ -94,11 +91,7 @@ export function MetadataEditor({
 	};
 
 	return (
-		<Box
-			borderWidth="1px"
-			borderColor="whiteAlpha.200"
-			borderRadius="md"
-		>
+		<Box borderWidth="1px" borderColor="whiteAlpha.200" borderRadius="md">
 			<VStack align="stretch" gap={2}>
 				{/* Name */}
 				{isEditingName ? (
@@ -113,7 +106,12 @@ export function MetadataEditor({
 						fontWeight="bold"
 					/>
 				) : (
-					<Heading size="lg" cursor="pointer" onClick={handleNameClick} _hover={{ opacity: 0.7 }}>
+					<Heading
+						size="lg"
+						cursor="pointer"
+						onClick={handleNameClick}
+						_hover={{ opacity: 0.7 }}
+					>
 						{name}
 					</Heading>
 				)}

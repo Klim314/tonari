@@ -1,4 +1,4 @@
-import { VStack, Text, Badge, Button, HStack, Heading } from "@chakra-ui/react";
+import { Badge, Button, HStack, Heading, Text, VStack } from "@chakra-ui/react";
 import type { PromptVersionOut } from "../../client";
 
 interface VersionHistoryProps {
@@ -34,7 +34,7 @@ export function VersionHistory({
 }: VersionHistoryProps) {
 	// Sort versions in descending order (newest first)
 	const sortedVersions = [...versions].sort(
-		(a, b) => b.version_number - a.version_number
+		(a, b) => b.version_number - a.version_number,
 	);
 
 	return (

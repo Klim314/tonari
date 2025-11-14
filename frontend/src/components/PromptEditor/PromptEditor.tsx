@@ -1,23 +1,23 @@
-import { useEffect, useState, useCallback } from "react";
 import {
 	Box,
 	Button,
 	Container,
+	HStack,
+	Skeleton,
 	Stack,
 	Text,
-	Skeleton,
-	HStack,
 	VStack,
 	useDisclosure,
 } from "@chakra-ui/react";
 import { ChevronLeft } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Prompts } from "../../client";
 import { usePrompt } from "../../hooks/usePrompt";
 import { usePromptVersions } from "../../hooks/usePromptVersions";
 import { MetadataEditor } from "./MetadataEditor";
 import { TemplateEditor } from "./TemplateEditor";
-import { VersionHistory } from "./VersionHistory";
 import { UnsavedChangesDialog } from "./UnsavedChangesDialog";
-import { Prompts } from "../../client";
+import { VersionHistory } from "./VersionHistory";
 
 export interface EditorDraft {
 	name: string;
@@ -25,7 +25,6 @@ export interface EditorDraft {
 	model: string;
 	template: string;
 }
-
 
 export interface PromptEditorState {
 	promptId: number;
@@ -109,8 +108,8 @@ export function PromptEditor({
 			setEditorState((prev) => ({
 				...prev,
 				draft: {
-					name: promptState.data!.name,
-					description: promptState.data!.description || "",
+					name: promptState.data?.name || "",
+					description: promptState.data?.description || "",
 					model: latestVersion?.model || "",
 					template: latestVersion?.template || "",
 				},
@@ -155,7 +154,8 @@ export function PromptEditor({
 	);
 
 	const handleSaveChanges = useCallback(async () => {
-		if (!resolvedPromptId || editorState.isSaving || !editorState.isDirty) return;
+		if (!resolvedPromptId || editorState.isSaving || !editorState.isDirty)
+			return;
 
 		setEditorState((prev) => ({
 			...prev,
@@ -201,7 +201,16 @@ export function PromptEditor({
 				isSaving: false,
 			}));
 		}
-	}, [editorState.draft.description, editorState.draft.model, editorState.draft.name, editorState.draft.template, editorState.isSaving, onPromptSaved, resolvedPromptId]);
+	}, [
+		editorState.draft.description,
+		editorState.draft.model,
+		editorState.draft.name,
+		editorState.draft.template,
+		editorState.isDirty,
+		editorState.isSaving,
+		onPromptSaved,
+		resolvedPromptId,
+	]);
 
 	const handleDiscardChanges = useCallback(() => {
 		// Reset draft to last saved state
@@ -210,8 +219,8 @@ export function PromptEditor({
 			setEditorState((prev) => ({
 				...prev,
 				draft: {
-					name: promptState.data!.name,
-					description: promptState.data!.description || "",
+					name: promptState.data?.name || "",
+					description: promptState.data?.description || "",
 					model: latestVersion?.model || "",
 					template: latestVersion?.template || "",
 				},
@@ -253,9 +262,9 @@ export function PromptEditor({
 	const latestVersion = promptState.data?.latest_version;
 	const selectedVersion =
 		editorState.selectedVersionId && versionsState.data?.items
-			? versionsState.data.items.find(
+			? (versionsState.data.items.find(
 					(version) => version.id === editorState.selectedVersionId,
-				) ?? null
+				) ?? null)
 			: null;
 	const templateModel = selectedVersion?.model ?? editorState.draft.model;
 	const templateBody = selectedVersion?.template ?? editorState.draft.template;
@@ -284,9 +293,7 @@ export function PromptEditor({
 				name={editorState.draft.name}
 				description={editorState.draft.description}
 				onNameChange={(name) => handleDraftChange("name", name)}
-				onDescriptionChange={(desc) =>
-					handleDraftChange("description", desc)
-				}
+				onDescriptionChange={(desc) => handleDraftChange("description", desc)}
 			/>
 
 			{/* Main Editor Area */}
@@ -328,25 +335,25 @@ export function PromptEditor({
 
 					{/* Action Buttons */}
 					<HStack gap={2} justify="flex-end">
-							{editorState.isDirty && (
-								<Button
-									size="sm"
-									variant="ghost"
-									onClick={handleDiscardChanges}
-									isDisabled={editorState.isSaving}
-								>
-									Discard
-								</Button>
-							)}
+						{editorState.isDirty && (
 							<Button
 								size="sm"
-								colorScheme="blue"
-								onClick={handleSaveChanges}
-								isDisabled={!editorState.isDirty || editorState.isSaving}
-								isLoading={editorState.isSaving}
+								variant="ghost"
+								onClick={handleDiscardChanges}
+								isDisabled={editorState.isSaving}
 							>
-								{editorState.isDirty ? "Save Changes" : "No Changes"}
+								Discard
 							</Button>
+						)}
+						<Button
+							size="sm"
+							colorScheme="blue"
+							onClick={handleSaveChanges}
+							isDisabled={!editorState.isDirty || editorState.isSaving}
+							isLoading={editorState.isSaving}
+						>
+							{editorState.isDirty ? "Save Changes" : "No Changes"}
+						</Button>
 					</HStack>
 				</Box>
 			</HStack>

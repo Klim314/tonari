@@ -1,22 +1,22 @@
-import React, { useCallback, useState } from "react";
 import {
 	Box,
 	Button,
 	Container,
+	HStack,
 	Heading,
 	Input,
+	Skeleton,
 	Stack,
 	Text,
-	Skeleton,
-	HStack,
 	VStack,
 	useDisclosure,
 } from "@chakra-ui/react";
-import { usePrompts } from "../hooks/usePrompts";
+import React, { useCallback, useState } from "react";
 import { Prompts } from "../client";
+import { usePromptEditor } from "../hooks/usePromptEditor";
+import { usePrompts } from "../hooks/usePrompts";
 import { PromptEditor } from "./PromptEditor";
 import { UnsavedChangesDialog } from "./PromptEditor/UnsavedChangesDialog";
-import { usePromptEditor } from "../hooks/usePromptEditor";
 
 export function PromptsLandingPane() {
 	const [searchQuery, setSearchQuery] = useState("");
@@ -42,7 +42,7 @@ export function PromptsLandingPane() {
 			}
 			setSelectedPromptId(promptId);
 		},
-		[isEditorDirty, onOpen, selectedPromptId]
+		[isEditorDirty, onOpen, selectedPromptId],
 	);
 
 	const handleCreateNewPrompt = async () => {
@@ -111,7 +111,11 @@ export function PromptsLandingPane() {
 							<Stack gap={2}>
 								<HStack justify="space-between" align="center">
 									<Heading size="sm">Prompts</Heading>
-									<Button size="xs" colorScheme="blue" onClick={handleCreateNewPrompt}>
+									<Button
+										size="xs"
+										colorScheme="blue"
+										onClick={handleCreateNewPrompt}
+									>
 										+ New
 									</Button>
 								</HStack>
@@ -141,41 +145,41 @@ export function PromptsLandingPane() {
 									</Text>
 								) : (
 									<Stack gap={2}>
-									{promptsState.data.items.map((prompt) => (
-										<Box
-											key={prompt.id}
-											p={3}
-											borderWidth="1px"
-											borderColor={
-												selectedPromptId === prompt.id
-													? "blue.500"
-												: "whiteAlpha.100"
-											}
-											borderRadius="md"
-											bg={
-												selectedPromptId === prompt.id
-													? "whiteAlpha.50"
-												: "transparent"
-											}
-											cursor="pointer"
-											_hover={{ borderColor: "blue.400" }}
-											onClick={() => handleSelectPrompt(prompt.id)}
-										>
-											<Text fontWeight="500" fontSize="sm">
-												{prompt.name}
-											</Text>
-											{prompt.description && (
-												<Text
-													color="gray.400"
-													fontSize="xs"
-													mt={1}
-													lineClamp={2}
-												>
-													{prompt.description}
+										{promptsState.data.items.map((prompt) => (
+											<Box
+												key={prompt.id}
+												p={3}
+												borderWidth="1px"
+												borderColor={
+													selectedPromptId === prompt.id
+														? "blue.500"
+														: "whiteAlpha.100"
+												}
+												borderRadius="md"
+												bg={
+													selectedPromptId === prompt.id
+														? "whiteAlpha.50"
+														: "transparent"
+												}
+												cursor="pointer"
+												_hover={{ borderColor: "blue.400" }}
+												onClick={() => handleSelectPrompt(prompt.id)}
+											>
+												<Text fontWeight="500" fontSize="sm">
+													{prompt.name}
 												</Text>
-											)}
-										</Box>
-									))}
+												{prompt.description && (
+													<Text
+														color="gray.400"
+														fontSize="xs"
+														mt={1}
+														lineClamp={2}
+													>
+														{prompt.description}
+													</Text>
+												)}
+											</Box>
+										))}
 									</Stack>
 								)}
 							</Box>
@@ -183,14 +187,24 @@ export function PromptsLandingPane() {
 					</Box>
 
 					{/* Right: Editor */}
-					<Box flex="1" borderWidth="1px" borderColor="whiteAlpha.200" borderRadius="md" p={6} minH="600px" display="flex" flexDirection="column" gap={4}>
+					<Box
+						flex="1"
+						borderWidth="1px"
+						borderColor="whiteAlpha.200"
+						borderRadius="md"
+						p={6}
+						minH="600px"
+						display="flex"
+						flexDirection="column"
+						gap={4}
+					>
 						{!selectedPromptId ? (
 							<VStack gap={4} justify="center" h="100%">
 								<Text color="gray.400" fontSize="sm">
 									Select a prompt to view details and manage versions
 								</Text>
 							</VStack>
-                        ) : (
+						) : (
 							<PromptEditor
 								variant="embedded"
 								promptId={selectedPromptId}
@@ -200,7 +214,7 @@ export function PromptsLandingPane() {
 								showVersionSidebar={false}
 								onRegisterEditor={registerEditor}
 							/>
-                        )}
+						)}
 					</Box>
 				</Stack>
 			</Container>

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Prompts } from "../client";
 import { getApiErrorMessage } from "../lib/api";
 import type { PaginatedPromptsResponse } from "../types/prompts";

@@ -1,7 +1,7 @@
-import { VStack, Stack, Input, Textarea, Text, Box } from "@chakra-ui/react";
-import { FieldRoot, FieldLabel } from "@chakra-ui/react";
-import { VersionSelector } from "./VersionSelector";
+import { Box, Input, Stack, Text, Textarea, VStack } from "@chakra-ui/react";
+import { FieldLabel, FieldRoot } from "@chakra-ui/react";
 import type { PromptVersionOut } from "../../client";
+import { VersionSelector } from "./VersionSelector";
 
 interface TemplateEditorProps {
 	model: string;
