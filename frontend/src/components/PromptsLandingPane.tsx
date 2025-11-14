@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
 	Box,
 	Button,
@@ -15,8 +15,8 @@ import {
 import { usePrompts } from "../hooks/usePrompts";
 import { Prompts } from "../client";
 import { PromptEditor } from "./PromptEditor";
-import type { PromptEditorHandle } from "./PromptEditor";
 import { UnsavedChangesDialog } from "./PromptEditor/UnsavedChangesDialog";
+import { usePromptEditor } from "../hooks/usePromptEditor";
 
 export function PromptsLandingPane() {
 	const [searchQuery, setSearchQuery] = useState("");
@@ -26,7 +26,7 @@ export function PromptsLandingPane() {
 	const [pendingPromptId, setPendingPromptId] = useState<number | null>(null);
 	const [isEditorDirty, setIsEditorDirty] = useState(false);
 	const [isEditorSaving, setIsEditorSaving] = useState(false);
-	const editorRef = useRef<PromptEditorHandle | null>(null);
+	const { registerEditor, saveChanges, discardChanges } = usePromptEditor();
 
 	const promptsState = usePrompts(searchQuery, refreshToken);
 
@@ -65,23 +65,21 @@ export function PromptsLandingPane() {
 
 	const handleDialogDiscard = useCallback(() => {
 		if (pendingPromptId !== null) {
-			editorRef.current?.discardChanges();
+			discardChanges();
 			setSelectedPromptId(pendingPromptId);
 			setPendingPromptId(null);
 		}
 		onClose();
-	}, [onClose, pendingPromptId]);
+	}, [discardChanges, onClose, pendingPromptId]);
 
 	const handleDialogSave = useCallback(async () => {
-		if (editorRef.current) {
-			await editorRef.current.saveChanges();
-		}
+		await saveChanges();
 		if (pendingPromptId !== null) {
 			setSelectedPromptId(pendingPromptId);
 			setPendingPromptId(null);
 		}
 		onClose();
-	}, [onClose, pendingPromptId]);
+	}, [onClose, pendingPromptId, saveChanges]);
 
 	const handlePromptSaved = useCallback(() => {
 		setRefreshToken((prev) => prev + 1);
@@ -193,15 +191,15 @@ export function PromptsLandingPane() {
 								</Text>
 							</VStack>
                         ) : (
-                            <PromptEditor
-                                ref={editorRef}
-                                variant="embedded"
-                                promptId={selectedPromptId}
-                                onDirtyChange={setIsEditorDirty}
-                                onSavingChange={setIsEditorSaving}
-                                onPromptSaved={handlePromptSaved}
-                                showVersionSidebar={false}
-                            />
+							<PromptEditor
+								variant="embedded"
+								promptId={selectedPromptId}
+								onDirtyChange={setIsEditorDirty}
+								onSavingChange={setIsEditorSaving}
+								onPromptSaved={handlePromptSaved}
+								showVersionSidebar={false}
+								onRegisterEditor={registerEditor}
+							/>
                         )}
 					</Box>
 				</Stack>

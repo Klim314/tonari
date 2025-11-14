@@ -1,10 +1,4 @@
-import {
-	useEffect,
-	useState,
-	useCallback,
-	forwardRef,
-	useImperativeHandle,
-} from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
 	Box,
 	Button,
@@ -55,6 +49,7 @@ interface PromptEditorProps {
 	onRequestNavigate?: (path: string) => void;
 	showVersionSidebar?: boolean;
 	onSavingChange?: (saving: boolean) => void;
+	onRegisterEditor?: (handle: PromptEditorHandle | null) => void;
 }
 
 const emptyDraft: EditorDraft = {
@@ -64,19 +59,16 @@ const emptyDraft: EditorDraft = {
 	template: "",
 };
 
-export const PromptEditor = forwardRef<PromptEditorHandle, PromptEditorProps>(
-	function PromptEditor(
-		{
-			promptId,
-			variant = "page",
-			onDirtyChange,
-			onPromptSaved,
-			onRequestNavigate,
-			showVersionSidebar = true,
-			onSavingChange,
-		}: PromptEditorProps,
-		ref,
-	) {
+export function PromptEditor({
+	promptId,
+	variant = "page",
+	onDirtyChange,
+	onPromptSaved,
+	onRequestNavigate,
+	showVersionSidebar = true,
+	onSavingChange,
+	onRegisterEditor,
+}: PromptEditorProps) {
 	const { open: isOpen, onOpen, onClose } = useDisclosure();
 	const [pendingNavigation, setPendingNavigation] = useState<string | null>(
 		null,
@@ -255,14 +247,22 @@ export const PromptEditor = forwardRef<PromptEditorHandle, PromptEditorProps>(
 	const hasError = promptState.error || versionsState.error;
 	const latestVersion = promptState.data?.latest_version;
 
-	useImperativeHandle(
-		ref,
-		() => ({
+	useEffect(() => {
+		if (!onRegisterEditor) {
+			return;
+		}
+
+		const handle: PromptEditorHandle = {
 			saveChanges: handleSaveChanges,
 			discardChanges: handleDiscardChanges,
-		}),
-		[handleDiscardChanges, handleSaveChanges],
-	);
+		};
+
+		onRegisterEditor(handle);
+
+		return () => {
+			onRegisterEditor(null);
+		};
+	}, [handleDiscardChanges, handleSaveChanges, onRegisterEditor]);
 
 	const editorBody = (
 		<Stack gap={6} flex="1">
@@ -277,7 +277,7 @@ export const PromptEditor = forwardRef<PromptEditorHandle, PromptEditorProps>(
 			/>
 
 			{/* Main Editor Area */}
-			<HStack align="stretch" spacing={6} h="600px">
+			<HStack align="stretch" gap={6} h="600px">
 				{/* Left Sidebar: Version History */}
 				{showVersionSidebar && (
 					<Box
@@ -307,10 +307,14 @@ export const PromptEditor = forwardRef<PromptEditorHandle, PromptEditorProps>(
 							handleDraftChange("template", template)
 						}
 						isViewOnly={editorState.selectedVersionId !== null}
+						versions={versionsState.data?.items || []}
+						selectedVersionId={editorState.selectedVersionId}
+						latestVersionId={latestVersion?.id}
+						onSelectVersion={handleSelectVersion}
 					/>
 
 					{/* Action Buttons */}
-					<HStack spacing={2} justify="flex-end">
+					<HStack gap={2} justify="flex-end">
 						{editorState.isDirty && (
 							<Button
 								size="sm"
@@ -420,5 +424,4 @@ export const PromptEditor = forwardRef<PromptEditorHandle, PromptEditorProps>(
 			)}
 		</Container>
 	);
-	},
-);
+}
