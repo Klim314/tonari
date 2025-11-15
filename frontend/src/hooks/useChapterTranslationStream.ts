@@ -167,14 +167,13 @@ export function useChapterTranslationStream({
 
 		setSegmentsMap((prev) => {
 			const next = { ...prev };
-			const existing = next[payload.segment_id];
 			next[payload.segment_id] = {
 				segmentId: payload.segment_id,
 				orderIndex: payload.order_index,
 				start: payload.start,
 				end: payload.end,
 				src: payload.src,
-				text: existing?.text ?? "",
+				text: "",
 				status: "running",
 			};
 			return next;
