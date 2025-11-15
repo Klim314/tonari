@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import Prompt, PromptVersion, WorkPrompt
+
 from .exceptions import PromptNotFoundError, PromptVersionNotFoundError
 from .utils import sanitize_pagination
 
@@ -81,7 +82,12 @@ class PromptService:
         return self.session.execute(stmt).scalar_one_or_none()
 
     def get_prompts_for_work(
-        self, work_id: int, q: str | None = None, limit: int = 50, offset: int = 0, max_limit: int = 100
+        self,
+        work_id: int,
+        q: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+        max_limit: int = 100,
     ) -> Tuple[List[Prompt], int, int, int]:
         """Search and list all available prompts that can be assigned to a work.
 
@@ -100,11 +106,7 @@ class PromptService:
         limit, offset = sanitize_pagination(limit, offset, max_limit=max_limit)
 
         stmt = select(Prompt).where(Prompt.deleted_at.is_(None))
-        count_stmt = (
-            select(func.count())
-            .select_from(Prompt)
-            .where(Prompt.deleted_at.is_(None))
-        )
+        count_stmt = select(func.count()).select_from(Prompt).where(Prompt.deleted_at.is_(None))
 
         if q:
             like = f"%{q.lower()}%"
@@ -149,8 +151,23 @@ class PromptService:
 
         Raises:
             PromptNotFoundError: If prompt not found
+            ValueError: If business logic validation fails (e.g., duplicate name)
         """
         prompt = self.get_prompt(prompt_id)
+
+        # Business rule: prompt name must be unique within its work context
+        if name is not None and name != prompt.name:
+            existing = self.session.execute(
+                select(Prompt).where(
+                    Prompt.id != prompt_id,
+                    Prompt.owner_work_id == prompt.owner_work_id,
+                    Prompt.name == name,
+                    Prompt.deleted_at.is_(None),
+                )
+            ).scalar_one_or_none()
+            if existing:
+                raise ValueError(f"A prompt named '{name}' already exists in this context")
+
         if name is not None:
             prompt.name = name
         if description is not None:
@@ -251,8 +268,25 @@ class PromptService:
 
         Raises:
             PromptNotFoundError: If prompt not found
+            ValueError: If business logic validation fails
         """
         prompt = self.get_prompt(prompt_id)
+
+        # Validation: ensure template is not identical to latest version
+        # This helps prevent accidental duplicates
+        latest_version = self.session.execute(
+            select(PromptVersion)
+            .where(PromptVersion.prompt_id == prompt_id)
+            .order_by(PromptVersion.version_number.desc())
+            .limit(1)
+        ).scalar_one_or_none()
+
+        if latest_version:
+            if model == latest_version.model and template == latest_version.template:
+                raise ValueError(
+                    "New version must differ from the latest version "
+                    "(model and/or template must change)"
+                )
 
         # Get the next version number
         max_version = (

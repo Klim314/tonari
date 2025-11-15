@@ -7,6 +7,8 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy.orm import Session as DBSession
 from sse_starlette.sse import EventSourceResponse
 
+from agents.translation_agent import TranslationAgent
+from app.config import settings
 from app.db import SessionLocal
 from app.schemas import (
     ChapterDetailOut,
@@ -22,8 +24,6 @@ from app.schemas import (
     WorkOut,
 )
 from app.scrapers.exceptions import ScraperError, ScraperNotFoundError
-from agents.translation_agent import TranslationAgent
-from app.config import settings
 from app.translation_service import get_translation_agent
 from services.chapters import ChaptersService
 from services.exceptions import ChapterNotFoundError, ChapterScrapeError, WorkNotFoundError

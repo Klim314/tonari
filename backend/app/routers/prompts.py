@@ -4,8 +4,8 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app.db import SessionLocal
 from app.schemas import (
-    PaginatedPromptVersionsOut,
     PaginatedPromptsOut,
+    PaginatedPromptVersionsOut,
     PromptCreateRequest,
     PromptDetailOut,
     PromptOut,
@@ -71,11 +71,12 @@ def update_prompt(prompt_id: int, req: PromptUpdateRequest):
     with SessionLocal() as db:
         service = PromptService(db)
         try:
-            prompt = service.update_prompt(
-                prompt_id, name=req.name, description=req.description
-            )
+            prompt = service.update_prompt(prompt_id, name=req.name, description=req.description)
         except PromptNotFoundError:
             raise HTTPException(status_code=404, detail="prompt not found") from None
+        except ValueError as e:
+            # Business logic validation failed
+            raise HTTPException(status_code=422, detail=str(e)) from None
         return PromptOut.model_validate(prompt)
 
 
@@ -126,6 +127,9 @@ def append_prompt_version(prompt_id: int, req: PromptVersionCreateRequest):
             )
         except PromptNotFoundError:
             raise HTTPException(status_code=404, detail="prompt not found") from None
+        except ValueError as e:
+            # Business logic validation failed
+            raise HTTPException(status_code=422, detail=str(e)) from None
 
         return PromptVersionOut.model_validate(version)
 
@@ -146,7 +150,9 @@ def get_prompt_version(prompt_id: int, version_id: int):
 
 
 @router.get("/works/{work_id}/prompts", response_model=PaginatedPromptsOut)
-def list_work_prompts(work_id: int, q: str | None = Query(default=None), limit: int = 50, offset: int = 0):
+def list_work_prompts(
+    work_id: int, q: str | None = Query(default=None), limit: int = 50, offset: int = 0
+):
     """List prompts available for a specific work."""
     with SessionLocal() as db:
         works_service = WorksService(db)

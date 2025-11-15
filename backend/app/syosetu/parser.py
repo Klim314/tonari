@@ -50,8 +50,7 @@ def _extract_body(soup: BeautifulSoup) -> str:
             text = _extract_modern_body(node)
         else:
             text = "\n".join(
-                _get_paragraph_text(child)
-                for child in node.find_all(["p", "div"], recursive=False)
+                _get_paragraph_text(child) for child in node.find_all(["p", "div"], recursive=False)
             )
         text = text or _get_paragraph_text(node)
         if text.strip():

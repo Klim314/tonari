@@ -1,7 +1,10 @@
 from datetime import datetime
-from typing import Any, List, Optional
+from string import Formatter
+from typing import Any, Optional
 
-from pydantic import AnyHttpUrl, BaseModel, Field, model_validator
+from pydantic import AnyHttpUrl, BaseModel, Field, field_validator, model_validator
+
+from constants.llm import AVAILABLE_MODELS, MODEL_BY_ID
 
 
 class IngestSyosetuRequest(BaseModel):
@@ -46,14 +49,14 @@ class ChapterDetailOut(ChapterOut):
 
 
 class PaginatedWorksOut(BaseModel):
-    items: List[WorkOut]
+    items: list[WorkOut]
     total: int
     limit: int
     offset: int
 
 
 class PaginatedChaptersOut(BaseModel):
-    items: List[ChapterOut]
+    items: list[ChapterOut]
     total: int
     limit: int
     offset: int
@@ -86,7 +89,7 @@ class ChapterScrapeResponse(BaseModel):
     created: int
     updated: int
     skipped: int
-    errors: List[ChapterScrapeErrorItem] = Field(default_factory=list)
+    errors: list[ChapterScrapeErrorItem] = Field(default_factory=list)
 
 
 class ChapterTranslationCreate(BaseModel):
@@ -102,7 +105,7 @@ class TranslationSegmentOut(BaseModel):
     order_index: int
     src: str
     tgt: str
-    flags: List[str] = Field(default_factory=list)
+    flags: list[str] = Field(default_factory=list)
 
 
 class ChapterTranslationOut(BaseModel):
@@ -117,7 +120,7 @@ class ChapterTranslationOut(BaseModel):
 class ChapterTranslationStateOut(BaseModel):
     chapter_translation_id: int
     status: str
-    segments: List[TranslationSegmentOut]
+    segments: list[TranslationSegmentOut]
 
 
 # Prompt-related schemas
@@ -157,34 +160,92 @@ class PromptDetailOut(PromptOut):
 
 
 class PaginatedPromptsOut(BaseModel):
-    items: List[PromptOut]
+    items: list[PromptOut]
     total: int
     limit: int
     offset: int
 
 
 class PaginatedPromptVersionsOut(BaseModel):
-    items: List[PromptVersionOut]
+    items: list[PromptVersionOut]
     total: int
     limit: int
     offset: int
 
 
 class PromptCreateRequest(BaseModel):
-    name: str = Field(..., min_length=1, description="Prompt name")
-    description: Optional[str] = Field(None, description="Optional description")
+    name: str = Field(..., min_length=1, max_length=255, description="Prompt name")
+    description: Optional[str] = Field(None, max_length=2000, description="Optional description")
+
+    @field_validator("name", "description", mode="before")
+    @classmethod
+    def trim_strings(cls, v):
+        """Strip whitespace from string fields"""
+        if isinstance(v, str):
+            return v.strip()
+        return v
 
 
 class PromptUpdateRequest(BaseModel):
-    name: Optional[str] = Field(None, min_length=1, description="New prompt name")
-    description: Optional[str] = Field(None, description="New description")
+    name: Optional[str] = Field(None, min_length=1, max_length=255, description="New prompt name")
+    description: Optional[str] = Field(None, max_length=2000, description="New description")
+
+    @field_validator("name", "description", mode="before")
+    @classmethod
+    def trim_strings(cls, v):
+        """Strip whitespace from string fields"""
+        if isinstance(v, str):
+            return v.strip()
+        return v
+
+    @model_validator(mode="after")
+    def validate_at_least_one_field(self):
+        """Ensure at least one field is being updated"""
+        if self.name is None and self.description is None:
+            raise ValueError("At least one field (name or description) must be provided")
+        return self
 
 
 class PromptVersionCreateRequest(BaseModel):
-    model: str = Field(..., min_length=1, description="Model name (e.g., gpt-4)")
-    template: str = Field(..., min_length=1, description="F-string template for the prompt")
+    model: str = Field(..., min_length=1, max_length=128, description="Model name (e.g., gpt-4)")
+    template: str = Field(
+        ..., min_length=1, max_length=50000, description="F-string template for the prompt"
+    )
     parameters: Optional[dict[str, Any]] = Field(None, description="Optional metadata parameters")
-    created_by: Optional[str] = Field(None, description="Optional creator identifier")
+    created_by: Optional[str] = Field(
+        None, max_length=255, description="Optional creator identifier"
+    )
+
+    @field_validator("model", "template", "created_by", mode="before")
+    @classmethod
+    def trim_strings(cls, v):
+        """Strip whitespace from string fields"""
+        if isinstance(v, str):
+            return v.strip()
+        return v
+
+    @field_validator("model")
+    @classmethod
+    def validate_model(cls, v):
+        """Ensure model is in the list of supported models"""
+        if v not in MODEL_BY_ID:
+            available = ", ".join(m.id for m in AVAILABLE_MODELS)
+            raise ValueError(f"Invalid model '{v}'. Supported models: {available}")
+        return v
+
+    @field_validator("template")
+    @classmethod
+    def validate_template_syntax(cls, v):
+        """Validate f-string template syntax is valid"""
+        try:
+            # Test that template is a valid f-string format by parsing it
+            # We use a custom formatter that accepts any field names
+
+            # This will raise ValueError if the template has invalid syntax
+            list(Formatter().parse(v))
+        except (ValueError, KeyError) as e:
+            raise ValueError(f"Invalid template syntax: {str(e)}")
+        return v
 
 
 class WorkPromptUpdateRequest(BaseModel):
@@ -206,8 +267,8 @@ class ModelInfoOut(BaseModel):
         from_attributes = True
 
 
-class ModelsListOut(BaseModel):
-    """List of available models."""
+class ModelslistOut(BaseModel):
+    """list of available models."""
 
-    items: List[ModelInfoOut]
+    items: list[ModelInfoOut]
     total: int

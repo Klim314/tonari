@@ -1,8 +1,38 @@
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 from app.db import init_db
 
 app = FastAPI(title="tonari-backend", version="0.0.1")
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    """
+    Custom validation error handler that returns structured error information.
+    Transforms Pydantic validation errors into a more user-friendly format.
+    """
+    errors = []
+    for error in exc.errors():
+        # Build the field name from the location tuple
+        field_parts = []
+        for part in error["loc"]:
+            # Skip 'body' part, that's just the request body marker
+            if part != "body":
+                field_parts.append(str(part))
+
+        field_name = ".".join(field_parts) if field_parts else "unknown"
+
+        errors.append(
+            {
+                "field": field_name,
+                "message": error["msg"],
+                "type": error["type"],
+            }
+        )
+
+    return JSONResponse(status_code=422, content={"detail": "Validation failed", "errors": errors})
 
 
 @app.on_event("startup")
