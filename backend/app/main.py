@@ -1,3 +1,6 @@
+import json
+import logging
+
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -35,8 +38,54 @@ async def validation_exception_handler(request, exc):
     return JSONResponse(status_code=422, content={"detail": "Validation failed", "errors": errors})
 
 
+class TranslationLogFormatter(logging.Formatter):
+    """Custom formatter that includes extra fields for translation logging."""
+
+    def format(self, record):
+        # Get base formatted message
+        base_msg = super().format(record)
+        # Extract extra fields (anything not in the standard record attributes)
+        standard_attrs = {
+            "name",
+            "msg",
+            "args",
+            "created",
+            "filename",
+            "funcName",
+            "levelname",
+            "levelno",
+            "lineno",
+            "module",
+            "msecs",
+            "message",
+            "pathname",
+            "process",
+            "processName",
+            "relativeCreated",
+            "thread",
+            "threadName",
+            "exc_info",
+            "exc_text",
+            "stack_info",
+            "getMessage",
+            "asctime",
+        }
+        extra_fields = {k: v for k, v in record.__dict__.items() if k not in standard_attrs}
+        if extra_fields:
+            extra_str = json.dumps(extra_fields)
+            return f"{base_msg} | {extra_str}"
+        return base_msg
+
+
 @app.on_event("startup")
 def on_startup() -> None:
+    # Configure logging to show application logs with extra fields
+    logging.basicConfig(level=logging.INFO)
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers:
+        handler.setFormatter(
+            TranslationLogFormatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        )
     init_db()
 
 

@@ -79,6 +79,7 @@ class TranslationAgent:
         context_window: int,
         system_prompt: str | None = None,
     ) -> None:
+        self.model = model
         self.chunk_chars = max(8, chunk_chars)
         self.context_window = max(0, context_window)
         self._api_key = api_key

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy.orm import Session as DBSession
@@ -32,6 +33,8 @@ from services.translation_stream import TranslationStreamService
 from services.works import WorksService
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
 
 
 @router.get("/", response_model=PaginatedWorksOut)
@@ -240,15 +243,18 @@ def _get_work_translation_agent(work_id: int, db: DBSession) -> TranslationAgent
 
     # Get the latest version if a prompt is assigned
     system_prompt = None
+    model = settings.translation_model  # Default model
     if prompt:
         versions, _, _, _ = prompt_service.get_prompt_versions(prompt.id, limit=1, offset=0)
         if versions:
-            # Use the template from the latest prompt version
-            system_prompt = versions[0].template
+            latest_version = versions[0]
+            # Use the template and model from the latest prompt version
+            system_prompt = latest_version.template
+            model = latest_version.model
 
-    # Create agent with work-specific prompt or default
+    # Create agent with work-specific prompt/model or defaults
     return TranslationAgent(
-        model=settings.translation_model,
+        model=model,
         api_key=settings.translation_api_key,
         api_base=settings.translation_api_base_url,
         chunk_chars=settings.translation_chunk_chars,
@@ -306,7 +312,26 @@ async def stream_chapter_translation(work_id: int, chapter_id: int, request: Req
         translation = translation_service.get_or_create_translation(chapter.id)
         segments = translation_service.ensure_segments(translation, chapter.normalized_text)
         is_not_complete = translation_service.first_pending_segment(segments) is not None
+
+        # Get the prompt assignment to check if work has custom prompt
+        prompt_service = PromptService(db)
+        work_prompt = prompt_service.get_prompt_for_work(work_id)
+
         translation_agent = _get_work_translation_agent(work_id, db)
+
+        logger.info(
+            "Starting translation run",
+            extra={
+                "work_id": work_id,
+                "chapter_id": chapter_id,
+                "chapter_translation_id": translation.id,
+                "model": translation_agent.model,
+                "chunk_chars": settings.translation_chunk_chars,
+                "context_window": settings.translation_context_segments,
+                "api_base": settings.translation_api_base_url,
+                "has_custom_prompt": work_prompt is not None,
+            },
+        )
 
         if not is_not_complete:
 
