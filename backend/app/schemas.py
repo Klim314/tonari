@@ -189,3 +189,25 @@ class PromptVersionCreateRequest(BaseModel):
 
 class WorkPromptUpdateRequest(BaseModel):
     prompt_id: int = Field(..., description="The prompt ID to set as default for the work")
+
+
+class ModelInfoOut(BaseModel):
+    """Information about a supported LLM model."""
+
+    id: str
+    name: str
+    provider: str
+    max_tokens: int
+    supports_streaming: bool = True
+    cost_per_1m_input: float = 0.0
+    cost_per_1m_output: float = 0.0
+
+    class Config:
+        from_attributes = True
+
+
+class ModelsListOut(BaseModel):
+    """List of available models."""
+
+    items: List[ModelInfoOut]
+    total: int

@@ -4,7 +4,7 @@ import asyncio
 import json
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session as DBSession
 from sse_starlette.sse import EventSourceResponse
 
 from app.db import SessionLocal
@@ -22,9 +22,12 @@ from app.schemas import (
     WorkOut,
 )
 from app.scrapers.exceptions import ScraperError, ScraperNotFoundError
+from agents.translation_agent import TranslationAgent
+from app.config import settings
 from app.translation_service import get_translation_agent
 from services.chapters import ChaptersService
 from services.exceptions import ChapterNotFoundError, ChapterScrapeError, WorkNotFoundError
+from services.prompt import PromptService
 from services.translation_stream import TranslationStreamService
 from services.works import WorksService
 
@@ -230,6 +233,30 @@ def _sse_event(event: str, payload: dict) -> dict:
     return {"event": event, "data": json.dumps(payload)}
 
 
+def _get_work_translation_agent(work_id: int, db: DBSession) -> TranslationAgent:
+    """Get a translation agent with the work's selected prompt, or default if none selected."""
+    prompt_service = PromptService(db)
+    prompt = prompt_service.get_prompt_for_work(work_id)
+
+    # Get the latest version if a prompt is assigned
+    system_prompt = None
+    if prompt:
+        versions, _, _, _ = prompt_service.get_prompt_versions(prompt.id, limit=1, offset=0)
+        if versions:
+            # Use the template from the latest prompt version
+            system_prompt = versions[0].template
+
+    # Create agent with work-specific prompt or default
+    return TranslationAgent(
+        model=settings.translation_model,
+        api_key=settings.translation_api_key,
+        api_base=settings.translation_api_base_url,
+        chunk_chars=settings.translation_chunk_chars,
+        context_window=settings.translation_context_segments,
+        system_prompt=system_prompt,
+    )
+
+
 def _build_translation_state(chapter, translation, segments) -> ChapterTranslationStateOut:
     chapter_text = chapter.normalized_text
     payload_segments = []
@@ -279,7 +306,7 @@ async def stream_chapter_translation(work_id: int, chapter_id: int, request: Req
         translation = translation_service.get_or_create_translation(chapter.id)
         segments = translation_service.ensure_segments(translation, chapter.normalized_text)
         is_not_complete = translation_service.first_pending_segment(segments) is not None
-        translation_agent = get_translation_agent()
+        translation_agent = _get_work_translation_agent(work_id, db)
 
         if not is_not_complete:
 

@@ -77,12 +77,15 @@ class TranslationAgent:
         api_base: str | None,
         chunk_chars: int,
         context_window: int,
+        system_prompt: str | None = None,
     ) -> None:
         self.chunk_chars = max(8, chunk_chars)
         self.context_window = max(0, context_window)
         self._api_key = api_key
         self._llm: Optional[ChatOpenAI] = None
         self.prompt: Optional[ChatPromptTemplate] = None
+        # Use provided system prompt, fallback to default
+        effective_prompt = system_prompt or SYSTEM_DEFAULT
         if api_key and ChatOpenAI and ChatPromptTemplate:
             self._llm = ChatOpenAI(
                 api_key=api_key,
@@ -95,7 +98,7 @@ class TranslationAgent:
                 [
                     (
                         "system",
-                        SYSTEM_DEFAULT,
+                        effective_prompt,
                     ),
                     (
                         "human",
