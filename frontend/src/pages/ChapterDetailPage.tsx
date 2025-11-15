@@ -225,7 +225,7 @@ export function ChapterDetailPage({
 							align="flex-start"
 						>
 							<Box flex="1" w="full" borderWidth="1px" borderRadius="lg" p={6}>
-								<Heading size="md" mb={4}>
+								<Heading size="md" mb={4} h="8">
 									Source Text
 								</Heading>
 								<Separator mb={4} />
@@ -239,13 +239,14 @@ export function ChapterDetailPage({
 								</Text>
 							</Box>
 
-							<Box flex="1" w="full" borderWidth="1px" borderRadius="lg" p={6}>
+							<Box flex="1" w="full" borderWidth="1px" borderRadius="lg" px={6} pt={4} pb={6}>
 								<Flex
 									direction={{ base: "column", md: "row" }}
 									align={{ base: "flex-start", md: "center" }}
 									justify="space-between"
 									gap={4}
 									mb={4}
+									minH="10"
 								>
 									<HStack gap={2}>
 										<Heading size="md">Translation</Heading>
@@ -262,7 +263,7 @@ export function ChapterDetailPage({
 											variant="outline"
 											colorScheme={primaryColorScheme}
 											onClick={handlePrimaryAction}
-											isLoading={isPrimaryLoading}
+											loading={isPrimaryLoading}
 											disabled={!isTranslationStreaming && (!work || !chapter)}
 										>
 											<HStack gap={2} align="center">
