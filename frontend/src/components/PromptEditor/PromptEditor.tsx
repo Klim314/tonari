@@ -164,10 +164,27 @@ export function PromptEditor({
 		[latestVersionId],
 	);
 
+	const [saveError, setSaveError] = useState<string | null>(null);
+
 	const handleSaveChanges = useCallback(async () => {
 		if (!resolvedPromptId || editorState.isSaving || !editorState.isDirty)
 			return;
 
+		// Validate required fields
+		if (!editorState.draft.name?.trim()) {
+			setSaveError("Prompt name is required");
+			return;
+		}
+		if (!editorState.draft.model?.trim()) {
+			setSaveError("Model is required");
+			return;
+		}
+		if (!editorState.draft.template?.trim()) {
+			setSaveError("Template is required");
+			return;
+		}
+
+		setSaveError(null);
 		setEditorState((prev) => ({
 			...prev,
 			isSaving: true,
@@ -207,6 +224,7 @@ export function PromptEditor({
 			onPromptSaved?.();
 		} catch (error) {
 			console.error("Failed to save changes:", error);
+			setSaveError(getApiErrorMessage(error, "Failed to save changes. Please try again."));
 			setEditorState((prev) => ({
 				...prev,
 				isSaving: false,
@@ -225,6 +243,7 @@ export function PromptEditor({
 
 	const handleDiscardChanges = useCallback(() => {
 		// Reset draft to last saved state
+		setSaveError(null);
 		if (promptState.data) {
 			const latestVersion = promptState.data.latest_version;
 			setEditorState((prev) => ({
@@ -393,6 +412,21 @@ export function PromptEditor({
 						onSelectVersion={handleSelectVersion}
 					/>
 
+					{/* Error display */}
+					{saveError && (
+						<Box
+							p={3}
+							borderRadius="md"
+							bg="red.900"
+							borderLeftWidth="4px"
+							borderLeftColor="red.400"
+						>
+							<Text fontSize="sm" color="red.100">
+								{saveError}
+							</Text>
+						</Box>
+					)}
+
 					{/* Action Buttons */}
 					<HStack gap={2} justify="flex-end">
 						{editorState.isDirty && (
@@ -417,21 +451,6 @@ export function PromptEditor({
 					</HStack>
 				</Box>
 			</HStack>
-
-			{/* Unsaved indicator */}
-			{editorState.isDirty && (
-				<Box
-					p={3}
-					borderRadius="md"
-					bg="yellow.900"
-					borderLeftWidth="4px"
-					borderLeftColor="yellow.400"
-				>
-					<Text fontSize="sm" color="yellow.100">
-						You have unsaved changes
-					</Text>
-				</Box>
-			)}
 		</Stack>
 	);
 
