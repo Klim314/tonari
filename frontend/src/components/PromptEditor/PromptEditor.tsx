@@ -10,6 +10,7 @@ import {
 	useDisclosure,
 } from "@chakra-ui/react";
 import { ChevronLeft } from "lucide-react";
+import axios from "axios";
 import { useCallback, useEffect, useState } from "react";
 import { Prompts } from "../../client";
 import { usePrompt } from "../../hooks/usePrompt";
@@ -146,6 +147,12 @@ export function PromptEditor({
 				},
 				isDirty: true,
 			}));
+			// Clear field error when user starts editing that field
+			setFieldErrors((prev) => {
+				const updated = { ...prev };
+				delete updated[field];
+				return updated;
+			});
 		},
 		[],
 	);
@@ -165,24 +172,11 @@ export function PromptEditor({
 	);
 
 	const [saveError, setSaveError] = useState<string | null>(null);
+	const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
 	const handleSaveChanges = useCallback(async () => {
 		if (!resolvedPromptId || editorState.isSaving || !editorState.isDirty)
 			return;
-
-		// Validate required fields
-		if (!editorState.draft.name?.trim()) {
-			setSaveError("Prompt name is required");
-			return;
-		}
-		if (!editorState.draft.model?.trim()) {
-			setSaveError("Model is required");
-			return;
-		}
-		if (!editorState.draft.template?.trim()) {
-			setSaveError("Template is required");
-			return;
-		}
 
 		setSaveError(null);
 		setEditorState((prev) => ({
@@ -224,6 +218,23 @@ export function PromptEditor({
 			onPromptSaved?.();
 		} catch (error) {
 			console.error("Failed to save changes:", error);
+
+			// Parse structured validation errors from backend
+			const newFieldErrors: Record<string, string> = {};
+			if (axios.isAxiosError(error)) {
+				const responseData = error.response?.data as {
+					errors?: Array<{ field?: string; message?: string }>;
+				};
+				if (responseData?.errors && Array.isArray(responseData.errors)) {
+					for (const err of responseData.errors) {
+						if (err.field && err.field !== "unknown") {
+							newFieldErrors[err.field] = err.message || "";
+						}
+					}
+				}
+			}
+
+			setFieldErrors(newFieldErrors);
 			setSaveError(getApiErrorMessage(error, "Failed to save changes. Please try again."));
 			setEditorState((prev) => ({
 				...prev,
@@ -244,6 +255,7 @@ export function PromptEditor({
 	const handleDiscardChanges = useCallback(() => {
 		// Reset draft to last saved state
 		setSaveError(null);
+		setFieldErrors({});
 		if (promptState.data) {
 			const latestVersion = promptState.data.latest_version;
 			setEditorState((prev) => ({
@@ -413,7 +425,7 @@ export function PromptEditor({
 					/>
 
 					{/* Error display */}
-					{saveError && (
+					{(saveError || Object.keys(fieldErrors).length > 0) && (
 						<Box
 							p={3}
 							borderRadius="md"
@@ -421,9 +433,25 @@ export function PromptEditor({
 							borderLeftWidth="4px"
 							borderLeftColor="red.400"
 						>
-							<Text fontSize="sm" color="red.100">
-								{saveError}
-							</Text>
+							{Object.keys(fieldErrors).length > 0 ? (
+								<VStack align="start" gap={2}>
+									<Text fontSize="sm" fontWeight="bold" color="red.100">
+										Validation Errors:
+									</Text>
+									{Object.entries(fieldErrors).map(([field, message]) => (
+										<Box key={field} fontSize="sm" color="red.100">
+											<Text as="span" fontWeight="semibold">
+												{field}:
+											</Text>{" "}
+											<Text as="span">{message}</Text>
+										</Box>
+									))}
+								</VStack>
+							) : (
+								<Text fontSize="sm" color="red.100">
+									{saveError}
+								</Text>
+							)}
 						</Box>
 					)}
 
