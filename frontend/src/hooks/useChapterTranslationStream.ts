@@ -8,7 +8,7 @@ export type TranslationStreamStatus =
 	| "completed"
 	| "error";
 
-interface SegmentState {
+export interface SegmentState {
 	segmentId: number;
 	orderIndex: number;
 	start: number;
@@ -17,6 +17,8 @@ interface SegmentState {
 	text: string;
 	status: "pending" | "running" | "completed";
 }
+
+export type ChapterTranslationSegment = SegmentState;
 
 interface UseChapterTranslationStreamOptions {
 	workId?: number | null;

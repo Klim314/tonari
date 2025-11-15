@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     translation_api_base_url: str | None = Field(default=None)
     translation_chunk_chars: int = Field(default=160)
     translation_context_segments: int = Field(default=3)
+    prompt_override_secret: str = Field(default="tonari-prompt-override-secret")
+    prompt_override_token_ttl_seconds: int = Field(default=600)
 
     class Config:
         env_file = ".env"
