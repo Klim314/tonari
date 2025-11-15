@@ -17,7 +17,11 @@ class SegmentSlice:
 
 
 def newline_segment_slices(text: str) -> List[SegmentSlice]:
-    """Split text into newline-delimited segments, collapsing consecutive blank lines."""
+    """Split text into segments separated by at least two consecutive newlines.
+
+    This keeps related content (like bullet points) together in the same segment.
+    Content separated by blank lines (2+ newlines) is treated as separate segments.
+    """
     if not text:
         return []
 
@@ -41,13 +45,22 @@ def newline_segment_slices(text: str) -> List[SegmentSlice]:
     while cursor < n:
         char = text[cursor]
         if char == "\n":
-            if cursor > anchor:
-                append_segment(anchor, cursor, True)
             newline_start = cursor
+            # Count consecutive newlines
+            newline_count = 0
             while cursor < n and text[cursor] == "\n":
+                newline_count += 1
                 cursor += 1
-            append_segment(newline_start, cursor, False)
-            anchor = cursor
+
+            # Only create a segment boundary if we have 2+ newlines (i.e., a blank line)
+            if newline_count >= 2:
+                # Append the content before the newlines
+                if newline_start > anchor:
+                    append_segment(anchor, newline_start, True)
+                # Append the whitespace segment
+                append_segment(newline_start, cursor, False)
+                anchor = cursor
+            # Otherwise, just skip the newline and keep going (merge with next line)
             continue
         cursor += 1
 

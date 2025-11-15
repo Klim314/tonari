@@ -34,6 +34,7 @@ interface TranslationStreamHook {
 	reset: () => void;
 	isResetting: boolean;
 	regenerate: () => Promise<boolean>;
+	retranslateSegment: (segmentId: number) => void;
 }
 
 interface ChapterTranslationStateResponse {
@@ -357,6 +358,52 @@ export function useChapterTranslationStream({
 		);
 	}, [segmentsMap]);
 
+	const retranslateSegment = useCallback(
+		(segmentId: number) => {
+			if (!workId || !chapterId) {
+				setError("Missing work or chapter identifier");
+				return;
+			}
+			if (eventSourceRef.current) {
+				eventSourceRef.current.close();
+				eventSourceRef.current = null;
+			}
+
+			const url = buildChapterActionUrl(
+				workId,
+				chapterId,
+				`/segments/${segmentId}/retranslate/stream`,
+			);
+			const source = new EventSource(url);
+			eventSourceRef.current = source;
+
+			source.addEventListener(
+				"segment-start",
+				handleSegmentStart as EventListener,
+			);
+			source.addEventListener(
+				"segment-delta",
+				handleSegmentDelta as EventListener,
+			);
+			source.addEventListener(
+				"segment-complete",
+				handleSegmentComplete as EventListener,
+			);
+			source.addEventListener("translation-error", (event) => {
+				const payload = parseEventData<{ error?: string }>(
+					event as MessageEvent<string>,
+				);
+				setError(payload?.error ?? "Segment retranslation failed");
+				closeStream("error");
+			});
+			source.onerror = () => {
+				setError("Retranslation stream disconnected");
+				closeStream("error");
+			};
+		},
+		[chapterId, closeStream, handleSegmentComplete, handleSegmentDelta, handleSegmentStart, workId],
+	);
+
 	return {
 		status,
 		error,
@@ -367,5 +414,6 @@ export function useChapterTranslationStream({
 		reset,
 		isResetting,
 		regenerate,
+		retranslateSegment,
 	};
 }

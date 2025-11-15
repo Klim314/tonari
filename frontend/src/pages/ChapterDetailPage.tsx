@@ -9,16 +9,14 @@ import {
 	Heading,
 	Icon,
 	Menu,
-	MenuContent,
-	MenuItem,
-	MenuTrigger,
+	Portal,
 	Separator,
 	Skeleton,
 	Stack,
 	Text,
 } from "@chakra-ui/react";
 import { Pause, Play, RotateCcw, Settings } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useChapter } from "../hooks/useChapter";
 import {
 	type TranslationStreamStatus,
@@ -41,6 +39,8 @@ export function ChapterDetailPage({
 	onNavigateBack,
 }: ChapterDetailPageProps) {
 	const [isRegeneratingSegments, setIsRegeneratingSegments] = useState(false);
+	const [selectedSegmentId, setSelectedSegmentId] = useState<number | null>(null);
+	const [retranslatingSegmentId, setRetranslatingSegmentId] = useState<number | null>(null);
 	const {
 		data: work,
 		loading: workLoading,
@@ -60,6 +60,7 @@ export function ChapterDetailPage({
 		pause: pauseTranslation,
 		isResetting: translationResetting,
 		regenerate: regenerateTranslation,
+		retranslateSegment,
 	} = useChapterTranslationStream({ workId, chapterId });
 
 	const handleRegenerate = useCallback(async () => {
@@ -88,6 +89,13 @@ export function ChapterDetailPage({
 			setIsRegeneratingSegments(false);
 		}
 	}, [workId, chapterId, regenerateTranslation]);
+
+	// Clear retranslating state when translation completes or errors
+	useEffect(() => {
+		if (!isTranslationStreaming) {
+			setRetranslatingSegmentId(null);
+		}
+	}, [isTranslationStreaming]);
 
 	const primaryAction = useMemo<PrimaryAction>(() => {
 		const translatableSegments = translationSegments.filter(
@@ -239,7 +247,16 @@ export function ChapterDetailPage({
 								</Text>
 							</Box>
 
-							<Box flex="1" w="full" borderWidth="1px" borderRadius="lg" px={6} pt={4} pb={6}>
+							<Box
+								flex="1"
+								w="full"
+								borderWidth="1px"
+								borderRadius="lg"
+								px={6}
+								pt={4}
+								pb={6}
+								onClick={() => setSelectedSegmentId(null)}
+							>
 								<Flex
 									direction={{ base: "column", md: "row" }}
 									align={{ base: "flex-start", md: "center" }}
@@ -296,26 +313,67 @@ export function ChapterDetailPage({
 												(segment.status === "running" ? "Translating..." : "");
 											const hasSource = srcText.trim().length > 0;
 											const hasTarget = tgtText.trim().length > 0;
+											const isSelected = selectedSegmentId === segment.segmentId;
+											const isRetranslating =
+												retranslatingSegmentId === segment.segmentId;
 											if (!hasSource && !hasTarget) {
 												return <Box key={segment.segmentId} height="2" />;
 											}
 											return (
-												<Stack key={segment.segmentId} gap={2}>
-													{hasSource ? (
-														<Text
-															fontFamily="mono"
-															whiteSpace="pre-wrap"
-															color="gray.400"
-														>
-															{srcText}
-														</Text>
-													) : null}
-													{hasTarget ? (
-														<Text whiteSpace="pre-wrap" color="gray.400">
-															{tgtText}
-														</Text>
-													) : null}
-												</Stack>
+												<Menu.Root key={segment.segmentId}>
+													<Menu.ContextTrigger
+														w="full"
+														bg={isSelected ? "blue.50" : "transparent"}
+														borderRadius="md"
+														p={3}
+														borderWidth={isSelected ? "1px" : "0px"}
+														borderColor={isSelected ? "blue.200" : "transparent"}
+														cursor="context-menu"
+														onContextMenu={() => setSelectedSegmentId(segment.segmentId)}
+													>
+														<Stack gap={2}>
+															{hasSource ? (
+																<Text
+																	fontFamily="mono"
+																	whiteSpace="pre-wrap"
+																	color="gray.400"
+																	textAlign="left"
+																>
+																	{srcText}
+																</Text>
+															) : null}
+															{hasTarget ? (
+																<Text
+																	whiteSpace="pre-wrap"
+																	color="gray.400"
+																	textAlign="left"
+																>
+																	{tgtText}
+																</Text>
+															) : null}
+														</Stack>
+													</Menu.ContextTrigger>
+													<Portal>
+														<Menu.Positioner>
+															<Menu.Content>
+																<Menu.Item
+																	value="retranslate"
+																	onClick={() => {
+																		setRetranslatingSegmentId(
+																			segment.segmentId
+																		);
+																		retranslateSegment(segment.segmentId);
+																	}}
+																	disabled={isRetranslating}
+																>
+																	{isRetranslating
+																		? "Retranslating..."
+																		: "Retranslate Segment"}
+																</Menu.Item>
+															</Menu.Content>
+														</Menu.Positioner>
+													</Portal>
+												</Menu.Root>
 											);
 										})}
 									</Stack>

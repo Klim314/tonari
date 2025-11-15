@@ -140,6 +140,22 @@ class TranslationStreamService:
         self.session.refresh(translation)
         return translation
 
+    def reset_segment(self, segment_id: int) -> Optional[TranslationSegment]:
+        """Reset a single segment for retranslation.
+
+        Clears the translated text and sets the segment back to pending status.
+        """
+        stmt = select(TranslationSegment).where(TranslationSegment.id == segment_id)
+        segment = self.session.execute(stmt).scalars().first()
+        if segment is None:
+            return None
+
+        segment.tgt = ""
+        self.session.add(segment)
+        self.session.commit()
+        self.session.refresh(segment)
+        return segment
+
     def regenerate_chapter_segments(self, chapter: Chapter) -> None:
         """Delete and regenerate segments for the most recent translation of a chapter.
 

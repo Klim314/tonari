@@ -286,6 +286,144 @@ def _build_translation_state(chapter, translation, segments) -> ChapterTranslati
     )
 
 
+async def _translate_segments_stream(
+    db: DBSession,
+    request: Request,
+    translation_agent: TranslationAgent,
+    translation_service: TranslationStreamService,
+    translation,
+    segments_to_translate,
+    all_segments,
+    chapter_text: str,
+    work_id: int,
+    is_single_segment: bool = False,
+):
+    """
+    Unified async generator for translating segments (either full chapter or single segment).
+
+    Args:
+        db: Database session
+        request: FastAPI request object
+        translation_agent: Translation agent
+        translation_service: Translation service
+        translation: ChapterTranslation object
+        segments_to_translate: List of segments that need translation
+        all_segments: All segments for context window building
+        chapter_text: Full chapter text
+        work_id: Work ID for logging
+        is_single_segment: If True, don't set translation.status to completed at the end
+    """
+    current_segment = None
+    try:
+        # For full chapter, set status to running
+        if not is_single_segment:
+            translation.status = "running"
+            db.add(translation)
+            db.commit()
+            yield _sse_event(
+                "translation-status",
+                {"chapter_translation_id": translation.id, "status": translation.status},
+            )
+
+        for current in segments_to_translate:
+            current_segment = current
+            if await request.is_disconnected():
+                raise asyncio.CancelledError
+
+            src = chapter_text[current.start : current.end]
+            yield _sse_event(
+                "segment-start",
+                {
+                    "chapter_translation_id": translation.id,
+                    "segment_id": current.id,
+                    "order_index": current.order_index,
+                    "start": current.start,
+                    "end": current.end,
+                    "src": src,
+                },
+            )
+
+            context_segments = translation_service.build_context_window(
+                all_segments,
+                current,
+                chapter_text,
+                limit=translation_agent.context_window,
+            )
+
+            collected = ""
+            async for delta in translation_agent.stream_segment(
+                src, preceding_segments=context_segments
+            ):
+                if await request.is_disconnected():
+                    raise asyncio.CancelledError
+                if not delta:
+                    continue
+                collected += delta
+                yield _sse_event(
+                    "segment-delta",
+                    {
+                        "chapter_translation_id": translation.id,
+                        "segment_id": current.id,
+                        "order_index": current.order_index,
+                        "delta": delta,
+                    },
+                )
+
+            current.tgt = collected
+            db.add(current)
+            db.commit()
+            yield _sse_event(
+                "segment-complete",
+                {
+                    "chapter_translation_id": translation.id,
+                    "segment_id": current.id,
+                    "order_index": current.order_index,
+                    "text": collected,
+                },
+            )
+            current_segment = None
+
+        # Only mark translation as completed if this is a full chapter translation
+        if not is_single_segment:
+            translation.status = "completed"
+            db.add(translation)
+            db.commit()
+
+        # Always emit completion event (for both full chapter and single segment)
+        yield _sse_event(
+            "translation-complete",
+            {"chapter_translation_id": translation.id, "status": translation.status},
+        )
+
+    except asyncio.CancelledError:
+        translation.status = "idle"
+        db.add(translation)
+        db.commit()
+        raise
+    except Exception as exc:  # pragma: no cover - surfaced via SSE
+        translation.status = "error"
+        db.add(translation)
+        db.commit()
+        if current_segment is not None:
+            yield _sse_event(
+                "translation-error",
+                {
+                    "chapter_translation_id": translation.id,
+                    "segment_id": current_segment.id,
+                    "order_index": current_segment.order_index,
+                    "error": str(exc),
+                },
+            )
+        else:
+            yield _sse_event(
+                "translation-error",
+                {
+                    "chapter_translation_id": translation.id,
+                    "error": str(exc),
+                },
+            )
+
+
 @router.get("/{work_id}/chapters/{chapter_id}/translate/stream")
 async def stream_chapter_translation(work_id: int, chapter_id: int, request: Request):
     db = SessionLocal()
@@ -350,114 +488,23 @@ async def stream_chapter_translation(work_id: int, chapter_id: int, request: Req
             return EventSourceResponse(completed_generator())
 
         chapter_text = chapter.normalized_text
+        segments_to_translate = [s for s in segments if translation_service.needs_translation(s)]
 
         async def event_generator():
-            current_segment = None
             try:
-                translation.status = "running"
-                db.add(translation)
-                db.commit()
-                yield _sse_event(
-                    "translation-status",
-                    {"chapter_translation_id": translation.id, "status": translation.status},
-                )
-
-                for current in segments:
-                    current_segment = current
-                    if await request.is_disconnected():
-                        raise asyncio.CancelledError
-                    if not translation_service.needs_translation(current):
-                        current_segment = None
-                        continue
-
-                    src = chapter_text[current.start : current.end]
-                    yield _sse_event(
-                        "segment-start",
-                        {
-                            "chapter_translation_id": translation.id,
-                            "segment_id": current.id,
-                            "order_index": current.order_index,
-                            "start": current.start,
-                            "end": current.end,
-                            "src": src,
-                        },
-                    )
-
-                    context_segments = translation_service.build_context_window(
-                        segments,
-                        current,
-                        chapter_text,
-                        limit=translation_agent.context_window,
-                    )
-
-                    collected = ""
-                    async for delta in translation_agent.stream_segment(
-                        src, preceding_segments=context_segments
-                    ):
-                        if await request.is_disconnected():
-                            raise asyncio.CancelledError
-                        if not delta:
-                            continue
-                        collected += delta
-                        yield _sse_event(
-                            "segment-delta",
-                            {
-                                "chapter_translation_id": translation.id,
-                                "segment_id": current.id,
-                                "order_index": current.order_index,
-                                "delta": delta,
-                            },
-                        )
-
-                    current.tgt = collected
-                    db.add(current)
-                    db.commit()
-                    yield _sse_event(
-                        "segment-complete",
-                        {
-                            "chapter_translation_id": translation.id,
-                            "segment_id": current.id,
-                            "order_index": current.order_index,
-                            "text": collected,
-                        },
-                    )
-                    current_segment = None
-                else:
-                    translation.status = "completed"
-                    db.add(translation)
-                    db.commit()
-                    yield _sse_event(
-                        "translation-complete",
-                        {"chapter_translation_id": translation.id, "status": translation.status},
-                    )
-
-            except asyncio.CancelledError:
-                translation.status = "idle"
-                db.add(translation)
-                db.commit()
-                raise
-            except Exception as exc:  # pragma: no cover - surfaced via SSE
-                translation.status = "error"
-                db.add(translation)
-                db.commit()
-                if current_segment is not None:
-                    yield _sse_event(
-                        "translation-error",
-                        {
-                            "chapter_translation_id": translation.id,
-                            "segment_id": current_segment.id,
-                            "order_index": current_segment.order_index,
-                            "error": str(exc),
-                        },
-                    )
-                else:
-                    yield _sse_event(
-                        "translation-error",
-                        {
-                            "chapter_translation_id": translation.id,
-                            "error": str(exc),
-                        },
-                    )
+                async for event in _translate_segments_stream(
+                    db=db,
+                    request=request,
+                    translation_agent=translation_agent,
+                    translation_service=translation_service,
+                    translation=translation,
+                    segments_to_translate=segments_to_translate,
+                    all_segments=segments,
+                    chapter_text=chapter_text,
+                    work_id=work_id,
+                    is_single_segment=False,
+                ):
+                    yield event
             finally:
                 db.close()
 
@@ -465,4 +512,85 @@ async def stream_chapter_translation(work_id: int, chapter_id: int, request: Req
 
     except Exception:
         db.close()
+        raise
+
+
+@router.get("/{work_id}/chapters/{chapter_id}/segments/{segment_id}/retranslate/stream")
+async def retranslate_segment(work_id: int, chapter_id: int, segment_id: int, request: Request):
+    """Retranslate a single segment in a chapter translation."""
+    from sqlalchemy import select
+    from app.models import TranslationSegment
+
+    db = SessionLocal()
+    works_service = WorksService(db)
+    chapters_service = ChaptersService(db)
+    translation_service = TranslationStreamService(db)
+
+    try:
+        try:
+            work = works_service.get_work(work_id)
+        except WorkNotFoundError:
+            raise HTTPException(status_code=404, detail="work not found") from None
+
+        try:
+            chapter = chapters_service.get_chapter(chapter_id)
+        except ChapterNotFoundError:
+            raise HTTPException(status_code=404, detail="chapter not found") from None
+
+        if chapter.work_id != work.id:
+            raise HTTPException(status_code=404, detail="chapter not found") from None
+
+        translation = translation_service.get_or_create_translation(chapter.id)
+
+        # Get the specific segment
+        stmt = select(TranslationSegment).where(TranslationSegment.id == segment_id)
+        segment = db.execute(stmt).scalars().first()
+
+        if segment is None or segment.chapter_translation_id != translation.id:
+            raise HTTPException(status_code=404, detail="segment not found") from None
+
+        # Reset the segment for retranslation
+        translation_service.reset_segment(segment_id)
+        segment = db.execute(stmt).scalars().first()
+
+        translation_agent = _get_work_translation_agent(work_id, db)
+        chapter_text = chapter.normalized_text
+
+        logger.info(
+            "Starting segment retranslation",
+            extra={
+                "work_id": work_id,
+                "chapter_id": chapter_id,
+                "segment_id": segment_id,
+                "chapter_translation_id": translation.id,
+                "model": translation_agent.model,
+            },
+        )
+
+        # Get all segments for context
+        all_segments = list(translation_service.get_segments_for_translation(translation.id))
+
+        async def event_generator():
+            try:
+                async for event in _translate_segments_stream(
+                    db=db,
+                    request=request,
+                    translation_agent=translation_agent,
+                    translation_service=translation_service,
+                    translation=translation,
+                    segments_to_translate=[segment],
+                    all_segments=all_segments,
+                    chapter_text=chapter_text,
+                    work_id=work_id,
+                    is_single_segment=True,
+                ):
+                    yield event
+            finally:
+                db.close()
+
+        return EventSourceResponse(event_generator())
+
+    except Exception:
+        if db:
+            db.close()
         raise
