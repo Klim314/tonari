@@ -1,18 +1,14 @@
 import { Button } from "@chakra-ui/react";
-import { Pause, Play, RotateCcw } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { ChapterPromptDrawer } from "../components/ChapterPromptDrawer";
 import { ChapterDetailView } from "../components/chapterDetail/ChapterDetailView";
 import type { TranslationPanelProps } from "../components/chapterDetail/translation/TranslationPanel";
 import type { PromptMeta } from "../components/chapterDetail/types";
 import { useChapter } from "../hooks/useChapter";
-import { useChapterTranslationStream } from "../hooks/useChapterTranslationStream";
 import { usePromptOverride } from "../hooks/usePromptOverride";
 import { useWork } from "../hooks/useWork";
 import { useWorkPromptDetail } from "../hooks/useWorkPromptDetail";
 import { regenerateChapterSegments } from "../lib/chapters";
-
-type PrimaryAction = "start" | "resume" | "regenerate";
 
 interface ChapterDetailPageProps {
 	workId: number;
@@ -26,12 +22,7 @@ export function ChapterDetailPage({
 	onNavigateBack,
 }: ChapterDetailPageProps) {
 	const [isRegeneratingSegments, setIsRegeneratingSegments] = useState(false);
-	const [selectedSegmentId, setSelectedSegmentId] = useState<number | null>(
-		null,
-	);
-	const [retranslatingSegmentId, setRetranslatingSegmentId] = useState<
-		number | null
-	>(null);
+	const [translationRefreshKey, setTranslationRefreshKey] = useState(0);
 
 	const {
 		data: work,
@@ -43,17 +34,6 @@ export function ChapterDetailPage({
 		loading: chapterLoading,
 		error: chapterError,
 	} = useChapter(workId, chapterId);
-	const {
-		status: translationStatus,
-		error: translationError,
-		segments: translationSegments,
-		isStreaming: isTranslationStreaming,
-		start: startTranslation,
-		pause: pauseTranslation,
-		isResetting: translationResetting,
-		regenerate: regenerateTranslation,
-		retranslateSegment,
-	} = useChapterTranslationStream({ workId, chapterId });
 	const {
 		data: workPrompt,
 		loading: workPromptLoading,
@@ -68,110 +48,18 @@ export function ChapterDetailPage({
 		onRefresh: refreshWorkPrompt,
 	});
 
-	useEffect(() => {
-		if (!isTranslationStreaming) {
-			setRetranslatingSegmentId(null);
-		}
-	}, [isTranslationStreaming]);
-
-	const primaryAction = useMemo<PrimaryAction>(() => {
-		const translatableSegments = translationSegments.filter(
-			(segment) => (segment.src ?? "").trim().length > 0,
-		);
-		if (translationStatus === "completed") {
-			return "regenerate";
-		}
-		if (translatableSegments.length === 0) {
-			return "start";
-		}
-		const completedCount = translatableSegments.filter(
-			(segment) =>
-				segment.status === "completed" &&
-				(segment.text ?? "").trim().length > 0,
-		).length;
-		if (completedCount === translatableSegments.length) {
-			return "regenerate";
-		}
-		return "resume";
-	}, [translationSegments, translationStatus]);
-
-	const startTranslationRun = useCallback(() => {
-		startTranslation();
-	}, [startTranslation]);
-
-	const handleRegenerate = useCallback(async () => {
-		const ok = await regenerateTranslation();
-		if (ok) {
-			startTranslationRun();
-		}
-	}, [regenerateTranslation, startTranslationRun]);
-
-	const handlePrimaryAction = useCallback(async () => {
-		if (isTranslationStreaming) {
-			pauseTranslation();
-			return;
-		}
-		if (primaryAction === "regenerate") {
-			await handleRegenerate();
-			return;
-		}
-		startTranslationRun();
-	}, [
-		handleRegenerate,
-		isTranslationStreaming,
-		pauseTranslation,
-		primaryAction,
-		startTranslationRun,
-	]);
-
-	const primaryLabel = isTranslationStreaming
-		? "Pause Translation"
-		: getPrimaryActionLabel(primaryAction);
-	const primaryIcon = isTranslationStreaming
-		? Pause
-		: primaryAction === "regenerate"
-			? RotateCcw
-			: Play;
-	const primaryColorScheme = isTranslationStreaming
-		? "gray"
-		: primaryAction === "regenerate"
-			? "orange"
-			: "teal";
-	const isPrimaryLoading =
-		primaryAction === "regenerate" &&
-		!isTranslationStreaming &&
-		translationResetting;
-
-	const disablePrimaryAction = !isTranslationStreaming && (!work || !chapter);
-
-	const handleSegmentContextSelect = useCallback((segmentId: number) => {
-		setSelectedSegmentId(segmentId);
-	}, []);
-
-	const handleClearSelection = useCallback(() => {
-		setSelectedSegmentId(null);
-	}, []);
-
-	const handleSegmentRetranslate = useCallback(
-		(segmentId: number) => {
-			setRetranslatingSegmentId(segmentId);
-			retranslateSegment(segmentId);
-		},
-		[retranslateSegment],
-	);
-
 	const handleRegenerateSegments = useCallback(async () => {
 		if (!workId || !chapterId) return;
 		setIsRegeneratingSegments(true);
 		try {
 			await regenerateChapterSegments(workId, chapterId);
-			await regenerateTranslation();
+			setTranslationRefreshKey((key) => key + 1);
 		} catch (error) {
 			console.error("Error regenerating segments:", error);
 		} finally {
 			setIsRegeneratingSegments(false);
 		}
-	}, [chapterId, regenerateTranslation, workId]);
+	}, [chapterId, workId]);
 
 	const promptDrawerTrigger = (
 		<ChapterPromptDrawer
@@ -203,20 +91,9 @@ export function ChapterDetailPage({
 	);
 
 	const translationPanelProps: TranslationPanelProps = {
-		translationStatus,
-		translationError,
-		translationSegments,
-		selectedSegmentId,
-		retranslatingSegmentId,
-		onContextSelect: handleSegmentContextSelect,
-		onSegmentRetranslate: handleSegmentRetranslate,
-		onClearSelection: handleClearSelection,
-		primaryLabel,
-		primaryIcon,
-		primaryColorScheme,
-		isPrimaryLoading,
-		onPrimaryAction: handlePrimaryAction,
-		disablePrimary: disablePrimaryAction,
+		workId,
+		chapterId,
+		refreshKey: translationRefreshKey,
 	};
 
 	const promptMeta: PromptMeta = {
@@ -244,15 +121,4 @@ export function ChapterDetailPage({
 			errorMessage={error}
 		/>
 	);
-}
-
-function getPrimaryActionLabel(action: PrimaryAction) {
-	switch (action) {
-		case "resume":
-			return "Resume Translation";
-		case "regenerate":
-			return "Regenerate Translation";
-		default:
-			return "Start Translation";
-	}
 }

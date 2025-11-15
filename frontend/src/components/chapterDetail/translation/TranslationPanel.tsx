@@ -10,45 +10,132 @@ import {
 	Separator,
 	Text,
 } from "@chakra-ui/react";
-import { Pause } from "lucide-react";
-import { memo } from "react";
-import type { TranslationStreamStatus } from "../../../hooks/useChapterTranslationStream";
-import type { TranslationSegmentRow } from "../types";
+import { Pause, Play, RotateCcw } from "lucide-react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import {
+	type TranslationStreamStatus,
+	useChapterTranslationStream,
+} from "../../../hooks/useChapterTranslationStream";
 import { SegmentsList } from "./SegmentsList";
 
+type PrimaryAction = "start" | "resume" | "regenerate";
+
 export interface TranslationPanelProps {
-	translationStatus: TranslationStreamStatus;
-	translationError: string | null;
-	translationSegments: TranslationSegmentRow[];
-	selectedSegmentId: number | null;
-	retranslatingSegmentId: number | null;
-	onContextSelect: (segmentId: number) => void;
-	onSegmentRetranslate: (segmentId: number) => void;
-	onClearSelection: () => void;
-	primaryLabel: string;
-	primaryIcon: typeof Pause;
-	primaryColorScheme: string;
-	isPrimaryLoading: boolean;
-	onPrimaryAction: () => void | Promise<void>;
-	disablePrimary: boolean;
+	workId: number;
+	chapterId: number;
+	refreshKey?: number;
 }
 
 export const TranslationPanel = memo(function TranslationPanel({
-	translationStatus,
-	translationError,
-	translationSegments,
-	selectedSegmentId,
-	retranslatingSegmentId,
-	onContextSelect,
-	onSegmentRetranslate,
-	onClearSelection,
-	primaryLabel,
-	primaryIcon,
-	primaryColorScheme,
-	isPrimaryLoading,
-	onPrimaryAction,
-	disablePrimary,
+	workId,
+	chapterId,
+	refreshKey = 0,
 }: TranslationPanelProps) {
+	const [selectedSegmentId, setSelectedSegmentId] = useState<number | null>(
+		null,
+	);
+	const [retranslatingSegmentId, setRetranslatingSegmentId] = useState<
+		number | null
+	>(null);
+	const {
+		status: translationStatus,
+		error: translationError,
+		segments: translationSegments,
+		isStreaming,
+		start,
+		pause,
+		isResetting,
+		regenerate,
+		retranslateSegment,
+	} = useChapterTranslationStream({ workId, chapterId });
+
+	useEffect(() => {
+		if (!isStreaming) {
+			setRetranslatingSegmentId(null);
+		}
+	}, [isStreaming]);
+
+	useEffect(() => {
+		if (!refreshKey) return;
+		void regenerate();
+	}, [refreshKey, regenerate]);
+
+	const primaryAction = useMemo<PrimaryAction>(() => {
+		const translatableSegments = translationSegments.filter(
+			(segment) => (segment.src ?? "").trim().length > 0,
+		);
+		if (translationStatus === "completed") {
+			return "regenerate";
+		}
+		if (translatableSegments.length === 0) {
+			return "start";
+		}
+		const completedCount = translatableSegments.filter(
+			(segment) =>
+				segment.status === "completed" &&
+				(segment.text ?? "").trim().length > 0,
+		).length;
+		if (completedCount === translatableSegments.length) {
+			return "regenerate";
+		}
+		return "resume";
+	}, [translationSegments, translationStatus]);
+
+	const startTranslation = useCallback(() => {
+		start();
+	}, [start]);
+
+	const handleRegenerate = useCallback(async () => {
+		const ok = await regenerate();
+		if (ok) {
+			startTranslation();
+		}
+	}, [regenerate, startTranslation]);
+
+	const handlePrimaryAction = useCallback(async () => {
+		if (isStreaming) {
+			pause();
+			return;
+		}
+		if (primaryAction === "regenerate") {
+			await handleRegenerate();
+			return;
+		}
+		startTranslation();
+	}, [handleRegenerate, isStreaming, pause, primaryAction, startTranslation]);
+
+	const primaryLabel = isStreaming
+		? "Pause Translation"
+		: getPrimaryActionLabel(primaryAction);
+	const primaryIcon = isStreaming
+		? Pause
+		: primaryAction === "regenerate"
+			? RotateCcw
+			: Play;
+	const primaryColorScheme = isStreaming
+		? "gray"
+		: primaryAction === "regenerate"
+			? "orange"
+			: "teal";
+	const isPrimaryLoading =
+		primaryAction === "regenerate" && !isStreaming && isResetting;
+
+	const handleSegmentContextSelect = useCallback((segmentId: number) => {
+		setSelectedSegmentId(segmentId);
+	}, []);
+
+	const handleClearSelection = useCallback(() => {
+		setSelectedSegmentId(null);
+	}, []);
+
+	const handleSegmentRetranslate = useCallback(
+		(segmentId: number) => {
+			setRetranslatingSegmentId(segmentId);
+			retranslateSegment(segmentId);
+		},
+		[retranslateSegment],
+	);
+
 	return (
 		<Box
 			flex="1"
@@ -58,7 +145,7 @@ export const TranslationPanel = memo(function TranslationPanel({
 			px={6}
 			pt={4}
 			pb={6}
-			onClick={onClearSelection}
+			onClick={handleClearSelection}
 		>
 			<Flex
 				direction={{ base: "column", md: "row" }}
@@ -82,9 +169,8 @@ export const TranslationPanel = memo(function TranslationPanel({
 					<Button
 						variant="outline"
 						colorScheme={primaryColorScheme}
-						onClick={onPrimaryAction}
+						onClick={handlePrimaryAction}
 						loading={isPrimaryLoading}
-						disabled={disablePrimary}
 					>
 						<HStack gap={2} align="center">
 							<Text>{primaryLabel}</Text>
@@ -113,8 +199,8 @@ export const TranslationPanel = memo(function TranslationPanel({
 					segments={translationSegments}
 					selectedSegmentId={selectedSegmentId}
 					retranslatingSegmentId={retranslatingSegmentId}
-					onContextSelect={onContextSelect}
-					onSegmentRetranslate={onSegmentRetranslate}
+					onContextSelect={handleSegmentContextSelect}
+					onSegmentRetranslate={handleSegmentRetranslate}
 				/>
 			)}
 		</Box>
@@ -148,5 +234,16 @@ function getStatusColorScheme(status: TranslationStreamStatus) {
 			return "red";
 		default:
 			return "gray";
+	}
+}
+
+function getPrimaryActionLabel(action: PrimaryAction) {
+	switch (action) {
+		case "resume":
+			return "Resume Translation";
+		case "regenerate":
+			return "Regenerate Translation";
+		default:
+			return "Start Translation";
 	}
 }
