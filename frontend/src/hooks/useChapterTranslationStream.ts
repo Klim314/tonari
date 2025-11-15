@@ -369,6 +369,9 @@ export function useChapterTranslationStream({
 				eventSourceRef.current = null;
 			}
 
+			setStatus("running");
+			setError(null);
+
 			const url = buildChapterActionUrl(
 				workId,
 				chapterId,
@@ -389,6 +392,14 @@ export function useChapterTranslationStream({
 				"segment-complete",
 				handleSegmentComplete as EventListener,
 			);
+			source.addEventListener("translation-complete", () => {
+				// Close stream gracefully when translation completes
+				if (eventSourceRef.current) {
+					eventSourceRef.current.close();
+					eventSourceRef.current = null;
+				}
+				setStatus("completed");
+			});
 			source.addEventListener("translation-error", (event) => {
 				const payload = parseEventData<{ error?: string }>(
 					event as MessageEvent<string>,
@@ -397,8 +408,11 @@ export function useChapterTranslationStream({
 				closeStream("error");
 			});
 			source.onerror = () => {
-				setError("Retranslation stream disconnected");
-				closeStream("error");
+				// Only report error if stream is still open (not closed intentionally)
+				if (eventSourceRef.current) {
+					setError("Retranslation stream disconnected");
+					closeStream("error");
+				}
 			};
 		},
 		[chapterId, closeStream, handleSegmentComplete, handleSegmentDelta, handleSegmentStart, workId],
