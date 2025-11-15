@@ -1,4 +1,14 @@
-import { Box, Heading, Input, Text, Textarea, VStack } from "@chakra-ui/react";
+import {
+	Box,
+	HStack,
+	Heading,
+	IconButton,
+	Input,
+	Text,
+	Textarea,
+	VStack,
+} from "@chakra-ui/react";
+import { Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 interface MetadataEditorProps {
@@ -6,6 +16,8 @@ interface MetadataEditorProps {
 	description: string;
 	onNameChange: (name: string) => void;
 	onDescriptionChange: (description: string) => void;
+	onDelete?: () => void;
+	isDeleting?: boolean;
 }
 
 export function MetadataEditor({
@@ -13,6 +25,8 @@ export function MetadataEditor({
 	description,
 	onNameChange,
 	onDescriptionChange,
+	onDelete,
+	isDeleting,
 }: MetadataEditorProps) {
 	const [isEditingName, setIsEditingName] = useState(false);
 	const [isEditingDescription, setIsEditingDescription] = useState(false);
@@ -93,28 +107,45 @@ export function MetadataEditor({
 	return (
 		<Box borderWidth="1px" borderColor="whiteAlpha.200" borderRadius="md">
 			<VStack align="stretch" gap={2}>
-				{/* Name */}
-				{isEditingName ? (
-					<Input
-						value={editName}
-						onChange={(e) => setEditName(e.target.value)}
-						onBlur={handleNameBlur}
-						onKeyDown={handleNameKeyDown}
-						autoFocus
-						placeholder="Enter prompt name"
-						size="lg"
-						fontWeight="bold"
-					/>
-				) : (
-					<Heading
-						size="lg"
-						cursor="pointer"
-						onClick={handleNameClick}
-						_hover={{ opacity: 0.7 }}
-					>
-						{name}
-					</Heading>
-				)}
+				{/* Name with Delete Icon */}
+				<HStack justify="space-between" align="flex-start" gap={2}>
+					<Box flex="1">
+						{isEditingName ? (
+							<Input
+								value={editName}
+								onChange={(e) => setEditName(e.target.value)}
+								onBlur={handleNameBlur}
+								onKeyDown={handleNameKeyDown}
+								autoFocus
+								placeholder="Enter prompt name"
+								size="lg"
+								fontWeight="bold"
+							/>
+						) : (
+							<Heading
+								size="lg"
+								cursor="pointer"
+								onClick={handleNameClick}
+								_hover={{ opacity: 0.7 }}
+							>
+								{name}
+							</Heading>
+						)}
+					</Box>
+					{onDelete && (
+						<IconButton
+							aria-label="Delete prompt"
+							size="sm"
+							variant="ghost"
+							colorScheme="red"
+							onClick={onDelete}
+							disabled={isDeleting}
+							flexShrink={0}
+						>
+							<Trash2 size={16} />
+						</IconButton>
+					)}
+				</HStack>
 
 				{/* Description */}
 				{isEditingDescription ? (

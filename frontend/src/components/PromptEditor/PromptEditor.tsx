@@ -3,15 +3,13 @@ import {
 	Button,
 	Container,
 	HStack,
-	Heading,
-	IconButton,
 	Skeleton,
 	Stack,
 	Text,
 	VStack,
 	useDisclosure,
 } from "@chakra-ui/react";
-import { ChevronLeft, Trash2 } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Prompts } from "../../client";
 import { usePrompt } from "../../hooks/usePrompt";
@@ -346,32 +344,16 @@ export function PromptEditor({
 		};
 	}, [handleDiscardChanges, handleSaveChanges, onRegisterEditor]);
 
-	const currentTitle =
-		editorState.draft.name || promptState.data?.name || "Untitled Prompt";
-
 	const editorBody = (
 		<Stack gap={6} flex="1">
-			<HStack justify="space-between" align="center">
-				<Heading size="md">{currentTitle}</Heading>
-				{resolvedPromptId && (
-					<IconButton
-						aria-label="Delete prompt"
-						size="sm"
-						variant="ghost"
-						colorScheme="red"
-						onClick={onOpenDeleteDialog}
-						disabled={editorState.isSaving || promptState.loading}
-					>
-						<Trash2 size={16} />
-					</IconButton>
-				)}
-			</HStack>
-			{/* Metadata Section */}
+			{/* Metadata Section - includes title, description, and delete button */}
 			<MetadataEditor
 				name={editorState.draft.name}
 				description={editorState.draft.description}
 				onNameChange={(name) => handleDraftChange("name", name)}
 				onDescriptionChange={(desc) => handleDraftChange("description", desc)}
+				onDelete={resolvedPromptId ? onOpenDeleteDialog : undefined}
+				isDeleting={editorState.isSaving || promptState.loading}
 			/>
 
 			{/* Main Editor Area */}
