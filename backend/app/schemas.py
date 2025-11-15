@@ -267,7 +267,7 @@ class ModelInfoOut(BaseModel):
         from_attributes = True
 
 
-class ModelslistOut(BaseModel):
+class ModelsListOut(BaseModel):
     """list of available models."""
 
     items: list[ModelInfoOut]
