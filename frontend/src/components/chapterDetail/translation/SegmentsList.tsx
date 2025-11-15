@@ -1,5 +1,5 @@
 import { Box, Menu, Portal, Stack, Text } from "@chakra-ui/react";
-import { memo } from "react";
+import { memo, useRef, useState } from "react";
 import type { TranslationSegmentRow } from "../types";
 
 interface SegmentsListProps {
@@ -53,22 +53,55 @@ const SegmentRow = memo(function SegmentRow({
 		segment.text || (segment.status === "running" ? "Translating..." : "");
 	const hasSource = srcText.trim().length > 0;
 	const hasTarget = tgtText.trim().length > 0;
+	const [menuOpen, setMenuOpen] = useState(false);
+	const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number }>({
+		x: 0,
+		y: 0,
+	});
+	const contextMenuRef = useRef<HTMLDivElement>(null);
 
 	if (!hasSource && !hasTarget) {
 		return <Box height="2" />;
 	}
 
+	const handleContextMenu = (e: React.MouseEvent<HTMLElement>) => {
+		const selection = window.getSelection()?.toString() || "";
+
+		// If text is selected, let the browser's default context menu show
+		if (selection) {
+			return;
+		}
+
+		// Prevent default and show our retranslate menu
+		e.preventDefault();
+		setContextMenuPos({ x: e.clientX, y: e.clientY });
+		onContextSelect(segment.segmentId);
+		setMenuOpen(true);
+	};
+
+	const getAnchorRect = () => {
+		return {
+			x: contextMenuPos.x,
+			y: contextMenuPos.y,
+			width: 0,
+			height: 0,
+		};
+	};
+
 	return (
-		<Menu.Root>
-			<Menu.ContextTrigger
+		<Menu.Root
+			open={menuOpen}
+			onOpenChange={(details) => setMenuOpen(details.open)}
+			positioning={{ getAnchorRect }}
+		>
+			<Box
 				w="full"
 				bg={isSelected ? "blue.50" : "transparent"}
 				borderRadius="md"
 				p={3}
 				borderWidth={isSelected ? "1px" : "0px"}
 				borderColor={isSelected ? "blue.200" : "transparent"}
-				cursor="context-menu"
-				onContextMenu={() => onContextSelect(segment.segmentId)}
+				onContextMenu={handleContextMenu}
 			>
 				<Stack gap={2}>
 					{hasSource ? (
@@ -87,7 +120,7 @@ const SegmentRow = memo(function SegmentRow({
 						</Text>
 					) : null}
 				</Stack>
-			</Menu.ContextTrigger>
+			</Box>
 			<Portal>
 				<Menu.Positioner>
 					<Menu.Content>
