@@ -9,8 +9,8 @@ import {
 	VStack,
 	useDisclosure,
 } from "@chakra-ui/react";
-import { ChevronLeft } from "lucide-react";
 import axios from "axios";
+import { ChevronLeft } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Prompts } from "../../client";
 import { usePrompt } from "../../hooks/usePrompt";
@@ -235,7 +235,9 @@ export function PromptEditor({
 			}
 
 			setFieldErrors(newFieldErrors);
-			setSaveError(getApiErrorMessage(error, "Failed to save changes. Please try again."));
+			setSaveError(
+				getApiErrorMessage(error, "Failed to save changes. Please try again."),
+			);
 			setEditorState((prev) => ({
 				...prev,
 				isSaving: false,

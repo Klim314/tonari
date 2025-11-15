@@ -24,17 +24,21 @@ interface UseChapterTranslationStreamOptions {
 	autoStart?: boolean;
 }
 
+interface StreamStartOptions {
+	promptOverrideToken?: string | null;
+}
+
 interface TranslationStreamHook {
 	status: TranslationStreamStatus;
 	error: string | null;
 	segments: SegmentState[];
 	isStreaming: boolean;
-	start: () => void;
+	start: (options?: StreamStartOptions) => void;
 	pause: () => void;
 	reset: () => void;
 	isResetting: boolean;
 	regenerate: () => Promise<boolean>;
-	retranslateSegment: (segmentId: number) => void;
+	retranslateSegment: (segmentId: number, options?: StreamStartOptions) => void;
 }
 
 interface ChapterTranslationStateResponse {
@@ -58,21 +62,41 @@ function sanitizeBaseUrl(baseURL?: string): string {
 	return baseURL.endsWith("/") ? baseURL.slice(0, -1) : baseURL;
 }
 
-function buildStreamUrl(workId: number, chapterId: number): string {
-	return buildChapterActionUrl(workId, chapterId, "/translate/stream");
+function buildStreamUrl(
+	workId: number,
+	chapterId: number,
+	query?: Record<string, string | undefined>,
+): string {
+	return buildChapterActionUrl(workId, chapterId, "/translate/stream", query);
 }
 
 function buildChapterActionUrl(
 	workId: number,
 	chapterId: number,
 	actionPath: string,
+	query?: Record<string, string | undefined>,
 ): string {
 	const baseURL = sanitizeBaseUrl(client.getConfig().baseURL || "/api");
 	const path = `/works/${workId}/chapters/${chapterId}${actionPath}`;
-	if (!baseURL) {
-		return path;
+	const url = baseURL ? `${baseURL}${path}` : path;
+	const queryString = buildQueryString(query);
+	if (queryString) {
+		return `${url}?${queryString}`;
 	}
-	return `${baseURL}${path}`;
+	return url;
+}
+
+function buildQueryString(query?: Record<string, string | undefined>): string {
+	if (!query) {
+		return "";
+	}
+	const params = new URLSearchParams();
+	for (const [key, value] of Object.entries(query)) {
+		if (value) {
+			params.set(key, value);
+		}
+	}
+	return params.toString();
 }
 
 function parseEventData<T = Record<string, unknown>>(
@@ -220,64 +244,69 @@ export function useChapterTranslationStream({
 		});
 	}, []);
 
-	const start = useCallback(() => {
-		if (!workId || !chapterId) {
-			setError("Missing work or chapter identifier");
-			return;
-		}
-		if (eventSourceRef.current) {
-			return;
-		}
-		setStatus("connecting");
-		setError(null);
+	const start = useCallback(
+		(options?: StreamStartOptions) => {
+			if (!workId || !chapterId) {
+				setError("Missing work or chapter identifier");
+				return;
+			}
+			if (eventSourceRef.current) {
+				return;
+			}
+			setStatus("connecting");
+			setError(null);
 
-		const url = buildStreamUrl(workId, chapterId);
-		const source = new EventSource(url);
-		eventSourceRef.current = source;
+			const url = buildStreamUrl(workId, chapterId, {
+				prompt_override_token: options?.promptOverrideToken ?? undefined,
+			});
+			const source = new EventSource(url);
+			eventSourceRef.current = source;
 
-		source.addEventListener("translation-status", (event) => {
-			const payload = parseEventData<{ status: string }>(
-				event as MessageEvent<string>,
+			source.addEventListener("translation-status", (event) => {
+				const payload = parseEventData<{ status: string }>(
+					event as MessageEvent<string>,
+				);
+				if (!payload) return;
+				setStatus(normalizeStatus(payload.status));
+			});
+			source.addEventListener(
+				"segment-start",
+				handleSegmentStart as EventListener,
 			);
-			if (!payload) return;
-			setStatus(normalizeStatus(payload.status));
-		});
-		source.addEventListener(
-			"segment-start",
-			handleSegmentStart as EventListener,
-		);
-		source.addEventListener(
-			"segment-delta",
-			handleSegmentDelta as EventListener,
-		);
-		source.addEventListener(
-			"segment-complete",
-			handleSegmentComplete as EventListener,
-		);
-		source.addEventListener("translation-error", (event) => {
-			const payload = parseEventData<{ error?: string }>(
-				event as MessageEvent<string>,
+			source.addEventListener(
+				"segment-delta",
+				handleSegmentDelta as EventListener,
 			);
-			setError(payload?.error ?? "Translation run failed");
-			setStatus("error");
-			closeStream("error");
-		});
-		source.addEventListener("translation-complete", () => {
-			setStatus("completed");
-			closeStream("completed");
-		});
-		source.onerror = () => {
-			setError("Translation stream disconnected");
-			closeStream("error");
-		};
-	}, [
-		chapterId,
-		closeStream,
-		handleSegmentComplete,
-		handleSegmentDelta,
-		handleSegmentStart,
-		workId,
-	]);
+			source.addEventListener(
+				"segment-complete",
+				handleSegmentComplete as EventListener,
+			);
+			source.addEventListener("translation-error", (event) => {
+				const payload = parseEventData<{ error?: string }>(
+					event as MessageEvent<string>,
+				);
+				setError(payload?.error ?? "Translation run failed");
+				setStatus("error");
+				closeStream("error");
+			});
+			source.addEventListener("translation-complete", () => {
+				setStatus("completed");
+				closeStream("completed");
+			});
+			source.onerror = () => {
+				setError("Translation stream disconnected");
+				closeStream("error");
+			};
+		},
+		[
+			chapterId,
+			closeStream,
+			handleSegmentComplete,
+			handleSegmentDelta,
+			handleSegmentStart,
+			workId,
+		],
+	);
 
 	const pause = useCallback(() => {
 		closeStream("idle");
@@ -358,7 +387,7 @@ export function useChapterTranslationStream({
 	}, [segmentsMap]);
 
 	const retranslateSegment = useCallback(
-		(segmentId: number) => {
+		(segmentId: number, options?: StreamStartOptions) => {
 			if (!workId || !chapterId) {
 				setError("Missing work or chapter identifier");
 				return;
@@ -375,6 +404,9 @@ export function useChapterTranslationStream({
 				workId,
 				chapterId,
 				`/segments/${segmentId}/retranslate/stream`,
+				{
+					prompt_override_token: options?.promptOverrideToken ?? undefined,
+				},
 			);
 			const source = new EventSource(url);
 			eventSourceRef.current = source;
@@ -414,7 +446,14 @@ export function useChapterTranslationStream({
 				}
 			};
 		},
-		[chapterId, closeStream, handleSegmentComplete, handleSegmentDelta, handleSegmentStart, workId],
+		[
+			chapterId,
+			closeStream,
+			handleSegmentComplete,
+			handleSegmentDelta,
+			handleSegmentStart,
+			workId,
+		],
 	);
 
 	return {

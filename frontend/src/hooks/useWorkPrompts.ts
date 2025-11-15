@@ -17,7 +17,11 @@ const defaultState: WorkPromptsState = {
 
 const SEARCH_DEBOUNCE_MS = 300;
 
-export function useWorkPrompts(workId: number, searchQuery: string, refreshToken = 0) {
+export function useWorkPrompts(
+	workId: number,
+	searchQuery: string,
+	refreshToken = 0,
+) {
 	const [state, setState] = useState<WorkPromptsState>(defaultState);
 	const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const refreshKey = refreshToken;
@@ -31,7 +35,9 @@ export function useWorkPrompts(workId: number, searchQuery: string, refreshToken
 			try {
 				const trimmedQuery = searchQuery.trim();
 				const query: NonNullable<
-					Parameters<typeof Prompts.listWorkPromptsPromptsWorksWorkIdPromptsGet>[0]
+					Parameters<
+						typeof Prompts.listWorkPromptsPromptsWorksWorkIdPromptsGet
+					>[0]
 				>["query"] = {
 					limit: 50,
 					offset: 0,
@@ -40,12 +46,13 @@ export function useWorkPrompts(workId: number, searchQuery: string, refreshToken
 					query.q = trimmedQuery;
 				}
 
-				const response = await Prompts.listWorkPromptsPromptsWorksWorkIdPromptsGet({
-					path: { work_id: workId },
-					query,
-					signal: controller.signal,
-					throwOnError: true,
-				});
+				const response =
+					await Prompts.listWorkPromptsPromptsWorksWorkIdPromptsGet({
+						path: { work_id: workId },
+						query,
+						signal: controller.signal,
+						throwOnError: true,
+					});
 
 				if (!cancelled) {
 					setState({

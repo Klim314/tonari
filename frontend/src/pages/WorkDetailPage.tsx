@@ -15,10 +15,10 @@ import {
 } from "@chakra-ui/react";
 import { type FormEvent, useMemo, useState } from "react";
 import { Works } from "../client";
+import { WorkPromptSelector } from "../components/WorkPromptSelector";
 import { useWork } from "../hooks/useWork";
 import { useWorkChapters } from "../hooks/useWorkChapters";
 import { getApiErrorMessage } from "../lib/api";
-import { WorkPromptSelector } from "../components/WorkPromptSelector";
 import type { Chapter } from "../types/works";
 
 const CHAPTERS_PER_PAGE = 10;

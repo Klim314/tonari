@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from datetime import datetime, timezone
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy.orm import Session as DBSession
@@ -11,9 +13,17 @@ from sse_starlette.sse import EventSourceResponse
 from agents.translation_agent import TranslationAgent
 from app.config import settings
 from app.db import SessionLocal
+from app.prompt_overrides import (
+    PromptOverrideExpiredError,
+    PromptOverrideInvalidError,
+    create_prompt_override_token,
+    decode_prompt_override_token,
+)
 from app.schemas import (
     ChapterDetailOut,
     ChapterOut,
+    ChapterPromptOverrideRequest,
+    ChapterPromptOverrideResponse,
     ChapterScrapeErrorItem,
     ChapterScrapeRequest,
     ChapterScrapeResponse,
@@ -232,11 +242,73 @@ def regenerate_chapter_segments(work_id: int, chapter_id: int):
         return _build_translation_state(chapter, translation, segments)
 
 
+def _resolve_prompt_override(token: str | None, work_id: int, chapter_id: int):
+    if not token:
+        return None
+    try:
+        payload = decode_prompt_override_token(token)
+    except PromptOverrideExpiredError:
+        raise HTTPException(status_code=400, detail="prompt override expired") from None
+    except PromptOverrideInvalidError:
+        raise HTTPException(status_code=400, detail="prompt override token invalid") from None
+
+    payload_work_id = payload.get("work_id")
+    payload_chapter_id = payload.get("chapter_id")
+    if payload_work_id != work_id or payload_chapter_id != chapter_id:
+        raise HTTPException(
+            status_code=400, detail="prompt override token does not match chapter"
+        ) from None
+    if not payload.get("template") or not payload.get("model"):
+        raise HTTPException(status_code=400, detail="prompt override missing prompt data") from None
+    return payload
+
+
+@router.post(
+    "/{work_id}/chapters/{chapter_id}/prompt-overrides",
+    response_model=ChapterPromptOverrideResponse,
+)
+def create_chapter_prompt_override(
+    work_id: int, chapter_id: int, payload: ChapterPromptOverrideRequest
+):
+    """Create a signed prompt override token for a single translation run."""
+    with SessionLocal() as db:
+        works_service = WorksService(db)
+        chapters_service = ChaptersService(db)
+
+        try:
+            work = works_service.get_work(work_id)
+        except WorkNotFoundError:
+            raise HTTPException(status_code=404, detail="work not found") from None
+
+        try:
+            chapter = chapters_service.get_chapter(chapter_id)
+        except ChapterNotFoundError:
+            raise HTTPException(status_code=404, detail="chapter not found") from None
+
+        if chapter.work_id != work.id:
+            raise HTTPException(status_code=404, detail="chapter not found") from None
+
+        token = create_prompt_override_token(
+            work_id=work.id,
+            chapter_id=chapter.id,
+            model=payload.model,
+            template=payload.template,
+            parameters=payload.parameters,
+        )
+
+        expires_at = datetime.fromtimestamp(token.expires_at, tz=timezone.utc)
+        return ChapterPromptOverrideResponse(token=token.token, expires_at=expires_at)
+
+
+
+
 def _sse_event(event: str, payload: dict) -> dict:
     return {"event": event, "data": json.dumps(payload)}
 
 
-def _get_work_translation_agent(work_id: int, db: DBSession) -> TranslationAgent:
+def _get_work_translation_agent(
+    work_id: int, db: DBSession, *, prompt_override: dict[str, Any] | None = None
+) -> TranslationAgent:
     """Get a translation agent with the work's selected prompt, or default if none selected."""
     prompt_service = PromptService(db)
     prompt = prompt_service.get_prompt_for_work(work_id)
@@ -244,11 +316,15 @@ def _get_work_translation_agent(work_id: int, db: DBSession) -> TranslationAgent
     # Get the latest version if a prompt is assigned
     system_prompt = None
     model = settings.translation_model  # Default model
-    if prompt:
+    if prompt_override:
+        system_prompt = prompt_override.get("template") or None
+        override_model = prompt_override.get("model")
+        if isinstance(override_model, str) and override_model.strip():
+            model = override_model
+    elif prompt:
         versions, _, _, _ = prompt_service.get_prompt_versions(prompt.id, limit=1, offset=0)
         if versions:
             latest_version = versions[0]
-            # Use the template and model from the latest prompt version
             system_prompt = latest_version.template
             model = latest_version.model
 
@@ -425,7 +501,12 @@ async def _translate_segments_stream(
 
 
 @router.get("/{work_id}/chapters/{chapter_id}/translate/stream")
-async def stream_chapter_translation(work_id: int, chapter_id: int, request: Request):
+async def stream_chapter_translation(
+    work_id: int,
+    chapter_id: int,
+    request: Request,
+    prompt_override_token: str | None = Query(default=None),
+):
     db = SessionLocal()
     works_service = WorksService(db)
     chapters_service = ChaptersService(db)
@@ -451,11 +532,14 @@ async def stream_chapter_translation(work_id: int, chapter_id: int, request: Req
         segments = translation_service.ensure_segments(translation, chapter.normalized_text)
         is_not_complete = translation_service.first_pending_segment(segments) is not None
 
-        # Get the prompt assignment to check if work has custom prompt
         prompt_service = PromptService(db)
         work_prompt = prompt_service.get_prompt_for_work(work_id)
 
-        translation_agent = _get_work_translation_agent(work_id, db)
+        prompt_override = _resolve_prompt_override(prompt_override_token, work_id, chapter_id)
+
+        translation_agent = _get_work_translation_agent(
+            work_id, db, prompt_override=prompt_override
+        )
 
         logger.info(
             "Starting translation run",
@@ -468,6 +552,7 @@ async def stream_chapter_translation(work_id: int, chapter_id: int, request: Req
                 "context_window": settings.translation_context_segments,
                 "api_base": settings.translation_api_base_url,
                 "has_custom_prompt": work_prompt is not None,
+                "has_prompt_override": prompt_override is not None,
             },
         )
 
@@ -516,7 +601,13 @@ async def stream_chapter_translation(work_id: int, chapter_id: int, request: Req
 
 
 @router.get("/{work_id}/chapters/{chapter_id}/segments/{segment_id}/retranslate/stream")
-async def retranslate_segment(work_id: int, chapter_id: int, segment_id: int, request: Request):
+async def retranslate_segment(
+    work_id: int,
+    chapter_id: int,
+    segment_id: int,
+    request: Request,
+    prompt_override_token: str | None = Query(default=None),
+):
     """Retranslate a single segment in a chapter translation."""
     from sqlalchemy import select
     from app.models import TranslationSegment
@@ -553,7 +644,11 @@ async def retranslate_segment(work_id: int, chapter_id: int, segment_id: int, re
         translation_service.reset_segment(segment_id)
         segment = db.execute(stmt).scalars().first()
 
-        translation_agent = _get_work_translation_agent(work_id, db)
+        prompt_override = _resolve_prompt_override(prompt_override_token, work_id, chapter_id)
+
+        translation_agent = _get_work_translation_agent(
+            work_id, db, prompt_override=prompt_override
+        )
         chapter_text = chapter.normalized_text
 
         logger.info(
@@ -564,6 +659,7 @@ async def retranslate_segment(work_id: int, chapter_id: int, segment_id: int, re
                 "segment_id": segment_id,
                 "chapter_translation_id": translation.id,
                 "model": translation_agent.model,
+                "has_prompt_override": prompt_override is not None,
             },
         )
 

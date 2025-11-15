@@ -123,6 +123,21 @@ class ChapterTranslationStateOut(BaseModel):
     segments: list[TranslationSegmentOut]
 
 
+class ChapterPromptOverrideRequest(BaseModel):
+    model: str = Field(..., min_length=1, max_length=128, description="Model identifier")
+    template: str = Field(..., min_length=1, description="Prompt template to use for this run")
+    parameters: Optional[dict[str, Any]] = Field(
+        default=None, description="Optional structured parameter overrides"
+    )
+
+
+class ChapterPromptOverrideResponse(BaseModel):
+    token: str
+    expires_at: datetime
+
+
+
+
 # Prompt-related schemas
 class PromptVersionOut(BaseModel):
     id: int

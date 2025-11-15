@@ -1,9 +1,9 @@
 import { Box, Button, HStack, Input, Stack, Text } from "@chakra-ui/react";
 import { useEffect, useState } from "react";
 import { Prompts } from "../client";
-import { getApiErrorMessage } from "../lib/api";
-import { useWorkPrompts } from "../hooks/useWorkPrompts";
 import type { PromptOut } from "../client";
+import { useWorkPrompts } from "../hooks/useWorkPrompts";
+import { getApiErrorMessage } from "../lib/api";
 
 interface WorkPromptSelectorProps {
 	workId: number;
@@ -18,27 +18,35 @@ export function WorkPromptSelector({
 	const [isOpen, setIsOpen] = useState(false);
 	const [currentPrompt, setCurrentPrompt] = useState<PromptOut | null>(null);
 	const [currentPromptLoading, setCurrentPromptLoading] = useState(true);
-	const [currentPromptError, setCurrentPromptError] = useState<string | null>(null);
+	const [currentPromptError, setCurrentPromptError] = useState<string | null>(
+		null,
+	);
 	const [isUpdating, setIsUpdating] = useState(false);
 
-	const { data: promptsList, loading: searchLoading, error: searchError } = useWorkPrompts(
-		workId,
-		searchQuery,
-	);
+	const {
+		data: promptsList,
+		loading: searchLoading,
+		error: searchError,
+	} = useWorkPrompts(workId, searchQuery);
 
 	// Load current prompt on mount
 	useEffect(() => {
 		async function loadCurrentPrompt() {
 			try {
 				setCurrentPromptLoading(true);
-				const response = await Prompts.getWorkPromptPromptsWorksWorkIdPromptGet({
-					path: { work_id: workId },
-					throwOnError: true,
-				});
+				const response = await Prompts.getWorkPromptPromptsWorksWorkIdPromptGet(
+					{
+						path: { work_id: workId },
+						throwOnError: true,
+					},
+				);
 				setCurrentPrompt(response.data);
 				setCurrentPromptError(null);
 			} catch (error) {
-				const message = getApiErrorMessage(error, "Failed to load current prompt");
+				const message = getApiErrorMessage(
+					error,
+					"Failed to load current prompt",
+				);
 				setCurrentPromptError(message);
 			} finally {
 				setCurrentPromptLoading(false);
@@ -51,11 +59,12 @@ export function WorkPromptSelector({
 	async function handleSelectPrompt(prompt: PromptOut) {
 		setIsUpdating(true);
 		try {
-			const response = await Prompts.updateWorkPromptPromptsWorksWorkIdPromptPatch({
-				path: { work_id: workId },
-				body: { prompt_id: prompt.id },
-				throwOnError: true,
-			});
+			const response =
+				await Prompts.updateWorkPromptPromptsWorksWorkIdPromptPatch({
+					path: { work_id: workId },
+					body: { prompt_id: prompt.id },
+					throwOnError: true,
+				});
 			setCurrentPrompt(response.data);
 			setSearchQuery("");
 			setIsOpen(false);
