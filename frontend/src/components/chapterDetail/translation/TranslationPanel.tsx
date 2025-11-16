@@ -16,6 +16,7 @@ import {
 	type TranslationStreamStatus,
 	useChapterTranslationStream,
 } from "../../../hooks/useChapterTranslationStream";
+import { ExplanationPanel } from "./ExplanationPanel";
 import { SegmentsList } from "./SegmentsList";
 
 type PrimaryAction = "start" | "resume" | "regenerate";
@@ -37,6 +38,9 @@ export const TranslationPanel = memo(function TranslationPanel({
 	const [retranslatingSegmentId, setRetranslatingSegmentId] = useState<
 		number | null
 	>(null);
+	const [explanationSegmentId, setExplanationSegmentId] = useState<number | null>(
+		null,
+	);
 	const {
 		status: translationStatus,
 		error: translationError,
@@ -136,6 +140,10 @@ export const TranslationPanel = memo(function TranslationPanel({
 		[retranslateSegment],
 	);
 
+	const handleSegmentExplain = useCallback((segmentId: number) => {
+		setExplanationSegmentId(segmentId);
+	}, []);
+
 	return (
 		<Box
 			flex="1"
@@ -201,6 +209,41 @@ export const TranslationPanel = memo(function TranslationPanel({
 					retranslatingSegmentId={retranslatingSegmentId}
 					onContextSelect={handleSegmentContextSelect}
 					onSegmentRetranslate={handleSegmentRetranslate}
+					onSegmentExplain={handleSegmentExplain}
+				/>
+			)}
+
+			{explanationSegmentId !== null && (
+				<ExplanationPanel
+					segmentId={explanationSegmentId}
+					workId={workId}
+					chapterId={chapterId}
+					currentSegment={{
+						src: translationSegments.find((s) => s.segmentId === explanationSegmentId)
+							?.src || "",
+						tgt: translationSegments.find((s) => s.segmentId === explanationSegmentId)
+							?.text || "",
+					}}
+					precedingSegment={
+						translationSegments
+							.filter((s) => s.segmentId < explanationSegmentId)
+							.slice(-1)
+							.map((s) => ({
+								src: s.src || "",
+								tgt: s.text || "",
+							}))[0]
+					}
+					followingSegment={
+						translationSegments
+							.filter((s) => s.segmentId > explanationSegmentId)
+							.slice(0, 1)
+							.map((s) => ({
+								src: s.src || "",
+								tgt: s.text || "",
+							}))[0]
+					}
+					isOpen={explanationSegmentId !== null}
+					onClose={() => setExplanationSegmentId(null)}
 				/>
 			)}
 		</Box>

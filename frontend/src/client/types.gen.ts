@@ -61,6 +61,46 @@ export type ChapterOut = {
 };
 
 /**
+ * ChapterPromptOverrideRequest
+ */
+export type ChapterPromptOverrideRequest = {
+    /**
+     * Model
+     *
+     * Model identifier
+     */
+    model: string;
+    /**
+     * Template
+     *
+     * Prompt template to use for this run
+     */
+    template: string;
+    /**
+     * Parameters
+     *
+     * Optional structured parameter overrides
+     */
+    parameters?: {
+        [key: string]: unknown;
+    } | null;
+};
+
+/**
+ * ChapterPromptOverrideResponse
+ */
+export type ChapterPromptOverrideResponse = {
+    /**
+     * Token
+     */
+    token: string;
+    /**
+     * Expires At
+     */
+    expires_at: string;
+};
+
+/**
  * ChapterScrapeErrorItem
  */
 export type ChapterScrapeErrorItem = {
@@ -226,6 +266,58 @@ export type IngestSyosetuRequest = {
      * Chapter number (1-indexed) to fetch
      */
     chapter: number;
+};
+
+/**
+ * ModelInfoOut
+ *
+ * Information about a supported LLM model.
+ */
+export type ModelInfoOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Provider
+     */
+    provider: string;
+    /**
+     * Max Tokens
+     */
+    max_tokens: number;
+    /**
+     * Supports Streaming
+     */
+    supports_streaming?: boolean;
+    /**
+     * Cost Per 1M Input
+     */
+    cost_per_1m_input?: number;
+    /**
+     * Cost Per 1M Output
+     */
+    cost_per_1m_output?: number;
+};
+
+/**
+ * ModelsListOut
+ *
+ * list of available models.
+ */
+export type ModelsListOut = {
+    /**
+     * Items
+     */
+    items: Array<ModelInfoOut>;
+    /**
+     * Total
+     */
+    total: number;
 };
 
 /**
@@ -722,6 +814,22 @@ export type ListTranslationSegmentsChapterTranslationsCtIdSegmentsGetResponses =
 };
 
 export type ListTranslationSegmentsChapterTranslationsCtIdSegmentsGetResponse = ListTranslationSegmentsChapterTranslationsCtIdSegmentsGetResponses[keyof ListTranslationSegmentsChapterTranslationsCtIdSegmentsGetResponses];
+
+export type ListModelsModelsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/models/';
+};
+
+export type ListModelsModelsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: ModelsListOut;
+};
+
+export type ListModelsModelsGetResponse = ListModelsModelsGetResponses[keyof ListModelsModelsGetResponses];
 
 export type ListPromptsPromptsGetData = {
     body?: never;
@@ -1378,6 +1486,40 @@ export type RegenerateChapterSegmentsWorksWorkIdChaptersChapterIdRegenerateSegme
     200: unknown;
 };
 
+export type CreateChapterPromptOverrideWorksWorkIdChaptersChapterIdPromptOverridesPostData = {
+    body: ChapterPromptOverrideRequest;
+    path: {
+        /**
+         * Work Id
+         */
+        work_id: number;
+        /**
+         * Chapter Id
+         */
+        chapter_id: number;
+    };
+    query?: never;
+    url: '/works/{work_id}/chapters/{chapter_id}/prompt-overrides';
+};
+
+export type CreateChapterPromptOverrideWorksWorkIdChaptersChapterIdPromptOverridesPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateChapterPromptOverrideWorksWorkIdChaptersChapterIdPromptOverridesPostError = CreateChapterPromptOverrideWorksWorkIdChaptersChapterIdPromptOverridesPostErrors[keyof CreateChapterPromptOverrideWorksWorkIdChaptersChapterIdPromptOverridesPostErrors];
+
+export type CreateChapterPromptOverrideWorksWorkIdChaptersChapterIdPromptOverridesPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ChapterPromptOverrideResponse;
+};
+
+export type CreateChapterPromptOverrideWorksWorkIdChaptersChapterIdPromptOverridesPostResponse = CreateChapterPromptOverrideWorksWorkIdChaptersChapterIdPromptOverridesPostResponses[keyof CreateChapterPromptOverrideWorksWorkIdChaptersChapterIdPromptOverridesPostResponses];
+
 export type StreamChapterTranslationWorksWorkIdChaptersChapterIdTranslateStreamGetData = {
     body?: never;
     path: {
@@ -1390,7 +1532,12 @@ export type StreamChapterTranslationWorksWorkIdChaptersChapterIdTranslateStreamG
          */
         chapter_id: number;
     };
-    query?: never;
+    query?: {
+        /**
+         * Prompt Override Token
+         */
+        prompt_override_token?: string | null;
+    };
     url: '/works/{work_id}/chapters/{chapter_id}/translate/stream';
 };
 
@@ -1404,6 +1551,83 @@ export type StreamChapterTranslationWorksWorkIdChaptersChapterIdTranslateStreamG
 export type StreamChapterTranslationWorksWorkIdChaptersChapterIdTranslateStreamGetError = StreamChapterTranslationWorksWorkIdChaptersChapterIdTranslateStreamGetErrors[keyof StreamChapterTranslationWorksWorkIdChaptersChapterIdTranslateStreamGetErrors];
 
 export type StreamChapterTranslationWorksWorkIdChaptersChapterIdTranslateStreamGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type RetranslateSegmentWorksWorkIdChaptersChapterIdSegmentsSegmentIdRetranslateStreamGetData = {
+    body?: never;
+    path: {
+        /**
+         * Work Id
+         */
+        work_id: number;
+        /**
+         * Chapter Id
+         */
+        chapter_id: number;
+        /**
+         * Segment Id
+         */
+        segment_id: number;
+    };
+    query?: {
+        /**
+         * Prompt Override Token
+         */
+        prompt_override_token?: string | null;
+    };
+    url: '/works/{work_id}/chapters/{chapter_id}/segments/{segment_id}/retranslate/stream';
+};
+
+export type RetranslateSegmentWorksWorkIdChaptersChapterIdSegmentsSegmentIdRetranslateStreamGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RetranslateSegmentWorksWorkIdChaptersChapterIdSegmentsSegmentIdRetranslateStreamGetError = RetranslateSegmentWorksWorkIdChaptersChapterIdSegmentsSegmentIdRetranslateStreamGetErrors[keyof RetranslateSegmentWorksWorkIdChaptersChapterIdSegmentsSegmentIdRetranslateStreamGetErrors];
+
+export type RetranslateSegmentWorksWorkIdChaptersChapterIdSegmentsSegmentIdRetranslateStreamGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type ExplainSegmentWorksWorkIdChaptersChapterIdSegmentsSegmentIdExplainStreamGetData = {
+    body?: never;
+    path: {
+        /**
+         * Work Id
+         */
+        work_id: number;
+        /**
+         * Chapter Id
+         */
+        chapter_id: number;
+        /**
+         * Segment Id
+         */
+        segment_id: number;
+    };
+    query?: never;
+    url: '/works/{work_id}/chapters/{chapter_id}/segments/{segment_id}/explain/stream';
+};
+
+export type ExplainSegmentWorksWorkIdChaptersChapterIdSegmentsSegmentIdExplainStreamGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ExplainSegmentWorksWorkIdChaptersChapterIdSegmentsSegmentIdExplainStreamGetError = ExplainSegmentWorksWorkIdChaptersChapterIdSegmentsSegmentIdExplainStreamGetErrors[keyof ExplainSegmentWorksWorkIdChaptersChapterIdSegmentsSegmentIdExplainStreamGetErrors];
+
+export type ExplainSegmentWorksWorkIdChaptersChapterIdSegmentsSegmentIdExplainStreamGetResponses = {
     /**
      * Successful Response
      */

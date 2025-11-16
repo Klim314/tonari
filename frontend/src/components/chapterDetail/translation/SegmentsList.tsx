@@ -1,5 +1,5 @@
 import { Box, Menu, Portal, Stack, Text } from "@chakra-ui/react";
-import { memo, useRef, useState } from "react";
+import { memo, useState } from "react";
 import type { TranslationSegmentRow } from "../types";
 
 interface SegmentsListProps {
@@ -8,6 +8,7 @@ interface SegmentsListProps {
 	retranslatingSegmentId: number | null;
 	onContextSelect: (segmentId: number) => void;
 	onSegmentRetranslate: (segmentId: number) => void;
+	onSegmentExplain: (segmentId: number) => void;
 }
 
 export function SegmentsList({
@@ -16,6 +17,7 @@ export function SegmentsList({
 	retranslatingSegmentId,
 	onContextSelect,
 	onSegmentRetranslate,
+	onSegmentExplain,
 }: SegmentsListProps) {
 	return (
 		<Stack gap={5}>
@@ -27,6 +29,7 @@ export function SegmentsList({
 					isRetranslating={retranslatingSegmentId === segment.segmentId}
 					onContextSelect={onContextSelect}
 					onRetranslate={onSegmentRetranslate}
+					onExplain={onSegmentExplain}
 				/>
 			))}
 		</Stack>
@@ -39,6 +42,7 @@ interface SegmentRowProps {
 	isRetranslating: boolean;
 	onContextSelect: (segmentId: number) => void;
 	onRetranslate: (segmentId: number) => void;
+	onExplain: (segmentId: number) => void;
 }
 
 const SegmentRow = memo(function SegmentRow({
@@ -47,6 +51,7 @@ const SegmentRow = memo(function SegmentRow({
 	isRetranslating,
 	onContextSelect,
 	onRetranslate,
+	onExplain,
 }: SegmentRowProps) {
 	const srcText = segment.src || "";
 	const tgtText =
@@ -58,7 +63,6 @@ const SegmentRow = memo(function SegmentRow({
 		x: 0,
 		y: 0,
 	});
-	const contextMenuRef = useRef<HTMLDivElement>(null);
 
 	if (!hasSource && !hasTarget) {
 		return <Box height="2" />;
@@ -130,6 +134,13 @@ const SegmentRow = memo(function SegmentRow({
 							disabled={isRetranslating}
 						>
 							{isRetranslating ? "Retranslating..." : "Retranslate Segment"}
+						</Menu.Item>
+						<Menu.Item
+							value="explain"
+							onClick={() => onExplain(segment.segmentId)}
+							disabled={!hasTarget || isRetranslating}
+						>
+							Explain Translation
 						</Menu.Item>
 					</Menu.Content>
 				</Menu.Positioner>
