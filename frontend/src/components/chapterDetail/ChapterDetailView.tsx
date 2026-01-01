@@ -9,7 +9,6 @@ import {
 import type { ReactNode } from "react";
 import type { ChapterDetail, Work } from "../../types/works";
 import { ChapterHeaderCard } from "./ChapterHeaderCard";
-import { SourceTextPanel } from "./SourceTextPanel";
 import { TranslationPanel } from "./translation/TranslationPanel";
 import type { TranslationPanelProps } from "./translation/TranslationPanel";
 import type { PromptMeta } from "./types";
@@ -104,14 +103,7 @@ export function ChapterDetailView({
 						onNavigateBack={onNavigateBack}
 					/>
 
-					<Stack
-						direction={{ base: "column", lg: "row" }}
-						gap={8}
-						align="flex-start"
-					>
-						<SourceTextPanel text={chapter.normalized_text} />
-						<TranslationPanel {...translationPanelProps} />
-					</Stack>
+					<TranslationPanel {...translationPanelProps} />
 				</Stack>
 			</Container>
 		</Box>

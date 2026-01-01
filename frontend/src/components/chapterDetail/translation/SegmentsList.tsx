@@ -1,4 +1,4 @@
-import { Box, Menu, Portal, Stack, Text } from "@chakra-ui/react";
+import { Box, Grid, Menu, Portal, Stack, Text } from "@chakra-ui/react";
 import { memo, useState } from "react";
 import type { TranslationSegmentRow } from "../types";
 
@@ -102,28 +102,47 @@ const SegmentRow = memo(function SegmentRow({
 				w="full"
 				bg={isSelected ? "blue.50" : "transparent"}
 				borderRadius="md"
-				p={3}
+				p={2}
 				borderWidth={isSelected ? "1px" : "0px"}
 				borderColor={isSelected ? "blue.200" : "transparent"}
 				onContextMenu={handleContextMenu}
+				_hover={{ bg: isSelected ? "blue.50" : "gray.50" }}
+				transition="background 0.2s"
 			>
-				<Stack gap={2}>
-					{hasSource ? (
+				<Grid templateColumns="1fr 1fr" gap={6}>
+					{/* Source Column */}
+					<Box>
 						<Text
 							fontFamily="mono"
 							whiteSpace="pre-wrap"
-							color="gray.400"
+							color="gray.500"
 							textAlign="left"
+							fontSize="md"
+							lineHeight="tall"
 						>
 							{srcText}
 						</Text>
-					) : null}
-					{hasTarget ? (
-						<Text whiteSpace="pre-wrap" color="gray.400" textAlign="left">
-							{tgtText}
-						</Text>
-					) : null}
-				</Stack>
+					</Box>
+
+					{/* Target Column */}
+					<Box borderLeftWidth="1px" borderLeftColor="gray.100" pl={6}>
+						{hasTarget ? (
+							<Text
+								whiteSpace="pre-wrap"
+								color="gray.800"
+								textAlign="left"
+								fontSize="md"
+								lineHeight="tall"
+							>
+								{tgtText}
+							</Text>
+						) : (
+							<Text color="gray.300" fontSize="sm" fontStyle="italic" pt={1}>
+								{isRetranslating ? "Pending..." : "No translation"}
+							</Text>
+						)}
+					</Box>
+				</Grid>
 			</Box>
 			<Portal>
 				<Menu.Positioner>
