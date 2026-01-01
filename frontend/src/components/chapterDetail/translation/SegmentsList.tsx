@@ -20,7 +20,7 @@ export function SegmentsList({
 	onSegmentExplain,
 }: SegmentsListProps) {
 	return (
-		<Stack gap={5}>
+		<Stack gap={0}>
 			{segments.map((segment) => (
 				<SegmentRow
 					key={segment.segmentId}
