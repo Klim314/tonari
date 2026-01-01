@@ -1,4 +1,5 @@
 import {
+	Badge,
 	Box,
 	Center,
 	CloseButton,
@@ -6,7 +7,7 @@ import {
 	Stack,
 	Text,
 } from "@chakra-ui/react";
-import { Loader } from "lucide-react";
+import { Loader, Sparkles } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useEffect, useState } from "react";
 
@@ -72,7 +73,13 @@ export function ExplanationPanel({
 				flexShrink={0}
 			>
 				<Box display="flex" justifyContent="space-between" alignItems="center">
-					<Heading size="md">Translation Explanation</Heading>
+					<Box display="flex" alignItems="center" gap={2}>
+						<Heading size="md">Translation Explanation</Heading>
+						<Badge colorScheme="purple" variant="subtle" display="flex" alignItems="center" gap={1}>
+							<Sparkles size={12} />
+							AI
+						</Badge>
+					</Box>
 					<CloseButton onClick={onClose} />
 				</Box>
 			</Stack>
@@ -84,65 +91,56 @@ export function ExplanationPanel({
 					<Text fontSize="sm" fontWeight="bold" color="gray.600" mb={2}>
 						Context
 					</Text>
-					<Stack gap={3} fontSize="sm">
+					<Stack gap={0} fontSize="sm" borderRadius="md" overflow="hidden" border="1px solid" borderColor="gray.200">
 						{precedingSegment && (
 							<Box
-								p={2}
+								p={3}
 								bg="gray.50"
-								borderRadius="md"
-								borderLeftWidth="3px"
-								borderLeftColor="gray.400"
+								borderBottomWidth="1px"
+								borderBottomColor="gray.100"
 							>
-								<Text color="gray.600" mb={1}>
-									<strong>Previous:</strong>
-								</Text>
-								<Text fontFamily="mono" fontSize="xs" color="gray.700" mb={1}>
+								<Text fontFamily="mono" fontSize="xs" color="gray.500" mb={1} whiteSpace="pre-wrap">
 									{precedingSegment.src}
 								</Text>
-								<Text color="gray.600">→ {precedingSegment.tgt}</Text>
+								<Text color="gray.500" whiteSpace="pre-wrap">{precedingSegment.tgt}</Text>
 							</Box>
 						)}
 
 						<Box
-							p={2}
+							p={3}
 							bg="blue.50"
-							borderRadius="md"
-							borderLeftWidth="3px"
+							borderLeftWidth="4px"
 							borderLeftColor="blue.400"
+							position="relative"
 						>
-							<Text color="gray.600" mb={1}>
-								<strong>Current (Being Explained):</strong>
-							</Text>
-							<Text fontFamily="mono" fontSize="xs" color="gray.700" mb={1}>
+							<Text fontFamily="mono" fontSize="xs" color="gray.800" mb={1} fontWeight="medium" whiteSpace="pre-wrap">
 								{currentSegment.src}
 							</Text>
-							<Text color="gray.600">→ {currentSegment.tgt}</Text>
+							<Text color="gray.800" fontWeight="medium" whiteSpace="pre-wrap">{currentSegment.tgt}</Text>
 						</Box>
 
 						{followingSegment && (
 							<Box
-								p={2}
+								p={3}
 								bg="gray.50"
-								borderRadius="md"
-								borderLeftWidth="3px"
-								borderLeftColor="gray.400"
+								borderTopWidth="1px"
+								borderTopColor="gray.100"
 							>
-								<Text color="gray.600" mb={1}>
-									<strong>Next:</strong>
-								</Text>
-								<Text fontFamily="mono" fontSize="xs" color="gray.700" mb={1}>
+								<Text fontFamily="mono" fontSize="xs" color="gray.500" mb={1} whiteSpace="pre-wrap">
 									{followingSegment.src}
 								</Text>
-								<Text color="gray.600">→ {followingSegment.tgt}</Text>
+								<Text color="gray.500" whiteSpace="pre-wrap">{followingSegment.tgt}</Text>
 							</Box>
 						)}
 					</Stack>
 				</Box>
 
 				<Box>
-					<Text fontSize="sm" fontWeight="bold" color="gray.600" mb={2}>
-						Explanation
-					</Text>
+					{explanation || isLoading || error ? null : (
+						<Text fontSize="sm" color="gray.500" fontStyle="italic">
+							Select a segment to explain...
+						</Text>
+					)}
 
 					{isLoading && !explanation && (
 						<Center py={8}>
