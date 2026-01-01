@@ -739,6 +739,25 @@ async def explain_segment(
         if not explanation_service.is_segment_translated(segment):
             raise HTTPException(status_code=400, detail="segment is not translated") from None
 
+        # Check if explanation already exists in cache
+        if segment.explanation:
+            logger.info(
+                "Returning cached explanation",
+                extra={"segment_id": segment_id, "work_id": work_id, "chapter_id": chapter_id},
+            )
+
+            async def cached_event_generator():
+                yield _sse_event(
+                    "explanation-delta",
+                    {"segment_id": segment_id, "delta": segment.explanation},
+                )
+                yield _sse_event(
+                    "explanation-complete",
+                    {"segment_id": segment_id, "explanation": segment.explanation},
+                )
+
+            return EventSourceResponse(cached_event_generator())
+
         # Get the explanation agent (uses hardcoded prompt)
         explanation_agent = get_explanation_agent()
 

@@ -36,60 +36,12 @@ export function ExplanationPanel({
 	isOpen,
 	onClose,
 }: ExplanationPanelProps) {
-	const [isLoading, setIsLoading] = useState(false);
-	const [explanation, setExplanation] = useState<string>("");
-	const [error, setError] = useState<string | null>(null);
-
-	useEffect(() => {
-		if (!isOpen) {
-			setExplanation("");
-			setError(null);
-			return;
-		}
-
-		const fetchExplanation = async () => {
-			setIsLoading(true);
-			setError(null);
-			setExplanation("");
-
-			try {
-				const url = `/api/works/${workId}/chapters/${chapterId}/segments/${segmentId}/explain/stream`;
-				const eventSource = new EventSource(url);
-
-				eventSource.addEventListener("explanation-delta", (event) => {
-					const { delta } = JSON.parse(event.data);
-					setExplanation((prev) => prev + (delta || ""));
-				});
-
-				eventSource.addEventListener("explanation-complete", () => {
-					eventSource.close();
-					setIsLoading(false);
-				});
-
-				eventSource.addEventListener("explanation-error", (event) => {
-					const { error } = JSON.parse(event.data);
-					setError(error || "Failed to generate explanation");
-					eventSource.close();
-					setIsLoading(false);
-				});
-
-				eventSource.onerror = () => {
-					setError("Connection lost while generating explanation");
-					eventSource.close();
-					setIsLoading(false);
-				};
-
-				return () => {
-					eventSource.close();
-				};
-			} catch (err) {
-				setError(err instanceof Error ? err.message : "Unknown error occurred");
-				setIsLoading(false);
-			}
-		};
-
-		fetchExplanation();
-	}, [isOpen, segmentId, workId, chapterId]);
+	const { explanation, isLoading, error } = useExplanationStream(
+		workId,
+		chapterId,
+		segmentId,
+		isOpen,
+	);
 
 	if (!isOpen) {
 		return null;
@@ -187,7 +139,6 @@ export function ExplanationPanel({
 					</Stack>
 				</Box>
 
-				{/* Explanation */}
 				<Box>
 					<Text fontSize="sm" fontWeight="bold" color="gray.600" mb={2}>
 						Explanation
@@ -223,89 +174,84 @@ export function ExplanationPanel({
 						</Box>
 					)}
 
-					{explanation && (
-						<Box fontSize="sm" lineHeight="1.6" color="gray.700">
-							<ReactMarkdown
-								components={{
-									p: ({ children }) => (
-										<Text mb={2} fontSize="sm">
-											{children}
-										</Text>
-									),
-									h1: ({ children }) => (
-										<Heading size="sm" mb={2} mt={3}>
-											{children}
-										</Heading>
-									),
-									h2: ({ children }) => (
-										<Heading size="xs" mb={2} mt={2}>
-											{children}
-										</Heading>
-									),
-									h3: ({ children }) => (
-										<Text fontWeight="bold" mb={2} fontSize="sm">
-											{children}
-										</Text>
-									),
-									ul: ({ children }) => (
-										<Box as="ul" mb={2} ps={4} sx={{ listStyleType: "disc" }}>
-											{children}
-										</Box>
-									),
-									ol: ({ children }) => (
-										<Box as="ol" mb={2} ps={4}>
-											{children}
-										</Box>
-									),
-									li: ({ children }) => (
-										<Box as="li" fontSize="sm" mb={1}>
-											{children}
-										</Box>
-									),
-									strong: ({ children }) => (
-										<Box as="strong" fontWeight="bold">
-											{children}
-										</Box>
-									),
-									em: ({ children }) => (
-										<Box as="em" fontStyle="italic">
-											{children}
-										</Box>
-									),
-									code: ({ children }) => (
-										<Box
-											as="code"
-											bg="gray.100"
-											px={1}
-											py={0.5}
-											borderRadius="sm"
-											fontFamily="mono"
-											fontSize="xs"
-											whiteSpace="pre-wrap"
-										>
-											{children}
-										</Box>
-									),
-									a: ({ href, children }) => (
-										<Text
-											as="a"
-											href={href}
-											color="blue.500"
-											textDecoration="underline"
-											target="_blank"
-											rel="noopener noreferrer"
-										>
-											{children}
-										</Text>
-									),
-								}}
-							>
-								{explanation}
-							</ReactMarkdown>
-						</Box>
-					)}
+					{
+						explanation && (
+							<Box fontSize="sm" lineHeight="1.6" color="gray.700">
+								<ReactMarkdown>{explanation}</ReactMarkdown>
+								{isLoading && (
+									<Text fontSize="xs" color="gray.400" mt={2} fontStyle="italic">
+										...
+									</Text>
+								)}
+							</Box>
+						)
+					}
 				</Box>
 			</Stack>
 		</Box>
 	);
+}
+
+function useExplanationStream(
+	workId: number,
+	chapterId: number,
+	segmentId: number,
+	isOpen: boolean,
+) {
+	const [isLoading, setIsLoading] = useState(false);
+	const [explanation, setExplanation] = useState("");
+	const [error, setError] = useState<string | null>(null);
+
+	useEffect(() => {
+		if (!isOpen) {
+			setExplanation("");
+			setError(null);
+			return;
+		}
+
+		setIsLoading(true);
+		setError(null);
+		setExplanation("");
+
+		let eventSource: EventSource | null = null;
+
+		try {
+			const url = `/api/works/${workId}/chapters/${chapterId}/segments/${segmentId}/explain/stream`;
+			eventSource = new EventSource(url);
+
+			eventSource.addEventListener("explanation-delta", (event) => {
+				const { delta } = JSON.parse(event.data);
+				setExplanation((prev) => prev + (delta || ""));
+			});
+
+			eventSource.addEventListener("explanation-complete", () => {
+				eventSource?.close();
+				setIsLoading(false);
+			});
+
+			eventSource.addEventListener("explanation-error", (event) => {
+				const { error } = JSON.parse(event.data);
+				setError(error || "Failed to generate explanation");
+				eventSource?.close();
+				setIsLoading(false);
+			});
+
+			eventSource.onerror = () => {
+				setError("Connection lost while generating explanation");
+				eventSource?.close();
+				setIsLoading(false);
+			};
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Unknown error occurred");
+			setIsLoading(false);
+		}
+
+		return () => {
+			if (eventSource) {
+				eventSource.close();
+			}
+		};
+	}, [isOpen, segmentId, workId, chapterId]);
+
+	return { explanation, isLoading, error };
 }
