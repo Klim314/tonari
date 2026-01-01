@@ -7,7 +7,7 @@ import {
 	Stack,
 } from "@chakra-ui/react";
 import type { ReactNode } from "react";
-import type { Chapter, Work } from "../../types/works";
+import type { ChapterDetail, Work } from "../../types/works";
 import { ChapterHeaderCard } from "./ChapterHeaderCard";
 import { SourceTextPanel } from "./SourceTextPanel";
 import { TranslationPanel } from "./translation/TranslationPanel";
@@ -16,7 +16,7 @@ import type { PromptMeta } from "./types";
 
 export interface ChapterDetailViewProps {
 	work: Work | null;
-	chapter: Chapter | null;
+	chapter: ChapterDetail | null;
 	promptMeta: PromptMeta;
 	promptDrawerTrigger: ReactNode;
 	translationPanelProps: TranslationPanelProps;
@@ -93,11 +93,7 @@ export function ChapterDetailView({
 	return (
 		<Box py={10}>
 			<Container maxW="6xl">
-				<Button variant="ghost" mb={4} onClick={onNavigateBack}>
-					← Back to work
-				</Button>
-
-				<Stack gap={8}>
+				<Stack gap={6}>
 					<ChapterHeaderCard
 						work={work}
 						chapter={chapter}
@@ -105,6 +101,7 @@ export function ChapterDetailView({
 						promptDrawerTrigger={promptDrawerTrigger}
 						onRegenerateSegments={onRegenerateSegments}
 						isRegeneratingSegments={isRegeneratingSegments}
+						onNavigateBack={onNavigateBack}
 					/>
 
 					<Stack

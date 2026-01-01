@@ -15,7 +15,7 @@ export function SourceTextPanel({ text }: SourceTextPanelProps) {
 				whiteSpace="pre-wrap"
 				fontFamily="mono"
 				lineHeight="tall"
-				color="gray.400"
+				color="gray.700"
 			>
 				{text}
 			</Text>
