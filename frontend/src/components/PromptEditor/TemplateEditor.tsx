@@ -1,6 +1,8 @@
-import { Box, Input, Stack, Text, Textarea, VStack } from "@chakra-ui/react";
+import { Box, Stack, Text, Textarea, VStack } from "@chakra-ui/react";
 import { FieldLabel, FieldRoot } from "@chakra-ui/react";
 import type { PromptVersionOut } from "../../client";
+import { useModels } from "../../hooks/useModels";
+import { ModelAutocomplete } from "./ModelAutocomplete";
 import { VersionSelector } from "./VersionSelector";
 
 interface TemplateEditorProps {
@@ -26,6 +28,8 @@ export function TemplateEditor({
 	latestVersionId,
 	onSelectVersion,
 }: TemplateEditorProps) {
+	const { data: availableModels, loading: loadingModels } = useModels();
+
 	return (
 		<VStack align="stretch" gap={4} flex="1" display="flex">
 			{/* Header with Model and Version Selector */}
@@ -40,13 +44,12 @@ export function TemplateEditor({
 					<FieldLabel htmlFor="model-input" mb={2}>
 						Model
 					</FieldLabel>
-					<Input
-						id="model-input"
-						placeholder="e.g., gpt-4, gpt-4-turbo"
+					<ModelAutocomplete
 						value={model}
-						onChange={(e) => onModelChange(e.target.value)}
+						onChange={onModelChange}
+						models={availableModels}
+						placeholder={loadingModels ? "Loading models..." : "Select or type a model"}
 						disabled={isViewOnly}
-						size="sm"
 					/>
 				</FieldRoot>
 
