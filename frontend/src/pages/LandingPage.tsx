@@ -5,22 +5,23 @@ import { LandingWorksPane } from "../components/LandingWorksPane";
 import { PromptsLandingPane } from "../components/PromptsLandingPane";
 
 interface LandingPageProps {
-	initialDomain?: Domain;
+	activeDomain: Domain;
+	onDomainChange: (domain: Domain) => void;
 	onSelectWork: (workId: number) => void;
 }
 
 export function LandingPage({
-	initialDomain = "works",
+	activeDomain,
+	onDomainChange,
 	onSelectWork,
 }: LandingPageProps) {
-	const [activeDomain, setActiveDomain] = useState<Domain>(initialDomain);
 	const [isAddModalOpen, setAddModalOpen] = useState(false);
 
 	return (
 		<>
 			<LandingLayout
 				activeDomain={activeDomain}
-				onDomainChange={setActiveDomain}
+				onDomainChange={onDomainChange}
 				onNewWork={
 					activeDomain === "works" ? () => setAddModalOpen(true) : undefined
 				}

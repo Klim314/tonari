@@ -44,7 +44,11 @@ function App() {
 	}
 
 	return (
-		<LandingPage onSelectWork={(workId) => navigate(`/works/${workId}`)} />
+		<LandingPage
+			activeDomain={pathname === "/prompts" ? "prompts" : "works"}
+			onDomainChange={(domain) => navigate(domain === "prompts" ? "/prompts" : "/")}
+			onSelectWork={(workId) => navigate(`/works/${workId}`)}
+		/>
 	);
 }
 
