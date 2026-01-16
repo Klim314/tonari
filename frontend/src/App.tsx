@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useBrowserLocation } from "./hooks/useBrowserLocation";
 import { ChapterDetailPage } from "./pages/ChapterDetailPage";
+import { LabPage } from "./pages/LabPage";
 import { LandingPage } from "./pages/LandingPage";
 import { WorkDetailPage } from "./pages/WorkDetailPage";
 
@@ -11,6 +12,11 @@ function App() {
 		/^\/works\/(\d+)\/chapters\/(\d+)$/,
 	);
 	const workDetailMatch = pathname.match(/^\/works\/(\d+)$/);
+	const labMatch = pathname === "/prompts/lab";
+
+	if (labMatch) {
+		return <LabPage />;
+	}
 
 	if (chapterDetailMatch) {
 		const workId = Number.parseInt(chapterDetailMatch[1] ?? "", 10);
@@ -46,7 +52,9 @@ function App() {
 	return (
 		<LandingPage
 			activeDomain={pathname === "/prompts" ? "prompts" : "works"}
-			onDomainChange={(domain) => navigate(domain === "prompts" ? "/prompts" : "/")}
+			onDomainChange={(domain) =>
+				navigate(domain === "prompts" ? "/prompts" : "/")
+			}
 			onSelectWork={(workId) => navigate(`/works/${workId}`)}
 		/>
 	);

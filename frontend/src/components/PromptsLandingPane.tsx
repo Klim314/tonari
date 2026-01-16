@@ -13,6 +13,7 @@ import {
 } from "@chakra-ui/react";
 import React, { useCallback, useState } from "react";
 import { Prompts } from "../client";
+import { useBrowserLocation } from "../hooks/useBrowserLocation";
 import { usePromptEditor } from "../hooks/usePromptEditor";
 import { usePrompts } from "../hooks/usePrompts";
 import { PromptEditor } from "./PromptEditor";
@@ -27,6 +28,7 @@ export function PromptsLandingPane() {
 	const [isEditorDirty, setIsEditorDirty] = useState(false);
 	const [isEditorSaving, setIsEditorSaving] = useState(false);
 	const { registerEditor, saveChanges, discardChanges } = usePromptEditor();
+	const { navigate } = useBrowserLocation();
 
 	const promptsState = usePrompts(searchQuery, refreshToken);
 
@@ -117,13 +119,22 @@ export function PromptsLandingPane() {
 							<Stack gap={2}>
 								<HStack justify="space-between" align="center">
 									<Heading size="sm">Prompts</Heading>
-									<Button
-										size="xs"
-										colorScheme="blue"
-										onClick={handleCreateNewPrompt}
-									>
-										+ New
-									</Button>
+									<HStack>
+										<Button
+											size="xs"
+											onClick={() => navigate("/prompts/lab")}
+											variant="outline"
+										>
+											Open Lab
+										</Button>
+										<Button
+											size="xs"
+											colorScheme="blue"
+											onClick={handleCreateNewPrompt}
+										>
+											+ New
+										</Button>
+									</HStack>
 								</HStack>
 								<Input
 									placeholder="Search prompts..."

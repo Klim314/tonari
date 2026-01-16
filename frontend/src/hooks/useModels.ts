@@ -3,55 +3,55 @@ import { Models } from "../client";
 import { getApiErrorMessage } from "../lib/api";
 
 interface ModelsState {
-    data: string[];
-    loading: boolean;
-    error: string | null;
+	data: string[];
+	loading: boolean;
+	error: string | null;
 }
 
 const defaultState: ModelsState = {
-    data: [],
-    loading: false,
-    error: null,
+	data: [],
+	loading: false,
+	error: null,
 };
 
 export function useModels() {
-    const [state, setState] = useState<ModelsState>(defaultState);
+	const [state, setState] = useState<ModelsState>(defaultState);
 
-    useEffect(() => {
-        let cancelled = false;
+	useEffect(() => {
+		let cancelled = false;
 
-        async function fetchModels() {
-            setState((prev) => ({ ...prev, loading: true, error: null }));
-            try {
-                const response = await Models.listModelsModelsGet({
-                    throwOnError: true,
-                });
+		async function fetchModels() {
+			setState((prev) => ({ ...prev, loading: true, error: null }));
+			try {
+				const response = await Models.listModelsModelsGet({
+					throwOnError: true,
+				});
 
-                if (!cancelled) {
-                    // response.data is ModelsListOut, which has items: ModelInfoOut[]
-                    const modelIds = response.data?.items?.map((m) => m.id) || [];
-                    setState({
-                        data: modelIds,
-                        loading: false,
-                        error: null,
-                    });
-                }
-            } catch (error) {
-                if (cancelled) return;
-                setState({
-                    data: [],
-                    loading: false,
-                    error: getApiErrorMessage(error, "Failed to fetch models"),
-                });
-            }
-        }
+				if (!cancelled) {
+					// response.data is ModelsListOut, which has items: ModelInfoOut[]
+					const modelIds = response.data?.items?.map((m) => m.id) || [];
+					setState({
+						data: modelIds,
+						loading: false,
+						error: null,
+					});
+				}
+			} catch (error) {
+				if (cancelled) return;
+				setState({
+					data: [],
+					loading: false,
+					error: getApiErrorMessage(error, "Failed to fetch models"),
+				});
+			}
+		}
 
-        fetchModels();
+		fetchModels();
 
-        return () => {
-            cancelled = true;
-        };
-    }, []);
+		return () => {
+			cancelled = true;
+		};
+	}, []);
 
-    return state;
+	return state;
 }

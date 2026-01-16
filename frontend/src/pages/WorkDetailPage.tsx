@@ -15,11 +15,11 @@ import {
 } from "@chakra-ui/react";
 import { type FormEvent, useCallback, useMemo, useState } from "react";
 import { Works } from "../client";
-import { Pagination } from "../components/common/Pagination";
 import { WorkPromptSelector } from "../components/WorkPromptSelector";
+import { Pagination } from "../components/common/Pagination";
+import { useScrapeStatus } from "../hooks/useScrapeStatus";
 import { useWork } from "../hooks/useWork";
 import { useWorkChapters } from "../hooks/useWorkChapters";
-import { useScrapeStatus } from "../hooks/useScrapeStatus";
 import { getApiErrorMessage } from "../lib/api";
 import type { Chapter } from "../types/works";
 
@@ -73,7 +73,8 @@ export function WorkDetailPage({
 	}, []);
 
 	const scrapeState = useScrapeStatus(workId, handleChapterFound);
-	const isScraping = scrapeState.status === "pending" || scrapeState.status === "running";
+	const isScraping =
+		scrapeState.status === "pending" || scrapeState.status === "running";
 
 	const chapters = useMemo(
 		() => sortChapters(chaptersData?.items ?? []),
@@ -148,7 +149,8 @@ export function WorkDetailPage({
 						<Alert.Indicator />
 						<Alert.Content>
 							<Alert.Description>
-								Scraping in progress... {scrapeState.progress} chapters found so far.
+								Scraping in progress... {scrapeState.progress} chapters found so
+								far.
 							</Alert.Description>
 						</Alert.Content>
 					</Alert.Root>
@@ -249,7 +251,11 @@ interface ScrapeFormProps {
 	isDisabled?: boolean;
 }
 
-function ScrapeChaptersInlineForm({ workId, onSuccess, isDisabled }: ScrapeFormProps) {
+function ScrapeChaptersInlineForm({
+	workId,
+	onSuccess,
+	isDisabled,
+}: ScrapeFormProps) {
 	const [start, setStart] = useState("");
 	const [end, setEnd] = useState("");
 	const [force, setForce] = useState(false);
@@ -343,7 +349,12 @@ function ScrapeChaptersInlineForm({ workId, onSuccess, isDisabled }: ScrapeFormP
 						<Switch.Thumb />
 					</Switch.Control>
 				</Switch.Root>
-				<Button type="submit" colorScheme="teal" loading={submitting} disabled={isDisabled}>
+				<Button
+					type="submit"
+					colorScheme="teal"
+					loading={submitting}
+					disabled={isDisabled}
+				>
 					{isDisabled ? "Scrape in progress" : "Queue scrape"}
 				</Button>
 			</Stack>

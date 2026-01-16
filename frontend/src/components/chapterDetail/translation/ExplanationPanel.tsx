@@ -11,8 +11,8 @@ import {
 	Text,
 } from "@chakra-ui/react";
 import { Loader, Menu as MenuIcon, RefreshCw, Sparkles } from "lucide-react";
-import ReactMarkdown from "react-markdown";
 import { useCallback, useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 
 interface SegmentContext {
 	src: string;
@@ -52,13 +52,16 @@ export function ExplanationPanel({
 	const startX = useRef(0);
 	const startWidth = useRef(0);
 
-	const startResizing = useCallback((e: React.MouseEvent) => {
-		isDragging.current = true;
-		startX.current = e.clientX;
-		startWidth.current = panelWidth;
-		document.body.style.cursor = "ew-resize";
-		document.body.style.userSelect = "none";
-	}, [panelWidth]);
+	const startResizing = useCallback(
+		(e: React.MouseEvent) => {
+			isDragging.current = true;
+			startX.current = e.clientX;
+			startWidth.current = panelWidth;
+			document.body.style.cursor = "ew-resize";
+			document.body.style.userSelect = "none";
+		},
+		[panelWidth],
+	);
 
 	const stopResizing = useCallback(() => {
 		isDragging.current = false;
@@ -127,7 +130,13 @@ export function ExplanationPanel({
 				<Box display="flex" justifyContent="space-between" alignItems="center">
 					<Box display="flex" alignItems="center" gap={2}>
 						<Heading size="md">Translation Explanation</Heading>
-						<Badge colorScheme="purple" variant="subtle" display="flex" alignItems="center" gap={1}>
+						<Badge
+							colorScheme="purple"
+							variant="subtle"
+							display="flex"
+							alignItems="center"
+							gap={1}
+						>
 							<Sparkles size={12} />
 							AI
 						</Badge>
@@ -135,11 +144,7 @@ export function ExplanationPanel({
 					<Box display="flex" alignItems="center" gap={2}>
 						<Menu.Root>
 							<Menu.Trigger asChild>
-								<IconButton
-									variant="ghost"
-									size="sm"
-									aria-label="Options"
-								>
+								<IconButton variant="ghost" size="sm" aria-label="Options">
 									<MenuIcon size={16} />
 								</IconButton>
 							</Menu.Trigger>
@@ -170,7 +175,14 @@ export function ExplanationPanel({
 					<Text fontSize="sm" fontWeight="bold" color="gray.600" mb={2}>
 						Context
 					</Text>
-					<Stack gap={0} fontSize="sm" borderRadius="md" overflow="hidden" border="1px solid" borderColor="gray.200">
+					<Stack
+						gap={0}
+						fontSize="sm"
+						borderRadius="md"
+						overflow="hidden"
+						border="1px solid"
+						borderColor="gray.200"
+					>
 						{precedingSegment && (
 							<Box
 								p={3}
@@ -192,10 +204,18 @@ export function ExplanationPanel({
 							borderLeftColor="blue.400"
 							position="relative"
 						>
-							<Text fontFamily="mono" fontSize="xs" color="gray.800" mb={1} fontWeight="medium">
+							<Text
+								fontFamily="mono"
+								fontSize="xs"
+								color="gray.800"
+								mb={1}
+								fontWeight="medium"
+							>
 								{currentSegment.src}
 							</Text>
-							<Text color="gray.800" fontWeight="medium">{currentSegment.tgt}</Text>
+							<Text color="gray.800" fontWeight="medium">
+								{currentSegment.tgt}
+							</Text>
 						</Box>
 
 						{followingSegment && (
@@ -251,18 +271,16 @@ export function ExplanationPanel({
 						</Box>
 					)}
 
-					{
-						explanation && (
-							<Box fontSize="sm" lineHeight="1.6" color="gray.700">
-								<ReactMarkdown>{explanation}</ReactMarkdown>
-								{isLoading && (
-									<Text fontSize="xs" color="gray.400" mt={2} fontStyle="italic">
-										...
-									</Text>
-								)}
-							</Box>
-						)
-					}
+					{explanation && (
+						<Box fontSize="sm" lineHeight="1.6" color="gray.700">
+							<ReactMarkdown>{explanation}</ReactMarkdown>
+							{isLoading && (
+								<Text fontSize="xs" color="gray.400" mt={2} fontStyle="italic">
+									...
+								</Text>
+							)}
+						</Box>
+					)}
 				</Box>
 			</Stack>
 		</Box>
@@ -314,7 +332,7 @@ function useExplanationStream(
 						{
 							method: "POST",
 							signal: abortController.signal,
-						}
+						},
 					);
 
 					if (!response.ok) {

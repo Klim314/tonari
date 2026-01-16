@@ -14,9 +14,14 @@ export function useBrowserLocation() {
 		function handlePopState() {
 			setPath(getCurrentPath());
 		}
+		function handleLocationChange() {
+			setPath(getCurrentPath());
+		}
 		window.addEventListener("popstate", handlePopState);
+		window.addEventListener("locationchange", handleLocationChange);
 		return () => {
 			window.removeEventListener("popstate", handlePopState);
+			window.removeEventListener("locationchange", handleLocationChange);
 		};
 	}, []);
 
@@ -27,6 +32,7 @@ export function useBrowserLocation() {
 			}
 			window.history.pushState({}, "", nextPath);
 			setPath(nextPath);
+			window.dispatchEvent(new Event("locationchange"));
 		},
 		[path],
 	);

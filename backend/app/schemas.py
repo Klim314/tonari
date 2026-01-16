@@ -307,3 +307,10 @@ class ModelsListOut(BaseModel):
 
     items: list[ModelInfoOut]
     total: int
+
+
+class LabStreamRequest(BaseModel):
+    text: str = Field(..., min_length=1, description="Text to translate")
+    model: str = Field(..., description="Model identifier")
+    template: str = Field(..., description="Prompt template")
+    params: Optional[dict[str, Any]] = Field(default=None, description="Optional parameters")

@@ -38,9 +38,9 @@ export const TranslationPanel = memo(function TranslationPanel({
 	const [retranslatingSegmentId, setRetranslatingSegmentId] = useState<
 		number | null
 	>(null);
-	const [explanationSegmentId, setExplanationSegmentId] = useState<number | null>(
-		null,
-	);
+	const [explanationSegmentId, setExplanationSegmentId] = useState<
+		number | null
+	>(null);
 	const {
 		status: translationStatus,
 		error: translationError,
@@ -224,10 +224,14 @@ export const TranslationPanel = memo(function TranslationPanel({
 					workId={workId}
 					chapterId={chapterId}
 					currentSegment={{
-						src: translationSegments.find((s) => s.segmentId === explanationSegmentId)
-							?.src || "",
-						tgt: translationSegments.find((s) => s.segmentId === explanationSegmentId)
-							?.text || "",
+						src:
+							translationSegments.find(
+								(s) => s.segmentId === explanationSegmentId,
+							)?.src || "",
+						tgt:
+							translationSegments.find(
+								(s) => s.segmentId === explanationSegmentId,
+							)?.text || "",
 					}}
 					precedingSegment={
 						translationSegments

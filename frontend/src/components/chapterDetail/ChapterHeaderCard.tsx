@@ -100,16 +100,22 @@ export function ChapterHeaderCard({
 						{promptMeta.isDirty ? (
 							<Badge colorPalette="yellow">Unsaved Override</Badge>
 						) : (
-							<Badge colorPalette="blue" variant="outline">Saved Prompt</Badge>
+							<Badge colorPalette="blue" variant="outline">
+								Saved Prompt
+							</Badge>
 						)}
 						{promptMeta.notAssigned && (
 							<Badge colorPalette="orange">No Prompt</Badge>
 						)}
-						{promptMeta.error && (
-							<Badge colorPalette="red">Error</Badge>
-						)}
+						{promptMeta.error && <Badge colorPalette="red">Error</Badge>}
 
-						<Text fontSize="xs" color="gray.500" borderLeftWidth="1px" pl={3} ml={1}>
+						<Text
+							fontSize="xs"
+							color="gray.500"
+							borderLeftWidth="1px"
+							pl={3}
+							ml={1}
+						>
 							{promptMeta.loading
 								? "Loading..."
 								: promptMeta.promptName || "System Default"}

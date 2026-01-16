@@ -59,7 +59,10 @@ const SegmentRow = memo(function SegmentRow({
 	const hasSource = srcText.trim().length > 0;
 	const hasTarget = tgtText.trim().length > 0;
 	const [menuOpen, setMenuOpen] = useState(false);
-	const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number }>({
+	const [contextMenuPos, setContextMenuPos] = useState<{
+		x: number;
+		y: number;
+	}>({
 		x: 0,
 		y: 0,
 	});

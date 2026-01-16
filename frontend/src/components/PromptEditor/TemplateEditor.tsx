@@ -48,7 +48,9 @@ export function TemplateEditor({
 						value={model}
 						onChange={onModelChange}
 						models={availableModels}
-						placeholder={loadingModels ? "Loading models..." : "Select or type a model"}
+						placeholder={
+							loadingModels ? "Loading models..." : "Select or type a model"
+						}
 						disabled={isViewOnly}
 					/>
 				</FieldRoot>
