@@ -4,10 +4,13 @@ import {
 	Center,
 	CloseButton,
 	Heading,
+	IconButton,
+	Menu,
+	Portal,
 	Stack,
 	Text,
 } from "@chakra-ui/react";
-import { Loader, Sparkles } from "lucide-react";
+import { Loader, Menu as MenuIcon, RefreshCw, Sparkles } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -37,7 +40,7 @@ export function ExplanationPanel({
 	isOpen,
 	onClose,
 }: ExplanationPanelProps) {
-	const { explanation, isLoading, error } = useExplanationStream(
+	const { explanation, isLoading, error, regenerate } = useExplanationStream(
 		workId,
 		chapterId,
 		segmentId,
@@ -129,7 +132,34 @@ export function ExplanationPanel({
 							AI
 						</Badge>
 					</Box>
-					<CloseButton onClick={onClose} />
+					<Box display="flex" alignItems="center" gap={2}>
+						<Menu.Root>
+							<Menu.Trigger asChild>
+								<IconButton
+									variant="ghost"
+									size="sm"
+									aria-label="Options"
+								>
+									<MenuIcon size={16} />
+								</IconButton>
+							</Menu.Trigger>
+							<Portal>
+								<Menu.Positioner>
+									<Menu.Content>
+										<Menu.Item
+											value="regenerate"
+											onClick={regenerate}
+											disabled={!explanation || isLoading}
+										>
+											<RefreshCw size={16} />
+											Regenerate Explanation
+										</Menu.Item>
+									</Menu.Content>
+								</Menu.Positioner>
+							</Portal>
+						</Menu.Root>
+						<CloseButton onClick={onClose} />
+					</Box>
 				</Box>
 			</Stack>
 
@@ -148,10 +178,10 @@ export function ExplanationPanel({
 								borderBottomWidth="1px"
 								borderBottomColor="gray.100"
 							>
-								<Text fontFamily="mono" fontSize="xs" color="gray.500" mb={1} whiteSpace="pre-wrap">
+								<Text fontFamily="mono" fontSize="xs" color="gray.500" mb={1}>
 									{precedingSegment.src}
 								</Text>
-								<Text color="gray.500" whiteSpace="pre-wrap">{precedingSegment.tgt}</Text>
+								<Text color="gray.500">{precedingSegment.tgt}</Text>
 							</Box>
 						)}
 
@@ -162,10 +192,10 @@ export function ExplanationPanel({
 							borderLeftColor="blue.400"
 							position="relative"
 						>
-							<Text fontFamily="mono" fontSize="xs" color="gray.800" mb={1} fontWeight="medium" whiteSpace="pre-wrap">
+							<Text fontFamily="mono" fontSize="xs" color="gray.800" mb={1} fontWeight="medium">
 								{currentSegment.src}
 							</Text>
-							<Text color="gray.800" fontWeight="medium" whiteSpace="pre-wrap">{currentSegment.tgt}</Text>
+							<Text color="gray.800" fontWeight="medium">{currentSegment.tgt}</Text>
 						</Box>
 
 						{followingSegment && (
@@ -175,10 +205,10 @@ export function ExplanationPanel({
 								borderTopWidth="1px"
 								borderTopColor="gray.100"
 							>
-								<Text fontFamily="mono" fontSize="xs" color="gray.500" mb={1} whiteSpace="pre-wrap">
+								<Text fontFamily="mono" fontSize="xs" color="gray.500" mb={1}>
 									{followingSegment.src}
 								</Text>
-								<Text color="gray.500" whiteSpace="pre-wrap">{followingSegment.tgt}</Text>
+								<Text color="gray.500">{followingSegment.tgt}</Text>
 							</Box>
 						)}
 					</Stack>
@@ -248,11 +278,22 @@ function useExplanationStream(
 	const [isLoading, setIsLoading] = useState(false);
 	const [explanation, setExplanation] = useState("");
 	const [error, setError] = useState<string | null>(null);
+	const [shouldRegenerate, setShouldRegenerate] = useState(false);
+
+	const regenerate = useCallback(() => {
+		setShouldRegenerate(true);
+	}, []);
 
 	useEffect(() => {
 		if (!isOpen) {
 			setExplanation("");
 			setError(null);
+			setShouldRegenerate(false);
+			return;
+		}
+
+		// Don't re-fetch if we're not regenerating and already have an explanation
+		if (!shouldRegenerate && explanation) {
 			return;
 		}
 
@@ -261,44 +302,107 @@ function useExplanationStream(
 		setExplanation("");
 
 		let eventSource: EventSource | null = null;
+		let abortController: AbortController | null = null;
 
-		try {
-			const url = `/api/works/${workId}/chapters/${chapterId}/segments/${segmentId}/explain/stream`;
-			eventSource = new EventSource(url);
+		async function startStream() {
+			try {
+				if (shouldRegenerate) {
+					// Use fetch API to handle POST request with SSE response
+					abortController = new AbortController();
+					const response = await fetch(
+						`/api/works/${workId}/chapters/${chapterId}/segments/${segmentId}/regenerate-explanation`,
+						{
+							method: "POST",
+							signal: abortController.signal,
+						}
+					);
 
-			eventSource.addEventListener("explanation-delta", (event) => {
-				const { delta } = JSON.parse(event.data);
-				setExplanation((prev) => prev + (delta || ""));
-			});
+					if (!response.ok) {
+						throw new Error("Failed to regenerate explanation");
+					}
 
-			eventSource.addEventListener("explanation-complete", () => {
-				eventSource?.close();
+					// Read the SSE response
+					const reader = response.body?.getReader();
+					const decoder = new TextDecoder();
+
+					if (!reader) {
+						throw new Error("No response body");
+					}
+
+					while (true) {
+						const { done, value } = await reader.read();
+						if (done) break;
+
+						const chunk = decoder.decode(value, { stream: true });
+						const lines = chunk.split("\n");
+
+						for (const line of lines) {
+							if (line.startsWith("data: ")) {
+								const data = JSON.parse(line.slice(6));
+
+								if (line.includes("explanation-delta")) {
+									setExplanation((prev) => prev + (data.delta || ""));
+								} else if (line.includes("explanation-complete")) {
+									setIsLoading(false);
+								} else if (line.includes("explanation-error")) {
+									setError(data.error || "Failed to generate explanation");
+									setIsLoading(false);
+								}
+							}
+						}
+					}
+
+					setShouldRegenerate(false);
+				} else {
+					// Use EventSource for GET request
+					const url = `/api/works/${workId}/chapters/${chapterId}/segments/${segmentId}/explain/stream`;
+					eventSource = new EventSource(url);
+
+					eventSource.addEventListener("explanation-delta", (event) => {
+						const { delta } = JSON.parse(event.data);
+						setExplanation((prev) => prev + (delta || ""));
+					});
+
+					eventSource.addEventListener("explanation-complete", () => {
+						eventSource?.close();
+						setIsLoading(false);
+					});
+
+					eventSource.addEventListener("explanation-error", (event) => {
+						const { error } = JSON.parse(event.data);
+						setError(error || "Failed to generate explanation");
+						eventSource?.close();
+						setIsLoading(false);
+					});
+
+					eventSource.onerror = () => {
+						setError("Connection lost while generating explanation");
+						eventSource?.close();
+						setIsLoading(false);
+					};
+				}
+			} catch (err) {
+				if (err instanceof Error && err.name === "AbortError") {
+					// Request was aborted, ignore
+					return;
+				}
+				setError(err instanceof Error ? err.message : "Unknown error occurred");
 				setIsLoading(false);
-			});
-
-			eventSource.addEventListener("explanation-error", (event) => {
-				const { error } = JSON.parse(event.data);
-				setError(error || "Failed to generate explanation");
-				eventSource?.close();
-				setIsLoading(false);
-			});
-
-			eventSource.onerror = () => {
-				setError("Connection lost while generating explanation");
-				eventSource?.close();
-				setIsLoading(false);
-			};
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Unknown error occurred");
-			setIsLoading(false);
+				setShouldRegenerate(false);
+			}
 		}
+
+		startStream();
 
 		return () => {
 			if (eventSource) {
 				eventSource.close();
 			}
+			if (abortController) {
+				abortController.abort();
+			}
 		};
-	}, [isOpen, segmentId, workId, chapterId]);
+	}, [isOpen, segmentId, workId, chapterId, shouldRegenerate]);
 
-	return { explanation, isLoading, error };
+	return { explanation, isLoading, error, regenerate };
 }

@@ -130,3 +130,22 @@ class ExplanationStreamService:
         self.session.commit()
         self.session.refresh(segment)
         return segment
+
+    def clear_explanation(self, segment_id: int) -> Optional[TranslationSegment]:
+        """Clear the explanation for a segment.
+
+        Args:
+            segment_id: ID of the segment.
+
+        Returns:
+            Updated segment, or None if segment not found.
+        """
+        segment = self.get_segment(segment_id)
+        if segment is None:
+            return None
+
+        segment.explanation = None
+        self.session.add(segment)
+        self.session.commit()
+        self.session.refresh(segment)
+        return segment

@@ -898,3 +898,137 @@ async def explain_segment(
         if db:
             db.close()
         raise
+
+
+@router.post("/{work_id}/chapters/{chapter_id}/segments/{segment_id}/regenerate-explanation")
+async def regenerate_explanation(
+    work_id: int,
+    chapter_id: int,
+    segment_id: int,
+    request: Request,
+):
+    """Clear and regenerate explanation for a translation segment."""
+    from sqlalchemy import select
+
+    from app.models import TranslationSegment
+
+    db = SessionLocal()
+    works_service = WorksService(db)
+    chapters_service = ChaptersService(db)
+    explanation_service = ExplanationStreamService(db)
+    translation_service = TranslationStreamService(db)
+
+    try:
+        try:
+            work = works_service.get_work(work_id)
+        except WorkNotFoundError:
+            raise HTTPException(status_code=404, detail="work not found") from None
+
+        try:
+            chapter = chapters_service.get_chapter(chapter_id)
+        except ChapterNotFoundError:
+            raise HTTPException(status_code=404, detail="chapter not found") from None
+
+        if chapter.work_id != work.id:
+            raise HTTPException(status_code=404, detail="chapter not found") from None
+
+        translation = translation_service.get_or_create_translation(chapter.id)
+
+        # Get the specific segment
+        stmt = select(TranslationSegment).where(TranslationSegment.id == segment_id)
+        segment = db.execute(stmt).scalars().first()
+
+        if segment is None or segment.chapter_translation_id != translation.id:
+            raise HTTPException(status_code=404, detail="segment not found") from None
+
+        # Check if segment is translated
+        if not explanation_service.is_segment_translated(segment):
+            raise HTTPException(status_code=400, detail="segment is not translated") from None
+
+        # Clear the existing explanation
+        explanation_service.clear_explanation(segment_id)
+
+        # Refresh segment to get cleared explanation
+        segment = db.execute(stmt).scalars().first()
+
+        # Get the explanation agent (uses hardcoded prompt)
+        explanation_agent = get_explanation_agent()
+
+        chapter_text = chapter.normalized_text
+        all_segments = list(translation_service.get_segments_for_translation(translation.id))
+
+        # Get current segment text and translation
+        current_source = chapter_text[segment.start : segment.end]
+        current_translation = segment.tgt or ""
+
+        # Get surrounding segments for context
+        preceding_segments = explanation_service.get_preceding_segments(
+            all_segments, segment, chapter_text, limit=1
+        )
+        following_segments = explanation_service.get_following_segments(
+            all_segments, segment, chapter_text, limit=1
+        )
+
+        logger.info(
+            "Regenerating segment explanation",
+            extra={
+                "work_id": work_id,
+                "chapter_id": chapter_id,
+                "segment_id": segment_id,
+                "model": explanation_agent.model,
+            },
+        )
+
+        async def event_generator():
+            try:
+                collected = ""
+                try:
+                    async for delta in explanation_agent.stream_explanation(
+                        current_source,
+                        current_translation,
+                        preceding_segments=preceding_segments,
+                        following_segments=following_segments,
+                    ):
+                        if await request.is_disconnected():
+                            raise asyncio.CancelledError
+                        if not delta:
+                            continue
+                        collected += delta
+                        yield _sse_event(
+                            "explanation-delta",
+                            {
+                                "segment_id": segment_id,
+                                "delta": delta,
+                            },
+                        )
+
+                    # Save the explanation to the database
+                    explanation_service.save_explanation(segment_id, collected)
+
+                    yield _sse_event(
+                        "explanation-complete",
+                        {
+                            "segment_id": segment_id,
+                            "explanation": collected,
+                        },
+                    )
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:  # pragma: no cover
+                    logger.exception("Explanation regeneration failed")
+                    yield _sse_event(
+                        "explanation-error",
+                        {
+                            "segment_id": segment_id,
+                            "error": str(exc),
+                        },
+                    )
+            finally:
+                db.close()
+
+        return EventSourceResponse(event_generator())
+
+    except Exception:
+        if db:
+            db.close()
+        raise
