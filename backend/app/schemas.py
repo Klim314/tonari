@@ -344,6 +344,10 @@ class ChapterGroupMembersUpdateRequest(BaseModel):
     chapter_ids: list[int] = Field(..., description="Complete list of chapter IDs (order preserved)")
 
 
+class ChapterGroupAddMembersRequest(BaseModel):
+    chapter_ids: list[int] = Field(..., min_length=1, description="Chapter IDs to add to the group")
+
+
 class ChapterGroupMemberOut(BaseModel):
     id: int
     chapter_id: int

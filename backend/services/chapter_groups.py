@@ -80,6 +80,18 @@ class ChapterGroupsService:
             raise ChapterGroupNotFoundError(f"Group {group_id} not found")
         return group
 
+    def list_groups(self, work_id: int) -> list[ChapterGroup]:
+        """List all groups for a work with their members."""
+        stmt = (
+            select(ChapterGroup)
+            .where(ChapterGroup.work_id == work_id)
+            .options(
+                joinedload(ChapterGroup.members).joinedload(ChapterGroupMember.chapter)
+            )
+            .order_by(ChapterGroup.name)
+        )
+        return list(self.session.execute(stmt).scalars().unique().all())
+
     def get_chapters_with_groups(
         self, work_id: int, limit: int = 10, offset: int = 0
     ) -> Tuple[list[tuple[str, ChapterGroup | Chapter, Decimal]], int, int, int, int, int]:
@@ -196,6 +208,71 @@ class ChapterGroupsService:
         for idx, chapter_id in enumerate(chapter_ids):
             member = ChapterGroupMember(
                 group_id=group.id, chapter_id=chapter_id, order_index=idx
+            )
+            self.session.add(member)
+
+        self.session.commit()
+        self.session.refresh(group)
+        return group
+
+    def add_chapters_to_group(self, group_id: int, chapter_ids: list[int]) -> ChapterGroup:
+        """Add chapters to an existing group.
+
+        Validates:
+        - Group exists
+        - All chapters exist and belong to same work as group
+        - No chapters already in another group (409 Conflict)
+        - Chapters not already in this group (skip duplicates silently)
+        """
+        group = self.session.get(ChapterGroup, group_id)
+        if not group:
+            raise ChapterGroupNotFoundError(f"Group {group_id} not found")
+
+        # Validate chapters exist and belong to same work
+        stmt = select(Chapter).where(
+            Chapter.id.in_(chapter_ids), Chapter.work_id == group.work_id
+        )
+        chapters = list(self.session.execute(stmt).scalars().all())
+
+        if len(chapters) != len(chapter_ids):
+            found_ids = {ch.id for ch in chapters}
+            missing_ids = set(chapter_ids) - found_ids
+            raise ChapterNotFoundError(
+                f"Chapters {missing_ids} not found or don't belong to work {group.work_id}"
+            )
+
+        # Check for conflicts with OTHER groups
+        existing_stmt = select(ChapterGroupMember).where(
+            ChapterGroupMember.chapter_id.in_(chapter_ids),
+            ChapterGroupMember.group_id != group_id,
+        )
+        conflicts = list(self.session.execute(existing_stmt).scalars().all())
+        if conflicts:
+            conflict_ids = [m.chapter_id for m in conflicts]
+            raise ChapterGroupConflictError(
+                f"Chapters {conflict_ids} already belong to another group"
+            )
+
+        # Get chapters already in this group (to skip)
+        already_in_group_stmt = select(ChapterGroupMember.chapter_id).where(
+            ChapterGroupMember.group_id == group_id,
+            ChapterGroupMember.chapter_id.in_(chapter_ids),
+        )
+        already_in_group = set(self.session.execute(already_in_group_stmt).scalars().all())
+
+        # Get current max order_index
+        max_order_stmt = select(func.max(ChapterGroupMember.order_index)).where(
+            ChapterGroupMember.group_id == group_id
+        )
+        max_order = self.session.execute(max_order_stmt).scalar() or -1
+
+        # Add new members (skip those already in group)
+        new_chapter_ids = [cid for cid in chapter_ids if cid not in already_in_group]
+        for idx, chapter_id in enumerate(new_chapter_ids):
+            member = ChapterGroupMember(
+                group_id=group.id,
+                chapter_id=chapter_id,
+                order_index=max_order + 1 + idx,
             )
             self.session.add(member)
 

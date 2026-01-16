@@ -35,6 +35,18 @@ export type ChapterDetailOut = {
 };
 
 /**
+ * ChapterGroupAddMembersRequest
+ */
+export type ChapterGroupAddMembersRequest = {
+    /**
+     * Chapter Ids
+     *
+     * Chapter IDs to add to the group
+     */
+    chapter_ids: Array<number>;
+};
+
+/**
  * ChapterGroupCreateRequest
  */
 export type ChapterGroupCreateRequest = {
@@ -1391,6 +1403,38 @@ export type UpdateWorkPromptPromptsWorksWorkIdPromptPatchResponses = {
 
 export type UpdateWorkPromptPromptsWorksWorkIdPromptPatchResponse = UpdateWorkPromptPromptsWorksWorkIdPromptPatchResponses[keyof UpdateWorkPromptPromptsWorksWorkIdPromptPatchResponses];
 
+export type ListChapterGroupsWorksWorkIdChapterGroupsGetData = {
+    body?: never;
+    path: {
+        /**
+         * Work Id
+         */
+        work_id: number;
+    };
+    query?: never;
+    url: '/works/{work_id}/chapter-groups';
+};
+
+export type ListChapterGroupsWorksWorkIdChapterGroupsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListChapterGroupsWorksWorkIdChapterGroupsGetError = ListChapterGroupsWorksWorkIdChapterGroupsGetErrors[keyof ListChapterGroupsWorksWorkIdChapterGroupsGetErrors];
+
+export type ListChapterGroupsWorksWorkIdChapterGroupsGetResponses = {
+    /**
+     * Response List Chapter Groups Works  Work Id  Chapter Groups Get
+     *
+     * Successful Response
+     */
+    200: Array<ChapterGroupOut>;
+};
+
+export type ListChapterGroupsWorksWorkIdChapterGroupsGetResponse = ListChapterGroupsWorksWorkIdChapterGroupsGetResponses[keyof ListChapterGroupsWorksWorkIdChapterGroupsGetResponses];
+
 export type CreateChapterGroupWorksWorkIdChapterGroupsPostData = {
     body: ChapterGroupCreateRequest;
     path: {
@@ -1522,6 +1566,40 @@ export type UpdateChapterGroupWorksWorkIdChapterGroupsGroupIdPatchResponses = {
 };
 
 export type UpdateChapterGroupWorksWorkIdChapterGroupsGroupIdPatchResponse = UpdateChapterGroupWorksWorkIdChapterGroupsGroupIdPatchResponses[keyof UpdateChapterGroupWorksWorkIdChapterGroupsGroupIdPatchResponses];
+
+export type AddChaptersToGroupWorksWorkIdChapterGroupsGroupIdMembersPostData = {
+    body: ChapterGroupAddMembersRequest;
+    path: {
+        /**
+         * Work Id
+         */
+        work_id: number;
+        /**
+         * Group Id
+         */
+        group_id: number;
+    };
+    query?: never;
+    url: '/works/{work_id}/chapter-groups/{group_id}/members';
+};
+
+export type AddChaptersToGroupWorksWorkIdChapterGroupsGroupIdMembersPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AddChaptersToGroupWorksWorkIdChapterGroupsGroupIdMembersPostError = AddChaptersToGroupWorksWorkIdChapterGroupsGroupIdMembersPostErrors[keyof AddChaptersToGroupWorksWorkIdChapterGroupsGroupIdMembersPostErrors];
+
+export type AddChaptersToGroupWorksWorkIdChapterGroupsGroupIdMembersPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ChapterGroupDetailOut;
+};
+
+export type AddChaptersToGroupWorksWorkIdChapterGroupsGroupIdMembersPostResponse = AddChaptersToGroupWorksWorkIdChapterGroupsGroupIdMembersPostResponses[keyof AddChaptersToGroupWorksWorkIdChapterGroupsGroupIdMembersPostResponses];
 
 export type UpdateChapterGroupMembersWorksWorkIdChapterGroupsGroupIdMembersPutData = {
     body: ChapterGroupMembersUpdateRequest;
