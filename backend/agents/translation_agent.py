@@ -7,6 +7,7 @@ from typing import AsyncGenerator, List, Optional, Sequence
 from agents.base_agent import BaseAgent, SegmentContext, SegmentContextInput
 from agents.prompts import SYSTEM_DEFAULT
 from app.config import settings
+from constants.llm import get_model_info
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,7 @@ class TranslationAgent(BaseAgent):
         chunk_chars: int,
         context_window: int,
         system_prompt: str | None = None,
+        provider: str = "openai",
     ) -> None:
         self.context_window = max(0, context_window)
         effective_prompt = system_prompt or SYSTEM_DEFAULT
@@ -34,6 +36,7 @@ class TranslationAgent(BaseAgent):
             chunk_chars=chunk_chars,
             system_prompt=effective_prompt,
             human_message_template="{preceding_block}<source>\n{source_text}\n</source>\n\nReturn the translation only.",
+            provider=provider,
         )
 
     async def stream_segment(
@@ -108,12 +111,20 @@ class TranslationAgent(BaseAgent):
 
 @lru_cache(maxsize=1)
 def get_translation_agent() -> TranslationAgent:
+    # Get model info to determine provider
+    model_info = get_model_info(settings.translation_model)
+    provider = model_info.provider if model_info else "openai"
+
+    # Get the appropriate API key for the provider
+    api_key = settings.get_api_key_for_provider(provider)
+
     return TranslationAgent(
         model=settings.translation_model,
-        api_key=settings.translation_api_key,
+        api_key=api_key,
         api_base=settings.translation_api_base_url,
         chunk_chars=settings.translation_chunk_chars,
         context_window=settings.translation_context_segments,
+        provider=provider,
     )
 
 

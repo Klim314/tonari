@@ -7,6 +7,7 @@ from typing import AsyncGenerator, List, Optional, Sequence
 from agents.base_agent import BaseAgent, SegmentContext, SegmentContextInput
 from agents.prompts import SYSTEM_EXPLANATION
 from app.config import settings
+from constants.llm import get_model_info
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,7 @@ class ExplanationAgent(BaseAgent):
         api_key: str | None,
         api_base: str | None,
         chunk_chars: int,
+        provider: str = "openai",
     ) -> None:
         super().__init__(
             model=model,
@@ -29,6 +31,7 @@ class ExplanationAgent(BaseAgent):
             chunk_chars=chunk_chars,
             system_prompt=SYSTEM_EXPLANATION,
             human_message_template="{context_block}\n\nProvide a markdown explanation of how this translation was made.",
+            provider=provider,
         )
 
     async def stream_explanation(
@@ -141,11 +144,19 @@ class ExplanationAgent(BaseAgent):
 
 @lru_cache(maxsize=1)
 def get_explanation_agent() -> ExplanationAgent:
+    # Get model info to determine provider
+    model_info = get_model_info(settings.translation_model)
+    provider = model_info.provider if model_info else "openai"
+
+    # Get the appropriate API key for the provider
+    api_key = settings.get_api_key_for_provider(provider)
+
     return ExplanationAgent(
         model=settings.translation_model,
-        api_key=settings.translation_api_key,
+        api_key=api_key,
         api_base=settings.translation_api_base_url,
         chunk_chars=settings.translation_chunk_chars,
+        provider=provider,
     )
 
 

@@ -7,7 +7,17 @@ from typing import Any, AsyncGenerator, List, Mapping, Optional, Sequence, Union
 
 from langchain_core.messages import BaseMessage
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
+from langchain_core.language_models.chat_models import BaseChatModel
+
+try:
+    from langchain_openai import ChatOpenAI
+except ImportError:
+    ChatOpenAI = None
+
+try:
+    from langchain_google_genai import ChatGoogleGenerativeAI
+except ImportError:
+    ChatGoogleGenerativeAI = None
 
 logger = logging.getLogger(__name__)
 
@@ -73,31 +83,66 @@ class BaseAgent:
         chunk_chars: int,
         system_prompt: str,
         human_message_template: str,
+        provider: str = "openai",
     ) -> None:
         self.model = model
         self.chunk_chars = max(8, chunk_chars)
         self._api_key = api_key
-        self._llm: Optional[ChatOpenAI] = None
+        self.provider = provider
+        self._llm: Optional[BaseChatModel] = None
         self.prompt: Optional[ChatPromptTemplate] = None
 
-        if api_key and ChatOpenAI and ChatPromptTemplate:
-            self._llm = ChatOpenAI(
+        if api_key and ChatPromptTemplate:
+            try:
+                self._llm = self._create_llm(
+                    provider=provider,
+                    model=model,
+                    api_key=api_key,
+                    api_base=api_base,
+                )
+                self.prompt = ChatPromptTemplate.from_messages(
+                    [
+                        ("system", system_prompt),
+                        ("human", human_message_template),
+                    ]
+                )
+            except Exception as e:
+                logger.warning(f"Failed to initialize LLM for provider {provider}: {e}")
+                logger.info("Using stub instead")
+        else:
+            logger.info(
+                "LangChain dependencies unavailable or API key missing; using stub"
+            )
+
+    @staticmethod
+    def _create_llm(
+        provider: str,
+        model: str,
+        api_key: str,
+        api_base: str | None,
+    ) -> BaseChatModel:
+        """Create the appropriate LLM based on the provider."""
+        if provider == "openai":
+            if ChatOpenAI is None:
+                raise ImportError("langchain-openai not installed")
+            return ChatOpenAI(
                 api_key=api_key,
                 model=model,
                 base_url=api_base or None,
                 temperature=0.2,
                 streaming=True,
             )
-            self.prompt = ChatPromptTemplate.from_messages(
-                [
-                    ("system", system_prompt),
-                    ("human", human_message_template),
-                ]
+        elif provider == "gemini":
+            if ChatGoogleGenerativeAI is None:
+                raise ImportError("langchain-google-genai not installed")
+            return ChatGoogleGenerativeAI(
+                google_api_key=api_key,
+                model=model,
+                temperature=0.2,
+                streaming=True,
             )
         else:
-            logger.info(
-                "LangChain dependencies unavailable or API key missing; using stub"
-            )
+            raise ValueError(f"Unsupported provider: {provider}")
 
     @property
     def has_provider(self) -> bool:

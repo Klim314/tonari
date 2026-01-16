@@ -92,6 +92,72 @@ GPT_3_5_TURBO = ModelInfo(
     cost_per_1m_output=1.50,
 )
 
+# Gemini 3 Series
+GEMINI_3_PRO = ModelInfo(
+    id="gemini-3-pro-preview",
+    name="Gemini 3 Pro (Preview)",
+    provider="gemini",
+    max_tokens=1048576,
+    cost_per_1m_input=2.00,  # Up to 200k context
+    cost_per_1m_output=12.00,
+)
+
+GEMINI_3_FLASH = ModelInfo(
+    id="gemini-3-flash-preview",
+    name="Gemini 3 Flash (Preview)",
+    provider="gemini",
+    max_tokens=1048576,
+    cost_per_1m_input=0.50,
+    cost_per_1m_output=3.00,
+)
+
+# Gemini 2.5 Series
+GEMINI_2_5_PRO = ModelInfo(
+    id="gemini-2.5-pro",
+    name="Gemini 2.5 Pro",
+    provider="gemini",
+    max_tokens=1048576,
+    cost_per_1m_input=1.25,
+    cost_per_1m_output=10.00,
+)
+
+GEMINI_2_5_FLASH = ModelInfo(
+    id="gemini-2.5-flash",
+    name="Gemini 2.5 Flash",
+    provider="gemini",
+    max_tokens=1048576,
+    cost_per_1m_input=0.30,
+    cost_per_1m_output=2.50,
+)
+
+GEMINI_2_5_FLASH_LITE = ModelInfo(
+    id="gemini-2.5-flash-lite",
+    name="Gemini 2.5 Flash-Lite",
+    provider="gemini",
+    max_tokens=1048576,
+    cost_per_1m_input=0.10,
+    cost_per_1m_output=0.40,
+)
+
+# Gemini 2.0 Series
+GEMINI_2_0_FLASH = ModelInfo(
+    id="gemini-2.0-flash",
+    name="Gemini 2.0 Flash",
+    provider="gemini",
+    max_tokens=1048576,
+    cost_per_1m_input=0.10,
+    cost_per_1m_output=0.40,
+)
+
+GEMINI_2_0_FLASH_LITE = ModelInfo(
+    id="gemini-2.0-flash-lite",
+    name="Gemini 2.0 Flash-Lite",
+    provider="gemini",
+    max_tokens=1048576,
+    cost_per_1m_input=0.10,
+    cost_per_1m_output=0.40,
+)
+
 # All available models
 AVAILABLE_MODELS: List[ModelInfo] = [
     # OpenAI mainline text models (newest first)
@@ -103,6 +169,14 @@ AVAILABLE_MODELS: List[ModelInfo] = [
     GPT_4_TURBO,
     GPT_4,
     GPT_3_5_TURBO,
+    # Google Gemini models (newest first)
+    GEMINI_3_PRO,
+    GEMINI_3_FLASH,
+    GEMINI_2_5_PRO,
+    GEMINI_2_5_FLASH,
+    GEMINI_2_5_FLASH_LITE,
+    GEMINI_2_0_FLASH,
+    GEMINI_2_0_FLASH_LITE,
 ]
 
 # Model lookup by ID
