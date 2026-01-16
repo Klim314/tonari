@@ -32,6 +32,7 @@ class Work(Base):
         "WorkPrompt", back_populates="work", cascade="all, delete-orphan"
     )
     owned_prompts: Mapped[list["Prompt"]] = relationship("Prompt", back_populates="owner_work")
+    chapter_groups: Mapped[list["ChapterGroup"]] = relationship("ChapterGroup", back_populates="work")
 
 
 class Chapter(Base):
@@ -173,3 +174,38 @@ class WorkPrompt(Base):
     work: Mapped[Work] = relationship("Work", back_populates="prompt_links")
     prompt: Mapped[Prompt] = relationship("Prompt", back_populates="work_prompts")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ChapterGroup(Base):
+    __tablename__ = "chapter_groups"
+    __table_args__ = (UniqueConstraint("work_id", "name", name="uq_group_work_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    work_id: Mapped[int] = mapped_column(ForeignKey("works.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(512))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    work: Mapped[Work] = relationship("Work", back_populates="chapter_groups")
+    members: Mapped[list["ChapterGroupMember"]] = relationship(
+        "ChapterGroupMember", back_populates="group", cascade="all, delete-orphan"
+    )
+
+
+class ChapterGroupMember(Base):
+    __tablename__ = "chapter_group_members"
+    __table_args__ = (
+        UniqueConstraint("chapter_id", name="uq_chapter_single_group"),
+        UniqueConstraint("group_id", "order_index", name="uq_group_order"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    group_id: Mapped[int] = mapped_column(ForeignKey("chapter_groups.id", ondelete="CASCADE"), index=True)
+    chapter_id: Mapped[int] = mapped_column(ForeignKey("chapters.id", ondelete="CASCADE"), index=True)
+    order_index: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    group: Mapped[ChapterGroup] = relationship("ChapterGroup", back_populates="members")
+    chapter: Mapped[Chapter] = relationship("Chapter")

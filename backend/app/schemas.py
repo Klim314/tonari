@@ -314,3 +314,62 @@ class LabStreamRequest(BaseModel):
     model: str = Field(..., description="Model identifier")
     template: str = Field(..., description="Prompt template")
     params: Optional[dict[str, Any]] = Field(default=None, description="Optional parameters")
+
+
+# Chapter Group schemas
+class ChapterGroupCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=512, description="Group name")
+    chapter_ids: list[int] = Field(..., min_items=1, description="List of chapter IDs to include")
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def trim_name(cls, v):
+        if isinstance(v, str):
+            return v.strip()
+        return v
+
+
+class ChapterGroupUpdateRequest(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=512, description="New group name")
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def trim_name(cls, v):
+        if isinstance(v, str):
+            return v.strip()
+        return v
+
+
+class ChapterGroupMembersUpdateRequest(BaseModel):
+    chapter_ids: list[int] = Field(..., description="Complete list of chapter IDs (order preserved)")
+
+
+class ChapterGroupMemberOut(BaseModel):
+    id: int
+    chapter_id: int
+    order_index: int
+    chapter: ChapterOut
+
+    class Config:
+        from_attributes = True
+
+
+class ChapterGroupOut(BaseModel):
+    id: int
+    work_id: int
+    name: str
+    created_at: datetime
+    updated_at: datetime
+    member_count: int = 0
+    min_sort_key: float  # For sorting groups with chapters
+    item_type: str = "group"  # Discriminator for mixed list
+
+    class Config:
+        from_attributes = True
+
+
+class ChapterGroupDetailOut(ChapterGroupOut):
+    members: list[ChapterGroupMemberOut]
+
+    class Config:
+        from_attributes = True
