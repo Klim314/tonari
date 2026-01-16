@@ -35,6 +35,163 @@ export type ChapterDetailOut = {
 };
 
 /**
+ * ChapterGroupCreateRequest
+ */
+export type ChapterGroupCreateRequest = {
+    /**
+     * Name
+     *
+     * Group name
+     */
+    name: string;
+    /**
+     * Chapter Ids
+     *
+     * List of chapter IDs to include
+     */
+    chapter_ids: Array<number>;
+};
+
+/**
+ * ChapterGroupDetailOut
+ */
+export type ChapterGroupDetailOut = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Work Id
+     */
+    work_id: number;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+    /**
+     * Member Count
+     */
+    member_count?: number;
+    /**
+     * Min Sort Key
+     */
+    min_sort_key: number;
+    /**
+     * Item Type
+     */
+    item_type?: string;
+    /**
+     * Members
+     */
+    members: Array<ChapterGroupMemberOut>;
+};
+
+/**
+ * ChapterGroupMemberOut
+ */
+export type ChapterGroupMemberOut = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Chapter Id
+     */
+    chapter_id: number;
+    /**
+     * Order Index
+     */
+    order_index: number;
+    chapter: ChapterOut;
+};
+
+/**
+ * ChapterGroupMembersUpdateRequest
+ */
+export type ChapterGroupMembersUpdateRequest = {
+    /**
+     * Chapter Ids
+     *
+     * Complete list of chapter IDs (order preserved)
+     */
+    chapter_ids: Array<number>;
+};
+
+/**
+ * ChapterGroupOut
+ */
+export type ChapterGroupOut = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Work Id
+     */
+    work_id: number;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+    /**
+     * Member Count
+     */
+    member_count?: number;
+    /**
+     * Min Sort Key
+     */
+    min_sort_key: number;
+    /**
+     * Item Type
+     */
+    item_type?: string;
+};
+
+/**
+ * ChapterGroupUpdateRequest
+ */
+export type ChapterGroupUpdateRequest = {
+    /**
+     * Name
+     *
+     * New group name
+     */
+    name?: string | null;
+};
+
+/**
+ * ChapterOrGroup
+ *
+ * Union type for mixed chapter/group list
+ */
+export type ChapterOrGroup = {
+    /**
+     * Item Type
+     */
+    item_type: 'chapter' | 'group';
+    /**
+     * Data
+     */
+    data: ChapterOut | ChapterGroupOut;
+};
+
+/**
  * ChapterOut
  */
 export type ChapterOut = {
@@ -157,27 +314,31 @@ export type ChapterScrapeResponse = {
     /**
      * Force
      */
-    force: boolean;
+    force?: boolean;
     /**
      * Status
      */
     status: string;
     /**
+     * Job Id
+     */
+    job_id?: number | null;
+    /**
      * Requested
      */
-    requested: number;
+    requested?: number;
     /**
      * Created
      */
-    created: number;
+    created?: number;
     /**
      * Updated
      */
-    updated: number;
+    updated?: number;
     /**
      * Skipped
      */
-    skipped: number;
+    skipped?: number;
     /**
      * Errors
      */
@@ -241,6 +402,36 @@ export type ChapterTranslationStateOut = {
 };
 
 /**
+ * ChaptersWithGroupsResponse
+ */
+export type ChaptersWithGroupsResponse = {
+    /**
+     * Items
+     */
+    items: Array<ChapterOrGroup>;
+    /**
+     * Total Chapters
+     */
+    total_chapters: number;
+    /**
+     * Total Groups
+     */
+    total_groups: number;
+    /**
+     * Total Items
+     */
+    total_items: number;
+    /**
+     * Offset
+     */
+    offset: number;
+    /**
+     * Limit
+     */
+    limit: number;
+};
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -266,6 +457,38 @@ export type IngestSyosetuRequest = {
      * Chapter number (1-indexed) to fetch
      */
     chapter: number;
+};
+
+/**
+ * LabStreamRequest
+ */
+export type LabStreamRequest = {
+    /**
+     * Text
+     *
+     * Text to translate
+     */
+    text: string;
+    /**
+     * Model
+     *
+     * Model identifier
+     */
+    model: string;
+    /**
+     * Template
+     *
+     * Prompt template
+     */
+    template: string;
+    /**
+     * Params
+     *
+     * Optional parameters
+     */
+    params?: {
+        [key: string]: unknown;
+    } | null;
 };
 
 /**
@@ -318,28 +541,6 @@ export type ModelsListOut = {
      * Total
      */
     total: number;
-};
-
-/**
- * PaginatedChaptersOut
- */
-export type PaginatedChaptersOut = {
-    /**
-     * Items
-     */
-    items: Array<ChapterOut>;
-    /**
-     * Total
-     */
-    total: number;
-    /**
-     * Limit
-     */
-    limit: number;
-    /**
-     * Offset
-     */
-    offset: number;
 };
 
 /**
@@ -1190,6 +1391,172 @@ export type UpdateWorkPromptPromptsWorksWorkIdPromptPatchResponses = {
 
 export type UpdateWorkPromptPromptsWorksWorkIdPromptPatchResponse = UpdateWorkPromptPromptsWorksWorkIdPromptPatchResponses[keyof UpdateWorkPromptPromptsWorksWorkIdPromptPatchResponses];
 
+export type CreateChapterGroupWorksWorkIdChapterGroupsPostData = {
+    body: ChapterGroupCreateRequest;
+    path: {
+        /**
+         * Work Id
+         */
+        work_id: number;
+    };
+    query?: never;
+    url: '/works/{work_id}/chapter-groups';
+};
+
+export type CreateChapterGroupWorksWorkIdChapterGroupsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateChapterGroupWorksWorkIdChapterGroupsPostError = CreateChapterGroupWorksWorkIdChapterGroupsPostErrors[keyof CreateChapterGroupWorksWorkIdChapterGroupsPostErrors];
+
+export type CreateChapterGroupWorksWorkIdChapterGroupsPostResponses = {
+    /**
+     * Successful Response
+     */
+    201: ChapterGroupDetailOut;
+};
+
+export type CreateChapterGroupWorksWorkIdChapterGroupsPostResponse = CreateChapterGroupWorksWorkIdChapterGroupsPostResponses[keyof CreateChapterGroupWorksWorkIdChapterGroupsPostResponses];
+
+export type DeleteChapterGroupWorksWorkIdChapterGroupsGroupIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Work Id
+         */
+        work_id: number;
+        /**
+         * Group Id
+         */
+        group_id: number;
+    };
+    query?: never;
+    url: '/works/{work_id}/chapter-groups/{group_id}';
+};
+
+export type DeleteChapterGroupWorksWorkIdChapterGroupsGroupIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteChapterGroupWorksWorkIdChapterGroupsGroupIdDeleteError = DeleteChapterGroupWorksWorkIdChapterGroupsGroupIdDeleteErrors[keyof DeleteChapterGroupWorksWorkIdChapterGroupsGroupIdDeleteErrors];
+
+export type DeleteChapterGroupWorksWorkIdChapterGroupsGroupIdDeleteResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteChapterGroupWorksWorkIdChapterGroupsGroupIdDeleteResponse = DeleteChapterGroupWorksWorkIdChapterGroupsGroupIdDeleteResponses[keyof DeleteChapterGroupWorksWorkIdChapterGroupsGroupIdDeleteResponses];
+
+export type GetChapterGroupWorksWorkIdChapterGroupsGroupIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Work Id
+         */
+        work_id: number;
+        /**
+         * Group Id
+         */
+        group_id: number;
+    };
+    query?: never;
+    url: '/works/{work_id}/chapter-groups/{group_id}';
+};
+
+export type GetChapterGroupWorksWorkIdChapterGroupsGroupIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetChapterGroupWorksWorkIdChapterGroupsGroupIdGetError = GetChapterGroupWorksWorkIdChapterGroupsGroupIdGetErrors[keyof GetChapterGroupWorksWorkIdChapterGroupsGroupIdGetErrors];
+
+export type GetChapterGroupWorksWorkIdChapterGroupsGroupIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: ChapterGroupDetailOut;
+};
+
+export type GetChapterGroupWorksWorkIdChapterGroupsGroupIdGetResponse = GetChapterGroupWorksWorkIdChapterGroupsGroupIdGetResponses[keyof GetChapterGroupWorksWorkIdChapterGroupsGroupIdGetResponses];
+
+export type UpdateChapterGroupWorksWorkIdChapterGroupsGroupIdPatchData = {
+    body: ChapterGroupUpdateRequest;
+    path: {
+        /**
+         * Work Id
+         */
+        work_id: number;
+        /**
+         * Group Id
+         */
+        group_id: number;
+    };
+    query?: never;
+    url: '/works/{work_id}/chapter-groups/{group_id}';
+};
+
+export type UpdateChapterGroupWorksWorkIdChapterGroupsGroupIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdateChapterGroupWorksWorkIdChapterGroupsGroupIdPatchError = UpdateChapterGroupWorksWorkIdChapterGroupsGroupIdPatchErrors[keyof UpdateChapterGroupWorksWorkIdChapterGroupsGroupIdPatchErrors];
+
+export type UpdateChapterGroupWorksWorkIdChapterGroupsGroupIdPatchResponses = {
+    /**
+     * Successful Response
+     */
+    200: ChapterGroupDetailOut;
+};
+
+export type UpdateChapterGroupWorksWorkIdChapterGroupsGroupIdPatchResponse = UpdateChapterGroupWorksWorkIdChapterGroupsGroupIdPatchResponses[keyof UpdateChapterGroupWorksWorkIdChapterGroupsGroupIdPatchResponses];
+
+export type UpdateChapterGroupMembersWorksWorkIdChapterGroupsGroupIdMembersPutData = {
+    body: ChapterGroupMembersUpdateRequest;
+    path: {
+        /**
+         * Work Id
+         */
+        work_id: number;
+        /**
+         * Group Id
+         */
+        group_id: number;
+    };
+    query?: never;
+    url: '/works/{work_id}/chapter-groups/{group_id}/members';
+};
+
+export type UpdateChapterGroupMembersWorksWorkIdChapterGroupsGroupIdMembersPutErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdateChapterGroupMembersWorksWorkIdChapterGroupsGroupIdMembersPutError = UpdateChapterGroupMembersWorksWorkIdChapterGroupsGroupIdMembersPutErrors[keyof UpdateChapterGroupMembersWorksWorkIdChapterGroupsGroupIdMembersPutErrors];
+
+export type UpdateChapterGroupMembersWorksWorkIdChapterGroupsGroupIdMembersPutResponses = {
+    /**
+     * Successful Response
+     */
+    200: ChapterGroupDetailOut;
+};
+
+export type UpdateChapterGroupMembersWorksWorkIdChapterGroupsGroupIdMembersPutResponse = UpdateChapterGroupMembersWorksWorkIdChapterGroupsGroupIdMembersPutResponses[keyof UpdateChapterGroupMembersWorksWorkIdChapterGroupsGroupIdMembersPutResponses];
+
 export type SearchWorksWorksGetData = {
     body?: never;
     path?: never;
@@ -1317,7 +1684,7 @@ export type ListChaptersForWorkWorksWorkIdChaptersGetResponses = {
     /**
      * Successful Response
      */
-    200: PaginatedChaptersOut;
+    200: ChaptersWithGroupsResponse;
 };
 
 export type ListChaptersForWorkWorksWorkIdChaptersGetResponse = ListChaptersForWorkWorksWorkIdChaptersGetResponses[keyof ListChaptersForWorkWorksWorkIdChaptersGetResponses];
@@ -1385,6 +1752,34 @@ export type RequestChapterScrapeWorksWorkIdScrapeChaptersPostResponses = {
 };
 
 export type RequestChapterScrapeWorksWorkIdScrapeChaptersPostResponse = RequestChapterScrapeWorksWorkIdScrapeChaptersPostResponses[keyof RequestChapterScrapeWorksWorkIdScrapeChaptersPostResponses];
+
+export type StreamScrapeStatusWorksWorkIdScrapeStatusGetData = {
+    body?: never;
+    path: {
+        /**
+         * Work Id
+         */
+        work_id: number;
+    };
+    query?: never;
+    url: '/works/{work_id}/scrape-status';
+};
+
+export type StreamScrapeStatusWorksWorkIdScrapeStatusGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type StreamScrapeStatusWorksWorkIdScrapeStatusGetError = StreamScrapeStatusWorksWorkIdScrapeStatusGetErrors[keyof StreamScrapeStatusWorksWorkIdScrapeStatusGetErrors];
+
+export type StreamScrapeStatusWorksWorkIdScrapeStatusGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
 
 export type ResetChapterTranslationWorksWorkIdChaptersChapterIdTranslationDeleteData = {
     body?: never;
@@ -1628,6 +2023,65 @@ export type ExplainSegmentWorksWorkIdChaptersChapterIdSegmentsSegmentIdExplainSt
 export type ExplainSegmentWorksWorkIdChaptersChapterIdSegmentsSegmentIdExplainStreamGetError = ExplainSegmentWorksWorkIdChaptersChapterIdSegmentsSegmentIdExplainStreamGetErrors[keyof ExplainSegmentWorksWorkIdChaptersChapterIdSegmentsSegmentIdExplainStreamGetErrors];
 
 export type ExplainSegmentWorksWorkIdChaptersChapterIdSegmentsSegmentIdExplainStreamGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type RegenerateExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdRegenerateExplanationPostData = {
+    body?: never;
+    path: {
+        /**
+         * Work Id
+         */
+        work_id: number;
+        /**
+         * Chapter Id
+         */
+        chapter_id: number;
+        /**
+         * Segment Id
+         */
+        segment_id: number;
+    };
+    query?: never;
+    url: '/works/{work_id}/chapters/{chapter_id}/segments/{segment_id}/regenerate-explanation';
+};
+
+export type RegenerateExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdRegenerateExplanationPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RegenerateExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdRegenerateExplanationPostError = RegenerateExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdRegenerateExplanationPostErrors[keyof RegenerateExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdRegenerateExplanationPostErrors];
+
+export type RegenerateExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdRegenerateExplanationPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type StreamLabTranslationLabStreamPostData = {
+    body: LabStreamRequest;
+    path?: never;
+    query?: never;
+    url: '/lab/stream';
+};
+
+export type StreamLabTranslationLabStreamPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type StreamLabTranslationLabStreamPostError = StreamLabTranslationLabStreamPostErrors[keyof StreamLabTranslationLabStreamPostErrors];
+
+export type StreamLabTranslationLabStreamPostResponses = {
     /**
      * Successful Response
      */

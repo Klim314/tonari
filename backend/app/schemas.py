@@ -1,6 +1,6 @@
 from datetime import datetime
 from string import Formatter
-from typing import Any, Optional
+from typing import Any, Literal, Optional, Union
 
 from pydantic import AnyHttpUrl, BaseModel, Field, field_validator, model_validator
 
@@ -373,3 +373,20 @@ class ChapterGroupDetailOut(ChapterGroupOut):
 
     class Config:
         from_attributes = True
+
+
+# Mixed list response (for chapters page)
+class ChapterOrGroup(BaseModel):
+    """Union type for mixed chapter/group list"""
+
+    item_type: Literal["chapter", "group"]
+    data: Union[ChapterOut, ChapterGroupOut]
+
+
+class ChaptersWithGroupsResponse(BaseModel):
+    items: list[ChapterOrGroup]  # Mixed, sorted by sort_key
+    total_chapters: int
+    total_groups: int
+    total_items: int
+    offset: int
+    limit: int

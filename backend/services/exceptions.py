@@ -24,3 +24,11 @@ class PromptNotFoundError(NotFoundError):
 
 class PromptVersionNotFoundError(NotFoundError):
     """Raised when a prompt version lookup fails."""
+
+
+class ChapterGroupNotFoundError(NotFoundError):
+    """Raised when a chapter group lookup fails."""
+
+
+class ChapterGroupConflictError(ServiceError):
+    """Raised when chapters already belong to another group."""

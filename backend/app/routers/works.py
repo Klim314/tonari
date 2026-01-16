@@ -24,6 +24,8 @@ from app.prompt_overrides import (
 )
 from app.schemas import (
     ChapterDetailOut,
+    ChapterGroupOut,
+    ChapterOrGroup,
     ChapterOut,
     ChapterPromptOverrideRequest,
     ChapterPromptOverrideResponse,
@@ -31,6 +33,7 @@ from app.schemas import (
     ChapterScrapeRequest,
     ChapterScrapeResponse,
     ChapterTranslationStateOut,
+    ChaptersWithGroupsResponse,
     PaginatedChaptersOut,
     PaginatedWorksOut,
     TranslationSegmentOut,
@@ -39,6 +42,7 @@ from app.schemas import (
 )
 from app.scrapers.exceptions import ScraperError, ScraperNotFoundError
 from app.translation_service import get_translation_agent
+from services.chapter_groups import ChapterGroupsService
 from services.chapters import ChaptersService
 from services.exceptions import ChapterNotFoundError, ChapterScrapeError, WorkNotFoundError
 from services.explanation_stream import ExplanationStreamService
@@ -89,23 +93,58 @@ def get_work(work_id: int):
         return WorkOut.model_validate(work)
 
 
-@router.get("/{work_id}/chapters", response_model=PaginatedChaptersOut)
+@router.get("/{work_id}/chapters", response_model=ChaptersWithGroupsResponse)
 def list_chapters_for_work(work_id: int, limit: int = 50, offset: int = 0):
     with SessionLocal() as db:
         works_service = WorksService(db)
-        chapters_service = ChaptersService(db)
+        groups_service = ChapterGroupsService(db)
         try:
             works_service.get_work(work_id)
         except WorkNotFoundError:
             raise HTTPException(status_code=404, detail="work not found") from None
-        rows, total, limit, offset = chapters_service.get_chapters_for_work(
+
+        items, total_chapters, total_groups, total_items, limit, offset = groups_service.get_chapters_with_groups(
             work_id, limit=limit, offset=offset
         )
-        return PaginatedChaptersOut(
-            items=[ChapterOut.model_validate(row) for row in rows],
-            total=total,
-            limit=limit,
+
+        # Build response with mixed items
+        response_items = []
+        for item_type, data, sort_key in items:
+            if item_type == "group":
+                # data is a ChapterGroup
+                group = data
+                members_count = len(group.members)
+                min_sort_key = float(sort_key)
+                response_items.append(
+                    ChapterOrGroup(
+                        item_type="group",
+                        data=ChapterGroupOut(
+                            id=group.id,
+                            work_id=group.work_id,
+                            name=group.name,
+                            created_at=group.created_at,
+                            updated_at=group.updated_at,
+                            member_count=members_count,
+                            min_sort_key=min_sort_key,
+                            item_type="group",
+                        ),
+                    )
+                )
+            else:
+                # data is a Chapter
+                response_items.append(
+                    ChapterOrGroup(
+                        item_type="chapter", data=ChapterOut.model_validate(data)
+                    )
+                )
+
+        return ChaptersWithGroupsResponse(
+            items=response_items,
+            total_chapters=total_chapters,
+            total_groups=total_groups,
+            total_items=total_items,  # Total number of items available (before pagination)
             offset=offset,
+            limit=limit,
         )
 
 

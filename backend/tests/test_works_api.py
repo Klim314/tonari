@@ -71,15 +71,19 @@ def test_list_chapters_for_work(client, db_session):
     resp = client.get(f"/works/{work.id}/chapters?limit=2")
     assert resp.status_code == 200
     payload = resp.json()
-    assert payload["total"] == 3
-    assert payload["items"][0]["title"] == "Chronicles #1"
-    assert payload["items"][1]["idx"] == 2
+    assert payload["total_chapters"] == 3
+    assert payload["total_groups"] == 0
+    assert payload["total_items"] == 3
+    # Items now have item_type and data fields
+    assert payload["items"][0]["item_type"] == "chapter"
+    assert payload["items"][0]["data"]["title"] == "Chronicles #1"
+    assert payload["items"][1]["data"]["idx"] == 2
 
     resp2 = client.get(f"/works/{work.id}/chapters?offset=2")
     assert resp2.status_code == 200
     payload2 = resp2.json()
     assert len(payload2["items"]) == 1
-    assert payload2["items"][0]["idx"] == 3
+    assert payload2["items"][0]["data"]["idx"] == 3
 
 
 def test_list_chapters_for_missing_work(client):

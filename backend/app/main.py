@@ -94,6 +94,7 @@ def health():
     return {"ok": True}
 
 
+from app.routers.chapter_groups import router as chapter_groups_router  # noqa: E402
 from app.routers.chapter_translations import router as chapter_translations_router  # noqa: E402
 from app.routers.ingest import router as ingest_router  # noqa: E402
 from app.routers.models import router as models_router  # noqa: E402
@@ -107,5 +108,6 @@ app.include_router(
 )
 app.include_router(models_router, prefix="/models", tags=["models"])
 app.include_router(prompts_router, prefix="/prompts", tags=["prompts"])
+app.include_router(chapter_groups_router, prefix="/works", tags=["chapter_groups"])
 app.include_router(works_router, prefix="/works", tags=["works"])
 app.include_router(lab_router, prefix="/lab", tags=["lab"])

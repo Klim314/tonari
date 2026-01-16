@@ -2,6 +2,7 @@ import {
 	Alert,
 	Box,
 	Button,
+	Checkbox,
 	Container,
 	Field,
 	HStack,
@@ -13,10 +14,13 @@ import {
 	Switch,
 	Text,
 } from "@chakra-ui/react";
-import { type FormEvent, useCallback, useMemo, useState } from "react";
+import { type FormEvent, type MouseEvent, useCallback, useMemo, useState } from "react";
 import { Works } from "../client";
+import { ChapterGroupRow } from "../components/ChapterGroupRow";
+import { CreateChapterGroupModal } from "../components/CreateChapterGroupModal";
 import { WorkPromptSelector } from "../components/WorkPromptSelector";
 import { Pagination } from "../components/common/Pagination";
+import { useChapterSelection } from "../hooks/useChapterSelection";
 import { useScrapeStatus } from "../hooks/useScrapeStatus";
 import { useWork } from "../hooks/useWork";
 import { useWorkChapters } from "../hooks/useWorkChapters";
@@ -42,6 +46,10 @@ export function WorkDetailPage({
 }: WorkDetailPageProps) {
 	const [chapterPage, setChapterPage] = useState(0);
 	const [chaptersRefreshToken, setChaptersRefreshToken] = useState(0);
+	const [manageMode, setManageMode] = useState(false);
+	const [showCreateModal, setShowCreateModal] = useState(false);
+	const chapterSelection = useChapterSelection();
+
 	const {
 		data: work,
 		loading: workLoading,
@@ -76,15 +84,27 @@ export function WorkDetailPage({
 	const isScraping =
 		scrapeState.status === "pending" || scrapeState.status === "running";
 
-	const chapters = useMemo(
-		() => sortChapters(chaptersData?.items ?? []),
-		[chaptersData?.items],
-	);
-	const totalChapters = chaptersData?.total ?? 0;
+	// Handle mixed list of chapters and groups
+	const items = useMemo(() => {
+		if (!chaptersData?.items) return [];
+		// Items are already sorted by the backend
+		return chaptersData.items;
+	}, [chaptersData?.items]);
+
+	// Build list of visible chapter IDs for shift-click range selection
+	const visibleChapterIds = useMemo(() => {
+		return items
+			.filter((item) => item.item_type === "chapter")
+			.map((item) => (item.data as Chapter).id);
+	}, [items]);
+
+	const totalItems = chaptersData?.total_items ?? 0;
+	const totalChapters = chaptersData?.total_chapters ?? 0;
+	const totalGroups = chaptersData?.total_groups ?? 0;
 	const currentOffset = chaptersData?.offset ?? chapterPage * CHAPTERS_PER_PAGE;
-	const showingStart = chapters.length > 0 ? currentOffset + 1 : 0;
-	const showingEnd = currentOffset + chapters.length;
-	const totalPages = Math.max(1, Math.ceil(totalChapters / CHAPTERS_PER_PAGE));
+	const showingStart = items.length > 0 ? currentOffset + 1 : 0;
+	const showingEnd = currentOffset + items.length;
+	const totalPages = Math.max(1, Math.ceil(totalItems / CHAPTERS_PER_PAGE));
 
 	const handleScrapeSuccess = () => {
 		// Scrape requested successfully
@@ -92,6 +112,41 @@ export function WorkDetailPage({
 		// We don't need to force refresh here immediately as the SSE will trigger updates
 		// But refreshing once is good to catch the first empty state if any
 		setChaptersRefreshToken((token) => token + 1);
+	};
+
+	const handleGroupCreated = () => {
+		// Refresh chapters list to show new group
+		setChaptersRefreshToken((prev) => prev + 1);
+		chapterSelection.clearSelection();
+		setManageMode(false);
+	};
+
+	const handleDeleteGroup = async (groupId: number) => {
+		if (!window.confirm("Delete this group? Chapters will be ungrouped.")) {
+			return;
+		}
+
+		try {
+			const response = await fetch(`/api/works/${workId}/chapter-groups/${groupId}`, {
+				method: "DELETE",
+			});
+
+			if (!response.ok) {
+				throw new Error("Failed to delete group");
+			}
+
+			// Refresh chapters list
+			setChaptersRefreshToken((prev) => prev + 1);
+		} catch (error) {
+			alert(getApiErrorMessage(error, "Failed to delete group"));
+		}
+	};
+
+	const handleToggleManageMode = (checked: boolean) => {
+		setManageMode(checked);
+		if (!checked) {
+			chapterSelection.clearSelection();
+		}
 	};
 
 	return (
@@ -158,9 +213,28 @@ export function WorkDetailPage({
 
 				<Stack direction={{ base: "column", lg: "row" }} align="flex-start">
 					<Box flex="2" w="full">
-						<Heading size="md" mb={4}>
-							Chapters
-						</Heading>
+						<HStack justify="space-between" mb={4}>
+							<Heading size="md">Chapters</Heading>
+							<Button
+								size="sm"
+								variant={manageMode ? "solid" : "outline"}
+								colorPalette="teal"
+								onClick={() => handleToggleManageMode(!manageMode)}
+							>
+								{manageMode ? "Done Managing" : "Manage Chapters"}
+							</Button>
+						</HStack>
+
+						{manageMode && chapterSelection.hasSelection && (
+							<Button
+								colorPalette="teal"
+								mb={4}
+								onClick={() => setShowCreateModal(true)}
+							>
+								Create Group ({chapterSelection.selectionCount} selected)
+							</Button>
+						)}
+
 						{chaptersLoading ? (
 							<Stack>
 								{CHAPTER_SKELETON_KEYS.map((key) => (
@@ -176,33 +250,76 @@ export function WorkDetailPage({
 									</Alert.Description>
 								</Alert.Content>
 							</Alert.Root>
-						) : chapters.length === 0 ? (
+						) : items.length === 0 ? (
 							<Box borderWidth="1px" borderRadius="md" p={6}>
 								<Text color="gray.400">No chapters scraped yet.</Text>
 							</Box>
 						) : (
 							<Stack>
-								{chapters.map((chapter) => (
-									<Box
-										key={chapter.id}
-										borderWidth="1px"
-										borderRadius="md"
-										p={4}
-										as={onNavigateToChapter ? "button" : "div"}
-										textAlign="left"
-										cursor={onNavigateToChapter ? "pointer" : "default"}
-										transition="background-color 0.2s ease"
-										_hover={
-											onNavigateToChapter ? { bg: "gray.800" } : undefined
+								{(() => {
+									let chapterIndex = 0;
+									return items.map((item) => {
+										if (item.item_type === "group") {
+											const group = item.data as any; // Will be typed properly once API client regenerates
+											return (
+												<ChapterGroupRow
+													key={`group-${group.id}`}
+													group={group}
+													onNavigateToChapter={onNavigateToChapter}
+													onDelete={() => handleDeleteGroup(group.id)}
+													manageMode={manageMode}
+												/>
+											);
 										}
-										onClick={() => onNavigateToChapter?.(chapter.id)}
-									>
-										<Text fontWeight="semibold" color="teal.200">
-											Chapter {formatChapterKey(chapter.idx)}
-										</Text>
-										<Text>{chapter.title}</Text>
-									</Box>
-								))}
+										const chapter = item.data as Chapter;
+										const currentIndex = chapterIndex++;
+										const handleChapterClick = (e: MouseEvent) => {
+											if (manageMode) {
+												chapterSelection.toggleChapter(
+													chapter.id,
+													currentIndex,
+													e.shiftKey,
+													visibleChapterIds
+												);
+											} else if (onNavigateToChapter) {
+												onNavigateToChapter(chapter.id);
+											}
+										};
+										return (
+											<HStack key={`chapter-${chapter.id}`} gap={2}>
+												{manageMode && (
+													<Checkbox.Root
+														checked={chapterSelection.isSelected(chapter.id)}
+														onCheckedChange={(e) => {
+															// For keyboard/direct checkbox interaction
+															chapterSelection.toggleChapter(chapter.id, currentIndex);
+														}}
+													>
+														<Checkbox.HiddenInput />
+														<Checkbox.Control />
+													</Checkbox.Root>
+												)}
+												<Box
+													flex="1"
+													borderWidth="1px"
+													borderRadius="md"
+													p={4}
+													as="button"
+													textAlign="left"
+													cursor="pointer"
+													transition="background-color 0.2s ease"
+													_hover={{ bg: "gray.800" }}
+													onClick={handleChapterClick}
+												>
+													<Text fontWeight="semibold" color="teal.200">
+														Chapter {formatChapterKey(chapter.idx)}
+													</Text>
+													<Text>{chapter.title}</Text>
+												</Box>
+											</HStack>
+										);
+									});
+								})()}
 							</Stack>
 						)}
 						<Box mt={6}>
@@ -211,6 +328,11 @@ export function WorkDetailPage({
 								totalPages={totalPages}
 								onPageChange={setChapterPage}
 							/>
+							{totalGroups > 0 && (
+								<Text fontSize="sm" color="gray.400" mt={2} textAlign="center">
+									Showing {showingStart}-{showingEnd} of {totalItems} items ({totalChapters} chapters, {totalGroups} {totalGroups === 1 ? "group" : "groups"})
+								</Text>
+							)}
 						</Box>
 					</Box>
 
@@ -240,6 +362,15 @@ export function WorkDetailPage({
 						</Stack>
 					</Box>
 				</Stack>
+
+				{/* Create Chapter Group Modal */}
+				<CreateChapterGroupModal
+					workId={workId}
+					selectedChapterIds={Array.from(chapterSelection.selectedChapterIds)}
+					isOpen={showCreateModal}
+					onClose={() => setShowCreateModal(false)}
+					onSuccess={handleGroupCreated}
+				/>
 			</Container>
 		</Box>
 	);
