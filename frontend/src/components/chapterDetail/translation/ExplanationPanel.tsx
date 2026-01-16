@@ -9,7 +9,7 @@ import {
 } from "@chakra-ui/react";
 import { Loader, Sparkles } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface SegmentContext {
 	src: string;
@@ -44,6 +44,41 @@ export function ExplanationPanel({
 		isOpen,
 	);
 
+	const [panelWidth, setPanelWidth] = useState(600);
+	const isDragging = useRef(false);
+	const startX = useRef(0);
+	const startWidth = useRef(0);
+
+	const startResizing = useCallback((e: React.MouseEvent) => {
+		isDragging.current = true;
+		startX.current = e.clientX;
+		startWidth.current = panelWidth;
+		document.body.style.cursor = "ew-resize";
+		document.body.style.userSelect = "none";
+	}, [panelWidth]);
+
+	const stopResizing = useCallback(() => {
+		isDragging.current = false;
+		document.body.style.cursor = "";
+		document.body.style.userSelect = "";
+	}, []);
+
+	const resize = useCallback((e: MouseEvent) => {
+		if (!isDragging.current) return;
+		const delta = startX.current - e.clientX;
+		const newWidth = Math.min(Math.max(startWidth.current + delta, 400), 1200);
+		setPanelWidth(newWidth);
+	}, []);
+
+	useEffect(() => {
+		window.addEventListener("mousemove", resize);
+		window.addEventListener("mouseup", stopResizing);
+		return () => {
+			window.removeEventListener("mousemove", resize);
+			window.removeEventListener("mouseup", stopResizing);
+		};
+	}, [resize, stopResizing]);
+
 	if (!isOpen) {
 		return null;
 	}
@@ -54,16 +89,30 @@ export function ExplanationPanel({
 			right={0}
 			top={0}
 			bottom={0}
-			width="400px"
+			width={`${panelWidth}px`}
 			bg="white"
 			borderLeftWidth="1px"
 			borderLeftColor="gray.200"
 			boxShadow="lg"
-			overflowY="auto"
 			zIndex={1000}
 			display="flex"
 			flexDirection="column"
 		>
+			{/* Resize Handle */}
+			<Box
+				position="absolute"
+				left="-5px"
+				top={0}
+				bottom={0}
+				width="10px"
+				cursor="ew-resize"
+				zIndex={1001}
+				onMouseDown={startResizing}
+				_hover={{ bg: "blue.100" }}
+				transition="background 0.2s"
+				bg="gray.200"
+			/>
+
 			{/* Header */}
 			<Stack
 				p={4}

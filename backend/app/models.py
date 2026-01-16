@@ -48,6 +48,23 @@ class Chapter(Base):
     translations: Mapped[list["ChapterTranslation"]] = relationship(
         "ChapterTranslation", back_populates="chapter"
     )
+    __table_args__ = (UniqueConstraint("work_id", "sort_key", name="uq_chapter_work_sort_key"),)
+
+
+class ScrapeJob(Base):
+    __tablename__ = "scrape_jobs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    work_id: Mapped[int] = mapped_column(ForeignKey("works.id", ondelete="CASCADE"), index=True)
+    start: Mapped[Decimal] = mapped_column(Numeric(12, 4))
+    end: Mapped[Decimal] = mapped_column(Numeric(12, 4))
+    status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
+    progress: Mapped[int] = mapped_column(Integer, default=0)
+    total: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 class ChapterTranslation(Base):

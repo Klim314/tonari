@@ -1,3 +1,4 @@
+
 import {
 	Alert,
 	Badge,
@@ -6,12 +7,13 @@ import {
 	Drawer,
 	Field,
 	HStack,
-	Input,
 	Stack,
 	Text,
 	Textarea,
 } from "@chakra-ui/react";
 import type { ReactElement } from "react";
+import { useModels } from "../hooks/useModels";
+import { ModelAutocomplete } from "./PromptEditor/ModelAutocomplete";
 
 interface ChapterPromptDrawerProps {
 	trigger: ReactElement;
@@ -21,7 +23,7 @@ interface ChapterPromptDrawerProps {
 	template: string;
 	onModelChange: (value: string) => void;
 	onTemplateChange: (value: string) => void;
-	isDirty: boolean;
+	isDirty: boolean; // eslint-disable-next-line @typescript-eslint/no-unused-vars
 	isLoading: boolean;
 	isSaving: boolean;
 	onReset: () => void;
@@ -60,11 +62,13 @@ export function ChapterPromptDrawer({
 		}
 	};
 
+	const { data: availableModels, loading: loadingModels } = useModels();
+
 	const disableSave =
 		!promptAssigned || !isDirty || Boolean(saveDisabledReason);
 
 	return (
-		<Drawer.Root onOpenChange={handleOpenChange} size="lg" placement="right">
+		<Drawer.Root onOpenChange={handleOpenChange} size="lg" placement="end">
 			<Drawer.Trigger asChild>{trigger}</Drawer.Trigger>
 			<Drawer.Backdrop />
 			<Drawer.Positioner>
@@ -117,9 +121,11 @@ export function ChapterPromptDrawer({
 
 							<Field.Root>
 								<Field.Label>Model</Field.Label>
-								<Input
+								<ModelAutocomplete
 									value={model}
-									onChange={(event) => onModelChange(event.target.value)}
+									onChange={onModelChange}
+									models={availableModels}
+									placeholder={loadingModels ? "Loading models..." : "Select or type a model"}
 									disabled={isLoading}
 								/>
 							</Field.Root>
