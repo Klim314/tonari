@@ -43,6 +43,8 @@ class ChapterOut(BaseModel):
 
 class ChapterDetailOut(ChapterOut):
     normalized_text: str
+    next_chapter_id: Optional[int] = None
+    prev_chapter_id: Optional[int] = None
 
     class Config:
         from_attributes = True

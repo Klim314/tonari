@@ -79,6 +79,30 @@ class ChaptersService:
             raise ChapterNotFoundError(f"chapter {chapter_id} not found")
         return chapter
 
+    def get_next_chapter(self, work_id: int, current_sort_key: Decimal) -> Chapter | None:
+        stmt = (
+            select(Chapter)
+            .where(
+                Chapter.work_id == work_id,
+                Chapter.sort_key > current_sort_key,
+            )
+            .order_by(Chapter.sort_key.asc())
+            .limit(1)
+        )
+        return self.session.execute(stmt).scalars().first()
+
+    def get_previous_chapter(self, work_id: int, current_sort_key: Decimal) -> Chapter | None:
+        stmt = (
+            select(Chapter)
+            .where(
+                Chapter.work_id == work_id,
+                Chapter.sort_key < current_sort_key,
+            )
+            .order_by(Chapter.sort_key.desc())
+            .limit(1)
+        )
+        return self.session.execute(stmt).scalars().first()
+
     def scrape_work_for_chapters(
         self,
         work: Work,

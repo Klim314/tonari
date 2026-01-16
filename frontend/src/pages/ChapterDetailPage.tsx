@@ -115,6 +115,9 @@ export function ChapterDetailPage({
 			promptDrawerTrigger={promptDrawerTrigger}
 			translationPanelProps={translationPanelProps}
 			onNavigateBack={() => onNavigateBack(`/works/${workId}`)}
+			onNavigateChapter={(nextChapterId) =>
+				onNavigateBack(`/works/${workId}/chapters/${nextChapterId}`)
+			}
 			onRegenerateSegments={handleRegenerateSegments}
 			isRegeneratingSegments={isRegeneratingSegments}
 			isLoading={loading}

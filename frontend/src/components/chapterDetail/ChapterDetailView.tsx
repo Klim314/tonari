@@ -3,15 +3,50 @@ import {
 	Box,
 	Button,
 	Container,
+	HStack,
 	Skeleton,
 	Stack,
 } from "@chakra-ui/react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import type { ReactNode } from "react";
 import type { ChapterDetail, Work } from "../../types/works";
 import { ChapterHeaderCard } from "./ChapterHeaderCard";
 import { TranslationPanel } from "./translation/TranslationPanel";
 import type { TranslationPanelProps } from "./translation/TranslationPanel";
 import type { PromptMeta } from "./types";
+
+interface ChapterNavigationProps {
+	nextId?: number | null;
+	prevId?: number | null;
+	onNavigate: (chapterId: number) => void;
+}
+
+function ChapterNavigation({
+	nextId,
+	prevId,
+	onNavigate,
+}: ChapterNavigationProps) {
+	return (
+		<HStack justify="space-between" width="full">
+			<Button
+				disabled={!prevId}
+				variant="ghost"
+				onClick={() => prevId && onNavigate(prevId)}
+				visibility={prevId ? "visible" : "hidden"}
+			>
+				<ArrowLeft /> Previous Chapter
+			</Button>
+			<Button
+				disabled={!nextId}
+				variant="ghost"
+				onClick={() => nextId && onNavigate(nextId)}
+				visibility={nextId ? "visible" : "hidden"}
+			>
+				Next Chapter <ArrowRight />
+			</Button>
+		</HStack>
+	);
+}
 
 export interface ChapterDetailViewProps {
 	work: Work | null;
@@ -20,6 +55,7 @@ export interface ChapterDetailViewProps {
 	promptDrawerTrigger: ReactNode;
 	translationPanelProps: TranslationPanelProps;
 	onNavigateBack: () => void;
+	onNavigateChapter: (chapterId: number) => void;
 	onRegenerateSegments: () => void;
 	isRegeneratingSegments: boolean;
 	isLoading: boolean;
@@ -33,6 +69,7 @@ export function ChapterDetailView({
 	promptDrawerTrigger,
 	translationPanelProps,
 	onNavigateBack,
+	onNavigateChapter,
 	onRegenerateSegments,
 	isRegeneratingSegments,
 	isLoading,
@@ -103,7 +140,19 @@ export function ChapterDetailView({
 						onNavigateBack={onNavigateBack}
 					/>
 
+					<ChapterNavigation
+						nextId={chapter.next_chapter_id}
+						prevId={chapter.prev_chapter_id}
+						onNavigate={onNavigateChapter}
+					/>
+
 					<TranslationPanel {...translationPanelProps} />
+
+					<ChapterNavigation
+						nextId={chapter.next_chapter_id}
+						prevId={chapter.prev_chapter_id}
+						onNavigate={onNavigateChapter}
+					/>
 				</Stack>
 			</Container>
 		</Box>

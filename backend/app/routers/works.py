@@ -163,7 +163,14 @@ def get_chapter_for_work(work_id: int, chapter_id: int):
             raise HTTPException(status_code=404, detail="chapter not found") from None
         if chapter.work_id != work.id:
             raise HTTPException(status_code=404, detail="chapter not found") from None
-        return ChapterDetailOut.model_validate(chapter)
+
+        next_chapter = chapters_service.get_next_chapter(work_id, chapter.sort_key)
+        prev_chapter = chapters_service.get_previous_chapter(work_id, chapter.sort_key)
+
+        response = ChapterDetailOut.model_validate(chapter)
+        response.next_chapter_id = next_chapter.id if next_chapter else None
+        response.prev_chapter_id = prev_chapter.id if prev_chapter else None
+        return response
 
 
 @router.post("/{work_id}/scrape-chapters", response_model=ChapterScrapeResponse)

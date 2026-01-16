@@ -32,6 +32,14 @@ export type ChapterDetailOut = {
      * Normalized Text
      */
     normalized_text: string;
+    /**
+     * Next Chapter Id
+     */
+    next_chapter_id?: number | null;
+    /**
+     * Prev Chapter Id
+     */
+    prev_chapter_id?: number | null;
 };
 
 /**
