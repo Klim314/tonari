@@ -3,10 +3,11 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from decimal import Decimal
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
 from sqlalchemy.orm import Session as DBSession
 from sse_starlette.sse import EventSourceResponse
 
@@ -14,6 +15,7 @@ from agents.explanation_agent import ExplanationAgent, get_explanation_agent
 from agents.translation_agent import TranslationAgent
 from app.config import settings
 from app.db import SessionLocal
+from app.models import ScrapeJob
 from app.prompt_overrides import (
     PromptOverrideExpiredError,
     PromptOverrideInvalidError,
@@ -41,6 +43,7 @@ from services.chapters import ChaptersService
 from services.exceptions import ChapterNotFoundError, ChapterScrapeError, WorkNotFoundError
 from services.explanation_stream import ExplanationStreamService
 from services.prompt import PromptService
+from services.scrape_manager import ScrapeManager
 from services.translation_stream import TranslationStreamService
 from services.works import WorksService
 
@@ -125,41 +128,97 @@ def get_chapter_for_work(work_id: int, chapter_id: int):
 
 
 @router.post("/{work_id}/scrape-chapters", response_model=ChapterScrapeResponse)
-def request_chapter_scrape(work_id: int, payload: ChapterScrapeRequest):
+def request_chapter_scrape(
+    work_id: int, 
+    payload: ChapterScrapeRequest,
+    background_tasks: BackgroundTasks,
+):
     with SessionLocal() as db:
         works_service = WorksService(db)
-        chapters_service = ChaptersService(db)
+        scrape_manager = ScrapeManager(db)
+        
         try:
             work = works_service.get_work(work_id)
         except WorkNotFoundError:
             raise HTTPException(status_code=404, detail="work not found") from None
-        try:
-            summary = chapters_service.scrape_work_for_chapters(
-                work,
-                start=payload.start,
-                end=payload.end,
-                force=payload.force,
-            )
-        except ChapterScrapeError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from None
-        except ScraperNotFoundError:
-            raise HTTPException(status_code=400, detail="no supported scraper found") from None
+
+        # Check for existing job (and handle timeout logic)
+        existing_job = scrape_manager.get_active_job(work_id)
+        if existing_job:
+            # For now, return conflict. In future we could header "Location" to the monitoring endpoint
+            raise HTTPException(status_code=409, detail=f"Scrape already in progress (job {existing_job.id})")
+
+        # Create new job
+        job = scrape_manager.create_job(
+            work_id=work.id, 
+            start=Decimal(str(payload.start)), 
+            end=Decimal(str(payload.end))
+        )
+        
+        # Start background task
+        background_tasks.add_task(scrape_manager.run_scrape_job, job.id, force=payload.force)
 
         return ChapterScrapeResponse(
             work_id=work.id,
-            start=float(summary.start),
-            end=float(summary.end),
-            force=summary.force,
-            status=summary.status,
-            requested=summary.requested,
-            created=summary.created,
-            updated=summary.updated,
-            skipped=summary.skipped,
-            errors=[
-                ChapterScrapeErrorItem(chapter=float(err.chapter), reason=err.reason)
-                for err in summary.errors
-            ],
+            start=payload.start,
+            end=payload.end,
+            force=payload.force,
+            status="pending",
+            job_id=job.id,
+            requested=0,
+            created=0,
+            updated=0,
+            skipped=0,
+            errors=[],
         )
+
+
+@router.get("/{work_id}/scrape-status")
+async def stream_scrape_status(work_id: int, request: Request):
+    """Stream scrape status events for a work."""
+    # We don't use the DB session directly here for the generator context potentially
+    # But checking if work exists is good practice
+    
+    # We'll rely on the manager to handle subscription
+    # Note: Using ScrapeManager with a ephemeral session just for setup if needed
+    
+    async def event_generator():
+        # Short-lived session to check work existence/current status
+        db = SessionLocal()
+        scrape_manager = ScrapeManager(db)
+        
+        try:
+            # Check active job to send initial state
+            job = scrape_manager.get_active_job(work_id)
+            if job:
+                yield _sse_event("job-status", {
+                    "status": job.status, 
+                    "progress": job.progress, 
+                    "total": job.total
+                })
+            else:
+                yield _sse_event("job-status", {"status": "idle"})
+        finally:
+            db.close()
+            
+        # Subscribe to broadcast
+        # Note: ScrapeManager uses a class-level subscriber list, so we can instantiate a new one
+        # Use a fresh instance/session for the subscription call if needed, but subscribe is generic
+        # However, we need to pass a db session to ScrapeManager constructor
+        # Ideally the subscriber list is global or singleton. 
+        # In our implementation `_subscribers` is a global variable in the module, so any instance works.
+        
+        db_sub = SessionLocal()
+        manager = ScrapeManager(db_sub)
+        try:
+            async for event in manager.subscribe(work_id):
+                if await request.is_disconnected():
+                    break
+                yield _sse_event(event["event"], event["data"])
+        finally:
+            db_sub.close()
+
+    return EventSourceResponse(event_generator())
 
 
 @router.get(

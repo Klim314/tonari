@@ -13,11 +13,12 @@ import {
 	Switch,
 	Text,
 } from "@chakra-ui/react";
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useCallback, useMemo, useState } from "react";
 import { Works } from "../client";
 import { WorkPromptSelector } from "../components/WorkPromptSelector";
 import { useWork } from "../hooks/useWork";
 import { useWorkChapters } from "../hooks/useWorkChapters";
+import { useScrapeStatus } from "../hooks/useScrapeStatus";
 import { getApiErrorMessage } from "../lib/api";
 import type { Chapter } from "../types/works";
 
@@ -64,6 +65,15 @@ export function WorkDetailPage({
 			? meta.description
 			: "No description available for this work yet.";
 
+	// Scrape Status
+	const handleChapterFound = useCallback(() => {
+		// Simple refresh on chapter found
+		setChaptersRefreshToken((prev) => prev + 1);
+	}, []);
+
+	const scrapeState = useScrapeStatus(workId, handleChapterFound);
+	const isScraping = scrapeState.status === "pending" || scrapeState.status === "running";
+
 	const chapters = useMemo(
 		() => sortChapters(chaptersData?.items ?? []),
 		[chaptersData?.items],
@@ -75,7 +85,10 @@ export function WorkDetailPage({
 	const totalPages = Math.max(1, Math.ceil(totalChapters / CHAPTERS_PER_PAGE));
 
 	const handleScrapeSuccess = () => {
+		// Scrape requested successfully
 		setChapterPage(0);
+		// We don't need to force refresh here immediately as the SSE will trigger updates
+		// But refreshing once is good to catch the first empty state if any
 		setChaptersRefreshToken((token) => token + 1);
 	};
 
@@ -125,6 +138,17 @@ export function WorkDetailPage({
 						<Alert.Indicator />
 						<Alert.Content>
 							<Alert.Description>Work not found.</Alert.Description>
+						</Alert.Content>
+					</Alert.Root>
+				)}
+
+				{isScraping && (
+					<Alert.Root status="info" mb={6} borderRadius="lg">
+						<Alert.Indicator />
+						<Alert.Content>
+							<Alert.Description>
+								Scraping in progress... {scrapeState.progress} chapters found so far.
+							</Alert.Description>
 						</Alert.Content>
 					</Alert.Root>
 				)}
@@ -187,7 +211,7 @@ export function WorkDetailPage({
 									onClick={() =>
 										setChapterPage((page) => Math.max(0, page - 1))
 									}
-									isDisabled={chapterPage === 0}
+									disabled={chapterPage === 0}
 								>
 									Previous
 								</Button>
@@ -198,7 +222,7 @@ export function WorkDetailPage({
 									onClick={() =>
 										setChapterPage((page) => Math.min(totalPages - 1, page + 1))
 									}
-									isDisabled={chapterPage >= totalPages - 1}
+									disabled={chapterPage >= totalPages - 1}
 								>
 									Next
 								</Button>
@@ -226,6 +250,7 @@ export function WorkDetailPage({
 								<ScrapeChaptersInlineForm
 									workId={workId}
 									onSuccess={handleScrapeSuccess}
+									isDisabled={isScraping}
 								/>
 							</Box>
 						</Stack>
@@ -239,9 +264,10 @@ export function WorkDetailPage({
 interface ScrapeFormProps {
 	workId: number;
 	onSuccess?: () => void;
+	isDisabled?: boolean;
 }
 
-function ScrapeChaptersInlineForm({ workId, onSuccess }: ScrapeFormProps) {
+function ScrapeChaptersInlineForm({ workId, onSuccess, isDisabled }: ScrapeFormProps) {
 	const [start, setStart] = useState("");
 	const [end, setEnd] = useState("");
 	const [force, setForce] = useState(false);
@@ -251,7 +277,7 @@ function ScrapeChaptersInlineForm({ workId, onSuccess }: ScrapeFormProps) {
 		message: string;
 	} | null>(null);
 
-	async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+	async function handleSubmit(event: FormEvent) {
 		event.preventDefault();
 		const startValue = Number.parseFloat(start);
 		const endValue = Number.parseFloat(end);
@@ -335,8 +361,8 @@ function ScrapeChaptersInlineForm({ workId, onSuccess }: ScrapeFormProps) {
 						<Switch.Thumb />
 					</Switch.Control>
 				</Switch.Root>
-				<Button type="submit" colorScheme="teal" isLoading={submitting}>
-					Queue scrape
+				<Button type="submit" colorScheme="teal" loading={submitting} disabled={isDisabled}>
+					{isDisabled ? "Scrape in progress" : "Queue scrape"}
 				</Button>
 			</Stack>
 		</Box>

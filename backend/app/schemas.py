@@ -79,16 +79,36 @@ class ChapterScrapeErrorItem(BaseModel):
     reason: str
 
 
-class ChapterScrapeResponse(BaseModel):
+class ScrapeJobOut(BaseModel):
+    id: int
     work_id: int
     start: float
     end: float
-    force: bool
     status: str
-    requested: int
-    created: int
-    updated: int
-    skipped: int
+    progress: int
+    total: int
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class ChapterScrapeResponse(BaseModel):
+    # Backward compatibility fields (optional or derived)
+    work_id: int
+    start: float
+    end: float
+    force: bool = False
+    status: str
+    
+    # New fields
+    job_id: int | None = None
+    
+    # These might be empty if async
+    requested: int = 0
+    created: int = 0
+    updated: int = 0
+    skipped: int = 0
     errors: list[ChapterScrapeErrorItem] = Field(default_factory=list)
 
 
