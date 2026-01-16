@@ -15,6 +15,7 @@ import {
 } from "@chakra-ui/react";
 import { type FormEvent, useCallback, useMemo, useState } from "react";
 import { Works } from "../client";
+import { Pagination } from "../components/common/Pagination";
 import { WorkPromptSelector } from "../components/WorkPromptSelector";
 import { useWork } from "../hooks/useWork";
 import { useWorkChapters } from "../hooks/useWorkChapters";
@@ -202,32 +203,13 @@ export function WorkDetailPage({
 								))}
 							</Stack>
 						)}
-						<HStack justify="space-between" mt={6}>
-							<Text color="gray.400">
-								Showing {showingStart}-{showingEnd} of {totalChapters}
-							</Text>
-							<HStack>
-								<Button
-									onClick={() =>
-										setChapterPage((page) => Math.max(0, page - 1))
-									}
-									disabled={chapterPage === 0}
-								>
-									Previous
-								</Button>
-								<Text color="gray.300">
-									Page {Math.min(chapterPage + 1, totalPages)} / {totalPages}
-								</Text>
-								<Button
-									onClick={() =>
-										setChapterPage((page) => Math.min(totalPages - 1, page + 1))
-									}
-									disabled={chapterPage >= totalPages - 1}
-								>
-									Next
-								</Button>
-							</HStack>
-						</HStack>
+						<Box mt={6}>
+							<Pagination
+								currentPage={chapterPage}
+								totalPages={totalPages}
+								onPageChange={setChapterPage}
+							/>
+						</Box>
 					</Box>
 
 					<Box flex="1" w="full" borderWidth="1px" borderRadius="lg" p={6}>
