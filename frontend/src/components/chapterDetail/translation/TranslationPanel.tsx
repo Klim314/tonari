@@ -82,6 +82,11 @@ export const TranslationPanel = memo(function TranslationPanel({
 		if (completedCount === translatableSegments.length) {
 			return "regenerate";
 		}
+		// If no segments have been translated yet, show "Start"
+		if (completedCount === 0) {
+			return "start";
+		}
+		// If some but not all segments are translated, show "Resume"
 		return "resume";
 	}, [translationSegments, translationStatus]);
 
