@@ -143,16 +143,45 @@ export function LabPage() {
 	}
 
 	return (
-		<Container maxW="100%" h="calc(100vh - 64px)" p={0} display="flex" flexDirection="column" bg="white">
+		<Container
+			maxW="100%"
+			h="calc(100vh - 64px)"
+			p={0}
+			display="flex"
+			flexDirection="column"
+			bg="white"
+		>
 			{/* Top Bar */}
-			<HStack p={4} borderBottomWidth="1px" borderColor="gray.200" justify="space-between" bg="gray.50">
+			<HStack
+				p={4}
+				borderBottomWidth="1px"
+				borderColor="gray.200"
+				justify="space-between"
+				bg="gray.50"
+			>
 				<VStack align="start" gap={0}>
-					<Heading size="md" color="gray.800">Prompt Lab</Heading>
-					<Text fontSize="xs" color="gray.500">Compare prompt outputs side-by-side</Text>
+					<Heading size="md" color="gray.800">
+						Prompt Lab
+					</Heading>
+					<Text fontSize="xs" color="gray.500">
+						Compare prompt outputs side-by-side
+					</Text>
 				</VStack>
 				<HStack>
-					<Button size="sm" onClick={handleAddLane} variant="outline" colorPalette="gray">Add Lane</Button>
-					<Button size="sm" colorPalette="blue" onClick={runAll} loading={lanes.some(l => l.status === "running")}>
+					<Button
+						size="sm"
+						onClick={handleAddLane}
+						variant="outline"
+						colorPalette="gray"
+					>
+						Add Lane
+					</Button>
+					<Button
+						size="sm"
+						colorPalette="blue"
+						onClick={runAll}
+						loading={lanes.some((l) => l.status === "running")}
+					>
 						Run All
 					</Button>
 				</HStack>
@@ -161,8 +190,19 @@ export function LabPage() {
 			{/* Main Content Area */}
 			<HStack flex="1" align="stretch" overflow="hidden" gap={0}>
 				{/* Input Panel (Left) */}
-				<Box w="300px" borderRightWidth="1px" borderColor="gray.200" p={4} bg="white" display="flex" flexDirection="column" gap={4}>
-					<Heading size="sm" color="gray.700">Input Text</Heading>
+				<Box
+					w="300px"
+					borderRightWidth="1px"
+					borderColor="gray.200"
+					p={4}
+					bg="white"
+					display="flex"
+					flexDirection="column"
+					gap={4}
+				>
+					<Heading size="sm" color="gray.700">
+						Input Text
+					</Heading>
 					<Textarea
 						flex="1"
 						placeholder="Enter Japanese text here..."

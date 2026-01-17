@@ -61,16 +61,31 @@ export function LabLane({
 			boxShadow="sm"
 		>
 			{/* Header / Config */}
-			<VStack p={4} gap={3} align="stretch" borderBottomWidth="1px" borderColor="gray.100">
+			<VStack
+				p={4}
+				gap={3}
+				align="stretch"
+				borderBottomWidth="1px"
+				borderColor="gray.100"
+			>
 				<HStack justify="space-between">
-					<Heading size="sm" color="gray.700">Configuration</Heading>
-					<Button size="xs" colorPalette="red" variant="ghost" onClick={() => onRemove(config.id)}>
+					<Heading size="sm" color="gray.700">
+						Configuration
+					</Heading>
+					<Button
+						size="xs"
+						colorPalette="red"
+						variant="ghost"
+						onClick={() => onRemove(config.id)}
+					>
 						Close
 					</Button>
 				</HStack>
 
 				<Field.Root>
-					<Field.Label fontSize="xs" color="gray.600">Model</Field.Label>
+					<Field.Label fontSize="xs" color="gray.600">
+						Model
+					</Field.Label>
 					<ModelAutocomplete
 						value={config.model}
 						onChange={(val) => onConfigChange(config.id, { model: val })}
@@ -80,12 +95,16 @@ export function LabLane({
 				</Field.Root>
 
 				<Field.Root>
-					<Field.Label fontSize="xs" color="gray.600">System Prompt / Template</Field.Label>
+					<Field.Label fontSize="xs" color="gray.600">
+						System Prompt / Template
+					</Field.Label>
 					<Textarea
 						size="sm"
 						fontSize="xs"
 						value={config.template}
-						onChange={(e) => onConfigChange(config.id, { template: e.target.value })}
+						onChange={(e) =>
+							onConfigChange(config.id, { template: e.target.value })
+						}
 						placeholder="Enter system prompt..."
 						rows={3}
 						bg="white"
@@ -97,7 +116,9 @@ export function LabLane({
 			{/* Output Area */}
 			<Box flex="1" p={4} overflowY="auto" bg="gray.50">
 				{config.status === "error" ? (
-					<Text color="red.500" fontSize="sm">{config.error}</Text>
+					<Text color="red.500" fontSize="sm">
+						{config.error}
+					</Text>
 				) : (
 					<Text
 						whiteSpace="pre-wrap"
@@ -110,12 +131,22 @@ export function LabLane({
 			</Box>
 
 			{/* Footer / Status */}
-			<HStack p={2} bg="white" borderTopWidth="1px" borderColor="gray.100" justify="space-between">
+			<HStack
+				p={2}
+				bg="white"
+				borderTopWidth="1px"
+				borderColor="gray.100"
+				justify="space-between"
+			>
 				<Badge
 					colorPalette={
-						config.status === "running" ? "blue" :
-							config.status === "completed" ? "green" :
-								config.status === "error" ? "red" : "gray"
+						config.status === "running"
+							? "blue"
+							: config.status === "completed"
+								? "green"
+								: config.status === "error"
+									? "red"
+									: "gray"
 					}
 					variant="subtle"
 					fontSize="xs"

@@ -544,6 +544,134 @@ def test_delete_chapter_group_api(client, db_session):
     assert response.status_code == 404
 
 
+def test_list_chapter_groups_api(client, db_session):
+    """Test GET /works/{work_id}/chapter-groups endpoint."""
+    work = _create_work(db_session)
+    chapters = _create_chapters(db_session, work, count=5)
+
+    # Create two groups via API
+    create_resp1 = client.post(
+        f"/works/{work.id}/chapter-groups",
+        json={"name": "Arc 1", "chapter_ids": [chapters[0].id, chapters[1].id]},
+    )
+    assert create_resp1.status_code == 201
+
+    create_resp2 = client.post(
+        f"/works/{work.id}/chapter-groups",
+        json={"name": "Arc 2", "chapter_ids": [chapters[2].id]},
+    )
+    assert create_resp2.status_code == 201
+
+    # List groups
+    response = client.get(f"/works/{work.id}/chapter-groups")
+    assert response.status_code == 200
+
+    data = response.json()
+    assert len(data) == 2
+    names = [g["name"] for g in data]
+    assert "Arc 1" in names
+    assert "Arc 2" in names
+
+    # Check member counts
+    arc1 = next(g for g in data if g["name"] == "Arc 1")
+    arc2 = next(g for g in data if g["name"] == "Arc 2")
+    assert arc1["member_count"] == 2
+    assert arc2["member_count"] == 1
+
+
+def test_list_chapter_groups_empty(client, db_session):
+    """Test GET /works/{work_id}/chapter-groups with no groups."""
+    work = _create_work(db_session)
+
+    response = client.get(f"/works/{work.id}/chapter-groups")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_add_chapters_to_group_api(client, db_session):
+    """Test POST /works/{work_id}/chapter-groups/{group_id}/members endpoint."""
+    work = _create_work(db_session)
+    chapters = _create_chapters(db_session, work, count=5)
+
+    # Create group with first 2 chapters
+    create_resp = client.post(
+        f"/works/{work.id}/chapter-groups",
+        json={"name": "Arc 1", "chapter_ids": [chapters[0].id, chapters[1].id]},
+    )
+    assert create_resp.status_code == 201
+    group_id = create_resp.json()["id"]
+    assert create_resp.json()["member_count"] == 2
+
+    # Add 2 more chapters
+    response = client.post(
+        f"/works/{work.id}/chapter-groups/{group_id}/members",
+        json={"chapter_ids": [chapters[2].id, chapters[3].id]},
+    )
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["member_count"] == 4
+    member_chapter_ids = [m["chapter_id"] for m in data["members"]]
+    assert chapters[0].id in member_chapter_ids
+    assert chapters[1].id in member_chapter_ids
+    assert chapters[2].id in member_chapter_ids
+    assert chapters[3].id in member_chapter_ids
+
+
+def test_add_chapters_to_group_conflict(client, db_session):
+    """Test adding chapters that belong to another group returns 409."""
+    work = _create_work(db_session)
+    chapters = _create_chapters(db_session, work, count=4)
+
+    # Create first group
+    create_resp1 = client.post(
+        f"/works/{work.id}/chapter-groups",
+        json={"name": "Arc 1", "chapter_ids": [chapters[0].id, chapters[1].id]},
+    )
+    assert create_resp1.status_code == 201
+    group1_id = create_resp1.json()["id"]
+
+    # Create second group
+    create_resp2 = client.post(
+        f"/works/{work.id}/chapter-groups",
+        json={"name": "Arc 2", "chapter_ids": [chapters[2].id]},
+    )
+    assert create_resp2.status_code == 201
+    group2_id = create_resp2.json()["id"]
+
+    # Try to add chapter from group1 to group2
+    response = client.post(
+        f"/works/{work.id}/chapter-groups/{group2_id}/members",
+        json={"chapter_ids": [chapters[0].id]},
+    )
+    assert response.status_code == 409
+
+
+def test_add_chapters_to_group_skip_duplicates(client, db_session):
+    """Test adding chapters already in the group are silently skipped."""
+    work = _create_work(db_session)
+    chapters = _create_chapters(db_session, work, count=3)
+
+    # Create group with first chapter
+    create_resp = client.post(
+        f"/works/{work.id}/chapter-groups",
+        json={"name": "Arc 1", "chapter_ids": [chapters[0].id]},
+    )
+    assert create_resp.status_code == 201
+    group_id = create_resp.json()["id"]
+
+    # Add first chapter again along with second chapter
+    response = client.post(
+        f"/works/{work.id}/chapter-groups/{group_id}/members",
+        json={"chapter_ids": [chapters[0].id, chapters[1].id]},
+    )
+    assert response.status_code == 200
+
+    data = response.json()
+    # Should have 2 members, not 3 (duplicate skipped)
+    assert data["member_count"] == 2
+
+
 def test_chapters_list_with_groups_api(client, db_session):
     """Test GET /works/{work_id}/chapters returns mixed list."""
     work = _create_work(db_session)

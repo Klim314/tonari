@@ -82,19 +82,16 @@ export function CreateChapterGroupModal({
 
 		try {
 			// Using fetch directly since the API client might not be regenerated yet
-			const response = await fetch(
-				`/api/works/${workId}/chapter-groups`,
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify({
-						name: trimmedName,
-						chapter_ids: selectedChapterIds,
-					}),
-				}
-			);
+			const response = await fetch(`/api/works/${workId}/chapter-groups`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					name: trimmedName,
+					chapter_ids: selectedChapterIds,
+				}),
+			});
 
 			if (!response.ok) {
 				const errorData = await response.json();
@@ -105,10 +102,7 @@ export function CreateChapterGroupModal({
 			onSuccess();
 			onClose();
 		} catch (err) {
-			const message = getApiErrorMessage(
-				err,
-				"Failed to create chapter group"
-			);
+			const message = getApiErrorMessage(err, "Failed to create chapter group");
 			setError(message);
 		} finally {
 			setSubmitting(false);

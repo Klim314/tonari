@@ -253,18 +253,13 @@ class ChapterGroupsService:
                 f"Chapters {conflict_ids} already belong to another group"
             )
 
-        # Get chapters already in this group (to skip)
-        already_in_group_stmt = select(ChapterGroupMember.chapter_id).where(
-            ChapterGroupMember.group_id == group_id,
-            ChapterGroupMember.chapter_id.in_(chapter_ids),
-        )
-        already_in_group = set(self.session.execute(already_in_group_stmt).scalars().all())
-
-        # Get current max order_index
-        max_order_stmt = select(func.max(ChapterGroupMember.order_index)).where(
+        # Get current members and max order_index
+        current_members_stmt = select(ChapterGroupMember).where(
             ChapterGroupMember.group_id == group_id
         )
-        max_order = self.session.execute(max_order_stmt).scalar() or -1
+        current_members = list(self.session.execute(current_members_stmt).scalars().all())
+        already_in_group = {m.chapter_id for m in current_members}
+        max_order = max((m.order_index for m in current_members), default=-1)
 
         # Add new members (skip those already in group)
         new_chapter_ids = [cid for cid in chapter_ids if cid not in already_in_group]

@@ -66,7 +66,7 @@ export function ChapterGroupRow({
 
 		try {
 			const response = await fetch(
-				`/api/works/${group.work_id}/chapter-groups/${group.id}`
+				`/api/works/${group.work_id}/chapter-groups/${group.id}`,
 			);
 			if (!response.ok) {
 				throw new Error("Failed to load group details");
@@ -107,10 +107,7 @@ export function ChapterGroupRow({
 				>
 					<Collapsible.Trigger asChild>
 						<HStack flex="1" gap={3}>
-							<Icon
-								as={isExpanded ? ChevronDown : ChevronRight}
-								boxSize={5}
-							/>
+							<Icon as={isExpanded ? ChevronDown : ChevronRight} boxSize={5} />
 							<Icon as={Folder} boxSize={5} color="teal.400" />
 							<Box flex="1">
 								<HStack gap={2}>
@@ -144,13 +141,7 @@ export function ChapterGroupRow({
 
 				{/* Expandable Content - Member Chapters */}
 				<Collapsible.Content>
-					<Stack
-						gap={2}
-						px={4}
-						pb={4}
-						borderTopWidth="1px"
-						pt={4}
-					>
+					<Stack gap={2} px={4} pb={4} borderTopWidth="1px" pt={4}>
 						{loading ? (
 							<HStack justify="center" py={4}>
 								<Spinner size="sm" />
