@@ -14,8 +14,15 @@ import {
 	Switch,
 	Text,
 } from "@chakra-ui/react";
-import { type FormEvent, type MouseEvent, useCallback, useMemo, useState } from "react";
+import {
+	type FormEvent,
+	type MouseEvent,
+	useCallback,
+	useMemo,
+	useState,
+} from "react";
 import { Works } from "../client";
+import { AddToGroupModal } from "../components/AddToGroupModal";
 import { ChapterGroupRow } from "../components/ChapterGroupRow";
 import { CreateChapterGroupModal } from "../components/CreateChapterGroupModal";
 import { WorkPromptSelector } from "../components/WorkPromptSelector";
@@ -48,6 +55,7 @@ export function WorkDetailPage({
 	const [chaptersRefreshToken, setChaptersRefreshToken] = useState(0);
 	const [manageMode, setManageMode] = useState(false);
 	const [showCreateModal, setShowCreateModal] = useState(false);
+	const [showAddToGroupModal, setShowAddToGroupModal] = useState(false);
 	const chapterSelection = useChapterSelection();
 
 	const {
@@ -127,9 +135,12 @@ export function WorkDetailPage({
 		}
 
 		try {
-			const response = await fetch(`/api/works/${workId}/chapter-groups/${groupId}`, {
-				method: "DELETE",
-			});
+			const response = await fetch(
+				`/api/works/${workId}/chapter-groups/${groupId}`,
+				{
+					method: "DELETE",
+				},
+			);
 
 			if (!response.ok) {
 				throw new Error("Failed to delete group");
@@ -226,13 +237,21 @@ export function WorkDetailPage({
 						</HStack>
 
 						{manageMode && chapterSelection.hasSelection && (
-							<Button
-								colorPalette="teal"
-								mb={4}
-								onClick={() => setShowCreateModal(true)}
-							>
-								Create Group ({chapterSelection.selectionCount} selected)
-							</Button>
+							<HStack mb={4} gap={2}>
+								<Button
+									colorPalette="teal"
+									onClick={() => setShowCreateModal(true)}
+								>
+									Create Group ({chapterSelection.selectionCount})
+								</Button>
+								<Button
+									variant="outline"
+									colorPalette="teal"
+									onClick={() => setShowAddToGroupModal(true)}
+								>
+									Add to Group
+								</Button>
+							</HStack>
 						)}
 
 						{chaptersLoading ? (
@@ -279,7 +298,7 @@ export function WorkDetailPage({
 													chapter.id,
 													currentIndex,
 													e.shiftKey,
-													visibleChapterIds
+													visibleChapterIds,
 												);
 											} else if (onNavigateToChapter) {
 												onNavigateToChapter(chapter.id);
@@ -290,13 +309,19 @@ export function WorkDetailPage({
 												{manageMode && (
 													<Checkbox.Root
 														checked={chapterSelection.isSelected(chapter.id)}
-														onCheckedChange={(e) => {
-															// For keyboard/direct checkbox interaction
-															chapterSelection.toggleChapter(chapter.id, currentIndex);
-														}}
 													>
 														<Checkbox.HiddenInput />
-														<Checkbox.Control />
+														<Checkbox.Control
+															onClick={(e: MouseEvent) => {
+																e.stopPropagation();
+																chapterSelection.toggleChapter(
+																	chapter.id,
+																	currentIndex,
+																	e.shiftKey,
+																	visibleChapterIds,
+																);
+															}}
+														/>
 													</Checkbox.Root>
 												)}
 												<Box
@@ -330,7 +355,9 @@ export function WorkDetailPage({
 							/>
 							{totalGroups > 0 && (
 								<Text fontSize="sm" color="gray.400" mt={2} textAlign="center">
-									Showing {showingStart}-{showingEnd} of {totalItems} items ({totalChapters} chapters, {totalGroups} {totalGroups === 1 ? "group" : "groups"})
+									Showing {showingStart}-{showingEnd} of {totalItems} items (
+									{totalChapters} chapters, {totalGroups}{" "}
+									{totalGroups === 1 ? "group" : "groups"})
 								</Text>
 							)}
 						</Box>
@@ -369,6 +396,15 @@ export function WorkDetailPage({
 					selectedChapterIds={Array.from(chapterSelection.selectedChapterIds)}
 					isOpen={showCreateModal}
 					onClose={() => setShowCreateModal(false)}
+					onSuccess={handleGroupCreated}
+				/>
+
+				{/* Add to Existing Group Modal */}
+				<AddToGroupModal
+					workId={workId}
+					selectedChapterIds={Array.from(chapterSelection.selectedChapterIds)}
+					isOpen={showAddToGroupModal}
+					onClose={() => setShowAddToGroupModal(false)}
 					onSuccess={handleGroupCreated}
 				/>
 			</Container>
