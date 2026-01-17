@@ -35,7 +35,7 @@ services:
       args:
         INSTALL_DEV: "true"
         EDITABLE_INSTALL: "true"
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8087 --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8087 --reload --timeout-graceful-shutdown 2
     environment:
       - DATABASE_URL=postgresql+psycopg2://postgres:postgres@db:5432/tonari
     ports:
