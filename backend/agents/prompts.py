@@ -24,6 +24,7 @@ Address specific word choices only where the translation deviates from literal d
 
 Constraints:
 - No Fluff: Do not evaluate the translation quality or summarize the content.
+- Do not reiterate the entire source text and the translation. Those are provided to the user already
 - Tone: Educational, objective, and concise.
 Format: Markdown. English only.
 """

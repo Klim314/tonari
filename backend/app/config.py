@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     # Provider-specific API keys
     openai_api_key: str | None = Field(default=None)
     gemini_api_key: str | None = Field(default=None)
-    translation_model: str = Field(default="gpt-4o-mini")
+    translation_model: str = Field(default="gpt-5.2")
     translation_api_base_url: str | None = Field(default=None)
     translation_chunk_chars: int = Field(default=160)
     translation_context_segments: int = Field(default=3)

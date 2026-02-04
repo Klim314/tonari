@@ -14,7 +14,7 @@ import {
 	Text,
 	VStack,
 } from "@chakra-ui/react";
-import { Loader, RefreshCw, Sparkles } from "lucide-react";
+import { Loader, RefreshCw, Sparkles, Square } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { client } from "../../../client/client.gen";
@@ -45,12 +45,8 @@ export function ExplanationPanel({
 		segmentId,
 		isOpen,
 	);
-	const { explanation, isLoading, error, regenerate } = useExplanationStream(
-		workId,
-		chapterId,
-		segmentId,
-		isOpen,
-	);
+	const { explanation, isLoading, error, regenerate, stop, isRegenerating } =
+		useExplanationStream(workId, chapterId, segmentId, isOpen);
 
 	const currentSegmentRef = useRef<HTMLDivElement>(null);
 
@@ -153,7 +149,20 @@ export function ExplanationPanel({
 									>
 										Explanation
 									</Text>
-									{explanation && !isLoading && (
+									{isRegenerating ? (
+										<Box
+											as="button"
+											onClick={stop}
+											color="red.400"
+											_hover={{ color: "red.600" }}
+											transition="color 0.2s"
+											title="Stop regeneration"
+										>
+											<Square size={14} />
+										</Box>
+									) : (
+										explanation &&
+										!isLoading && (
 										<Box
 											as="button"
 											onClick={regenerate}
@@ -164,6 +173,7 @@ export function ExplanationPanel({
 										>
 											<RefreshCw size={14} />
 										</Box>
+										)
 									)}
 								</Stack>
 
@@ -230,11 +240,31 @@ function useExplanationStream(
 	const [explanation, setExplanation] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [shouldRegenerate, setShouldRegenerate] = useState(false);
+	const [activeRequest, setActiveRequest] = useState<"initial" | "regenerate" | null>(
+		null,
+	);
 	const lastSegmentIdRef = useRef<number | null>(null);
 	const suppressNextFetchRef = useRef(false);
+	const eventSourceRef = useRef<EventSource | null>(null);
+	const abortControllerRef = useRef<AbortController | null>(null);
 
 	const regenerate = useCallback(() => {
 		setShouldRegenerate(true);
+	}, []);
+
+	const stop = useCallback(() => {
+		if (eventSourceRef.current) {
+			eventSourceRef.current.close();
+			eventSourceRef.current = null;
+		}
+		if (abortControllerRef.current) {
+			abortControllerRef.current.abort();
+			abortControllerRef.current = null;
+		}
+		setIsLoading(false);
+		setActiveRequest(null);
+		setShouldRegenerate(false);
+		suppressNextFetchRef.current = true;
 	}, []);
 
 	useEffect(() => {
@@ -242,7 +272,16 @@ function useExplanationStream(
 			setExplanation("");
 			setError(null);
 			setShouldRegenerate(false);
+			setActiveRequest(null);
 			lastSegmentIdRef.current = null;
+			if (eventSourceRef.current) {
+				eventSourceRef.current.close();
+				eventSourceRef.current = null;
+			}
+			if (abortControllerRef.current) {
+				abortControllerRef.current.abort();
+				abortControllerRef.current = null;
+			}
 			return;
 		}
 
@@ -250,6 +289,7 @@ function useExplanationStream(
 			setExplanation("");
 			setError(null);
 			setShouldRegenerate(false);
+			setActiveRequest(null);
 			lastSegmentIdRef.current = segmentId;
 			suppressNextFetchRef.current = false;
 		}
@@ -267,6 +307,7 @@ function useExplanationStream(
 		setIsLoading(true);
 		setError(null);
 		setExplanation("");
+		setActiveRequest(shouldRegenerate ? "regenerate" : "initial");
 
 		let eventSource: EventSource | null = null;
 		let abortController: AbortController | null = null;
@@ -276,6 +317,7 @@ function useExplanationStream(
 				if (shouldRegenerate) {
 					// Use fetch API to handle POST request with SSE response
 					abortController = new AbortController();
+					abortControllerRef.current = abortController;
 					const response = await fetch(
 						`/api/works/${workId}/chapters/${chapterId}/segments/${segmentId}/regenerate-explanation`,
 						{
@@ -297,18 +339,36 @@ function useExplanationStream(
 					}
 
 					let buffer = "";
-					while (true) {
-						const { done, value } = await reader.read();
-						if (done) break;
+					const handleEvent = (
+						eventName: string,
+						data: { delta?: string; error?: string; explanation?: string },
+					) => {
+						if (eventName === "explanation-delta") {
+							setExplanation((prev) => prev + (data.delta || ""));
+						} else if (eventName === "explanation-complete") {
+							if (data.explanation) {
+								setExplanation(data.explanation);
+							}
+							setIsLoading(false);
+							setShouldRegenerate(false);
+							setActiveRequest(null);
+							suppressNextFetchRef.current = true;
+						} else if (eventName === "explanation-error") {
+							setError(data.error || "Failed to generate explanation");
+							setIsLoading(false);
+							setShouldRegenerate(false);
+							setActiveRequest(null);
+						}
+					};
 
-						buffer += decoder.decode(value, { stream: true });
-						const events = buffer.split("\n\n");
+					const parseBuffer = () => {
+						const events = buffer.split(/\r?\n\r?\n/);
 						buffer = events.pop() ?? "";
 
 						for (const rawEvent of events) {
 							let eventName = "message";
 							const dataLines: string[] = [];
-							for (const line of rawEvent.split("\n")) {
+							for (const line of rawEvent.split(/\r?\n/)) {
 								if (line.startsWith("event:")) {
 									eventName = line.slice(6).trim();
 								} else if (line.startsWith("data:")) {
@@ -323,27 +383,28 @@ function useExplanationStream(
 							} catch {
 								// Ignore non-JSON payloads
 							}
-
-							if (eventName === "explanation-delta") {
-								setExplanation((prev) => prev + (data.delta || ""));
-							} else if (eventName === "explanation-complete") {
-								if (data.explanation) {
-									setExplanation(data.explanation);
-								}
-								setIsLoading(false);
-								suppressNextFetchRef.current = true;
-							} else if (eventName === "explanation-error") {
-								setError(data.error || "Failed to generate explanation");
-								setIsLoading(false);
-							}
+							handleEvent(eventName, data);
 						}
+					};
+
+					while (true) {
+						const { done, value } = await reader.read();
+						if (done) break;
+
+						buffer += decoder.decode(value, { stream: true });
+						parseBuffer();
 					}
 
+					buffer += decoder.decode();
+					parseBuffer();
+					setIsLoading(false);
 					setShouldRegenerate(false);
+					setActiveRequest(null);
 				} else {
 					// Use EventSource for GET request
 					const url = `/api/works/${workId}/chapters/${chapterId}/segments/${segmentId}/explain/stream`;
 					eventSource = new EventSource(url);
+					eventSourceRef.current = eventSource;
 
 					eventSource.addEventListener("explanation-delta", (event) => {
 						const { delta } = JSON.parse(event.data);
@@ -352,14 +413,18 @@ function useExplanationStream(
 
 					eventSource.addEventListener("explanation-complete", () => {
 						eventSource?.close();
+						eventSourceRef.current = null;
 						setIsLoading(false);
+						setActiveRequest(null);
 					});
 
 					eventSource.addEventListener("explanation-error", (event) => {
 						const { error } = JSON.parse(event.data);
 						setError(error || "Failed to generate explanation");
 						eventSource?.close();
+						eventSourceRef.current = null;
 						setIsLoading(false);
+						setActiveRequest(null);
 					});
 
 					eventSource.onerror = () => {
@@ -377,7 +442,9 @@ function useExplanationStream(
 							// setError("Connection lost while generating explanation");
 						}
 						eventSource?.close();
+						eventSourceRef.current = null;
 						setIsLoading(false);
+						setActiveRequest(null);
 					};
 				}
 			} catch (err) {
@@ -388,6 +455,7 @@ function useExplanationStream(
 				setError(err instanceof Error ? err.message : "Unknown error occurred");
 				setIsLoading(false);
 				setShouldRegenerate(false);
+				setActiveRequest(null);
 			}
 		}
 
@@ -397,13 +465,28 @@ function useExplanationStream(
 			if (eventSource) {
 				eventSource.close();
 			}
+			if (eventSourceRef.current) {
+				eventSourceRef.current.close();
+				eventSourceRef.current = null;
+			}
 			if (abortController) {
 				abortController.abort();
+			}
+			if (abortControllerRef.current) {
+				abortControllerRef.current.abort();
+				abortControllerRef.current = null;
 			}
 		};
 	}, [isOpen, segmentId, workId, chapterId, shouldRegenerate]);
 
-	return { explanation, isLoading, error, regenerate };
+	return {
+		explanation,
+		isLoading,
+		error,
+		regenerate,
+		stop,
+		isRegenerating: activeRequest === "regenerate" && isLoading,
+	};
 }
 
 function useExplanationContext(
