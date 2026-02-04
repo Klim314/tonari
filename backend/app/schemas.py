@@ -370,6 +370,7 @@ class ChapterGroupOut(BaseModel):
     member_count: int = 0
     min_sort_key: float  # For sorting groups with chapters
     item_type: str = "group"  # Discriminator for mixed list
+    is_fully_translated: bool = False
 
     class Config:
         from_attributes = True

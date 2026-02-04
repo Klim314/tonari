@@ -124,6 +124,9 @@ def list_chapters_for_work(work_id: int, limit: int = 50, offset: int = 0):
         for item_type, data, sort_key in items:
             if item_type == "chapter":
                 chapter_ids.append(data.id)
+            elif item_type == "group":
+                for member in data.members:
+                    chapter_ids.append(member.chapter_id)
 
         # Get completed translation statuses in one query
         completed_chapter_ids = _get_completed_translation_chapter_ids(db, chapter_ids)
@@ -136,6 +139,13 @@ def list_chapters_for_work(work_id: int, limit: int = 50, offset: int = 0):
                 group = data
                 members_count = len(group.members)
                 min_sort_key = float(sort_key)
+                
+                group_chapter_ids = [m.chapter_id for m in group.members]
+                is_group_translated = (
+                    len(group_chapter_ids) > 0 and 
+                    all(cid in completed_chapter_ids for cid in group_chapter_ids)
+                )
+
                 response_items.append(
                     ChapterOrGroup(
                         item_type="group",
@@ -148,6 +158,7 @@ def list_chapters_for_work(work_id: int, limit: int = 50, offset: int = 0):
                             member_count=members_count,
                             min_sort_key=min_sort_key,
                             item_type="group",
+                            is_fully_translated=is_group_translated,
                         ),
                     )
                 )

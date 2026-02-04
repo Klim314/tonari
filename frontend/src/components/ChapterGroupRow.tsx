@@ -1,6 +1,7 @@
 import {
 	Box,
 	Button,
+	Badge,
 	Collapsible,
 	HStack,
 	Icon,
@@ -21,6 +22,7 @@ interface ChapterGroupMember {
 		idx: number;
 		title: string;
 		sort_key: string;
+		is_fully_translated?: boolean;
 	};
 }
 
@@ -33,6 +35,7 @@ interface ChapterGroupDetail {
 	member_count: number;
 	min_sort_key: number;
 	item_type: "group";
+	is_fully_translated?: boolean;
 	members?: ChapterGroupMember[];
 }
 
@@ -114,6 +117,11 @@ export function ChapterGroupRow({
 									<Text fontWeight="semibold" color="teal.200">
 										{group.name}
 									</Text>
+									{group.is_fully_translated && (
+										<Badge colorPalette="green" variant="subtle">
+											Translated
+										</Badge>
+									)}
 									<Text fontSize="sm" color="gray.400">
 										({group.member_count}{" "}
 										{group.member_count === 1 ? "chapter" : "chapters"})
@@ -176,9 +184,16 @@ export function ChapterGroupRow({
 										}
 										ml={6}
 									>
-										<Text fontWeight="medium" color="teal.200" fontSize="sm">
-											Chapter {formatChapterKey(member.chapter.idx)}
-										</Text>
+										<HStack justify="space-between" mb={1}>
+											<Text fontWeight="medium" color="teal.200" fontSize="sm">
+												Chapter {formatChapterKey(member.chapter.idx)}
+											</Text>
+											{member.chapter.is_fully_translated && (
+												<Badge colorPalette="green" variant="subtle" size="xs">
+													Translated
+												</Badge>
+											)}
+										</HStack>
 										<Text fontSize="sm">{member.chapter.title}</Text>
 									</Box>
 								))
