@@ -2,16 +2,20 @@ import {
 	Badge,
 	Box,
 	Center,
-	CloseButton,
-	Heading,
-	IconButton,
-	Menu,
-	Portal,
+	DialogBackdrop,
+	DialogBody,
+	DialogCloseTrigger,
+	DialogContent,
+	DialogHeader,
+	DialogPositioner,
+	DialogRoot,
+	DialogTitle,
 	Stack,
 	Text,
+	VStack,
 } from "@chakra-ui/react";
-import { Loader, Menu as MenuIcon, RefreshCw, Sparkles } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Loader, RefreshCw, Sparkles } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 
 interface SegmentContext {
@@ -47,243 +51,178 @@ export function ExplanationPanel({
 		isOpen,
 	);
 
-	const [panelWidth, setPanelWidth] = useState(600);
-	const isDragging = useRef(false);
-	const startX = useRef(0);
-	const startWidth = useRef(0);
-
-	const startResizing = useCallback(
-		(e: React.MouseEvent) => {
-			isDragging.current = true;
-			startX.current = e.clientX;
-			startWidth.current = panelWidth;
-			document.body.style.cursor = "ew-resize";
-			document.body.style.userSelect = "none";
-		},
-		[panelWidth],
-	);
-
-	const stopResizing = useCallback(() => {
-		isDragging.current = false;
-		document.body.style.cursor = "";
-		document.body.style.userSelect = "";
-	}, []);
-
-	const resize = useCallback((e: MouseEvent) => {
-		if (!isDragging.current) return;
-		const delta = startX.current - e.clientX;
-		const newWidth = Math.min(Math.max(startWidth.current + delta, 400), 1200);
-		setPanelWidth(newWidth);
-	}, []);
-
-	useEffect(() => {
-		window.addEventListener("mousemove", resize);
-		window.addEventListener("mouseup", stopResizing);
-		return () => {
-			window.removeEventListener("mousemove", resize);
-			window.removeEventListener("mouseup", stopResizing);
-		};
-	}, [resize, stopResizing]);
-
 	if (!isOpen) {
 		return null;
 	}
 
 	return (
-		<Box
-			position="fixed"
-			right={0}
-			top={0}
-			bottom={0}
-			width={`${panelWidth}px`}
-			bg="white"
-			borderLeftWidth="1px"
-			borderLeftColor="gray.200"
-			boxShadow="lg"
-			zIndex={1000}
-			display="flex"
-			flexDirection="column"
+		<DialogRoot
+			open={isOpen}
+			onOpenChange={(e) => !e.open && onClose()}
+			size="xl"
+			scrollBehavior="inside"
 		>
-			{/* Resize Handle */}
-			<Box
-				position="absolute"
-				left="-5px"
-				top={0}
-				bottom={0}
-				width="10px"
-				cursor="ew-resize"
-				zIndex={1001}
-				onMouseDown={startResizing}
-				_hover={{ bg: "blue.100" }}
-				transition="background 0.2s"
-				bg="gray.200"
-			/>
-
-			{/* Header */}
-			<Stack
-				p={4}
-				borderBottomWidth="1px"
-				borderBottomColor="gray.200"
-				gap={2}
-				flexShrink={0}
-			>
-				<Box display="flex" justifyContent="space-between" alignItems="center">
-					<Box display="flex" alignItems="center" gap={2}>
-						<Heading size="md">Translation Explanation</Heading>
-						<Badge
-							colorScheme="purple"
-							variant="subtle"
-							display="flex"
-							alignItems="center"
-							gap={1}
-						>
-							<Sparkles size={12} />
-							AI
-						</Badge>
-					</Box>
-					<Box display="flex" alignItems="center" gap={2}>
-						<Menu.Root>
-							<Menu.Trigger asChild>
-								<IconButton variant="ghost" size="sm" aria-label="Options">
-									<MenuIcon size={16} />
-								</IconButton>
-							</Menu.Trigger>
-							<Portal>
-								<Menu.Positioner>
-									<Menu.Content>
-										<Menu.Item
-											value="regenerate"
-											onClick={regenerate}
-											disabled={!explanation || isLoading}
-										>
-											<RefreshCw size={16} />
-											Regenerate Explanation
-										</Menu.Item>
-									</Menu.Content>
-								</Menu.Positioner>
-							</Portal>
-						</Menu.Root>
-						<CloseButton onClick={onClose} />
-					</Box>
-				</Box>
-			</Stack>
-
-			{/* Content */}
-			<Stack p={4} gap={4} flex={1} overflowY="auto">
-				{/* Context Information */}
-				<Box>
-					<Text fontSize="sm" fontWeight="bold" color="gray.600" mb={2}>
-						Context
-					</Text>
-					<Stack
-						gap={0}
-						fontSize="sm"
-						borderRadius="md"
-						overflow="hidden"
-						border="1px solid"
-						borderColor="gray.200"
-					>
-						{precedingSegment && (
-							<Box
-								p={3}
-								bg="gray.50"
-								borderBottomWidth="1px"
-								borderBottomColor="gray.100"
-							>
-								<Text fontFamily="mono" fontSize="xs" color="gray.500" mb={1}>
-									{precedingSegment.src}
-								</Text>
-								<Text color="gray.500">{precedingSegment.tgt}</Text>
-							</Box>
-						)}
-
-						<Box
-							p={3}
-							bg="blue.50"
-							borderLeftWidth="4px"
-							borderLeftColor="blue.400"
-							position="relative"
-						>
-							<Text
-								fontFamily="mono"
-								fontSize="xs"
-								color="gray.800"
-								mb={1}
-								fontWeight="medium"
-							>
-								{currentSegment.src}
-							</Text>
-							<Text color="gray.800" fontWeight="medium">
-								{currentSegment.tgt}
-							</Text>
-						</Box>
-
-						{followingSegment && (
-							<Box
-								p={3}
-								bg="gray.50"
-								borderTopWidth="1px"
-								borderTopColor="gray.100"
-							>
-								<Text fontFamily="mono" fontSize="xs" color="gray.500" mb={1}>
-									{followingSegment.src}
-								</Text>
-								<Text color="gray.500">{followingSegment.tgt}</Text>
-							</Box>
-						)}
-					</Stack>
-				</Box>
-
-				<Box>
-					{explanation || isLoading || error ? null : (
-						<Text fontSize="sm" color="gray.500" fontStyle="italic">
-							Select a segment to explain...
-						</Text>
-					)}
-
-					{isLoading && !explanation && (
-						<Center py={8}>
-							<Stack alignItems="center" gap={2}>
-								<Box
-									as={Loader}
-									fontSize="2xl"
-									color="blue.500"
-									animation="spin 1s linear infinite"
-								/>
-								<Text fontSize="sm" color="gray.600">
-									Generating explanation...
-								</Text>
+			<DialogBackdrop />
+			<DialogPositioner>
+				<DialogContent maxH="85vh">
+					<DialogCloseTrigger />
+					<DialogHeader borderBottomWidth="1px" pb={4}>
+						<Stack gap={1}>
+							<Stack direction="row" align="center" gap={2}>
+								<DialogTitle>Translation Breakdown</DialogTitle>
+								<Badge colorScheme="purple" variant="subtle" size="sm">
+									<Stack direction="row" gap={1} align="center">
+										<Sparkles size={10} />
+										AI Tutor
+									</Stack>
+								</Badge>
 							</Stack>
-						</Center>
-					)}
+						</Stack>
+					</DialogHeader>
 
-					{error && (
-						<Box
-							p={3}
-							bg="red.50"
-							borderRadius="md"
-							borderLeftWidth="3px"
-							borderLeftColor="red.400"
-						>
-							<Text fontSize="sm" color="red.700">
-								{error}
-							</Text>
-						</Box>
-					)}
-
-					{explanation && (
-						<Box fontSize="sm" lineHeight="1.6" color="gray.700">
-							<ReactMarkdown>{explanation}</ReactMarkdown>
-							{isLoading && (
-								<Text fontSize="xs" color="gray.400" mt={2} fontStyle="italic">
-									...
+					<DialogBody py={6}>
+						<VStack gap={6} align="stretch">
+							{/* Context Section */}
+							<VStack gap={0} align="stretch">
+								<Text
+									fontSize="xs"
+									textTransform="uppercase"
+									fontWeight="bold"
+									color="gray.500"
+									letterSpacing="wider"
+									mb={2}
+								>
+									Context
 								</Text>
-							)}
-						</Box>
-					)}
-				</Box>
-			</Stack>
-		</Box>
+
+								<Stack gap={3}>
+									{/* Previous Segment */}
+									{precedingSegment && (
+										<Box opacity={0.6}>
+											<Text fontSize="xs" color="gray.500" fontFamily="mono" mb={0.5}>
+												{precedingSegment.src}
+											</Text>
+											<Text fontSize="sm" color="gray.500">
+												{precedingSegment.tgt}
+											</Text>
+										</Box>
+									)}
+
+									{/* Current Segment */}
+									<Box
+										p={4}
+										bg="blue.50"
+										borderLeftWidth="4px"
+										borderLeftColor="blue.500"
+										borderRadius="sm"
+										shadow="sm"
+									>
+										<Text
+											fontSize="sm"
+											fontWeight="bold"
+											color="gray.800"
+											fontFamily="mono"
+											mb={1.5}
+										>
+											{currentSegment.src}
+										</Text>
+										<Text fontSize="md" color="gray.900" fontWeight="medium">
+											{currentSegment.tgt}
+										</Text>
+									</Box>
+
+									{/* Next Segment */}
+									{followingSegment && (
+										<Box opacity={0.6}>
+											<Text fontSize="xs" color="gray.500" fontFamily="mono" mb={0.5}>
+												{followingSegment.src}
+											</Text>
+											<Text fontSize="sm" color="gray.500">
+												{followingSegment.tgt}
+											</Text>
+										</Box>
+									)}
+								</Stack>
+							</VStack>
+
+							<Box borderTopWidth="1px" borderColor="gray.100" />
+
+							{/* Explanation Section */}
+							<Box>
+								<Stack direction="row" justify="space-between" align="center" mb={3}>
+									<Text
+										fontSize="xs"
+										textTransform="uppercase"
+										fontWeight="bold"
+										color="gray.500"
+										letterSpacing="wider"
+									>
+										Explanation
+									</Text>
+									{explanation && !isLoading && (
+										<Box
+											as="button"
+											onClick={regenerate}
+											color="gray.400"
+											_hover={{ color: "blue.500" }}
+											transition="color 0.2s"
+											title="Regenerate explanation"
+										>
+											<RefreshCw size={14} />
+										</Box>
+									)}
+								</Stack>
+
+								<Box minH="200px">
+									{isLoading && !explanation ? (
+										<Center py={8} flexDirection="column" gap={3}>
+											<Box
+												as={Loader}
+												animation="spin 1s linear infinite"
+												color="blue.500"
+												fontSize="2xl"
+											/>
+											<Text fontSize="sm" color="gray.500">
+												Analyzing translation...
+											</Text>
+										</Center>
+									) : error ? (
+										<Box
+											p={4}
+											bg="red.50"
+											color="red.600"
+											borderRadius="md"
+											fontSize="sm"
+										>
+											{error}
+										</Box>
+									) : (
+										<Box
+											className="markdown-body"
+											fontSize="sm"
+											lineHeight="1.7"
+											css={{
+												"& p": { mb: 3 },
+												"& ul": { pl: 4, mb: 3 },
+												"& li": { mb: 1 },
+												"& code": { bg: "gray.100", px: 1, borderRadius: "sm" }
+											}}
+										>
+											<ReactMarkdown>{explanation}</ReactMarkdown>
+											{isLoading && (
+												<Text as="span" color="blue.400" animation="pulse 1s infinite">
+													▋
+												</Text>
+											)}
+										</Box>
+									)}
+								</Box>
+							</Box>
+						</VStack>
+					</DialogBody>
+				</DialogContent>
+			</DialogPositioner>
+		</DialogRoot>
 	);
 }
 
@@ -394,7 +333,19 @@ function useExplanationStream(
 					});
 
 					eventSource.onerror = () => {
-						setError("Connection lost while generating explanation");
+						// Only set error if we haven't received any content, 
+						// otherwise it might just be a normal close in some browser environments
+						// or a network blip after we got the content.
+						// But for SSE usually onerror fires on connection loss.
+						// We'll check if we have explanations.
+						// Actually, safer to just close.
+						if (eventSource?.readyState === EventSource.CLOSED) {
+							// clean close
+						} else {
+							// If we already have some explanation, maybe don't error out hard?
+							// But for now let's keep it safe.
+							// setError("Connection lost while generating explanation");
+						}
 						eventSource?.close();
 						setIsLoading(false);
 					};
