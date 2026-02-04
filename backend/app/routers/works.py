@@ -922,6 +922,9 @@ async def explain_segment(
                 "chapter_id": chapter_id,
                 "segment_id": segment_id,
                 "model": explanation_agent.model,
+                "segment_indices": {"start": segment.start, "end": segment.end},
+                "extracted_source_preview": current_source[:50] + "..." if len(current_source) > 50 else current_source,
+                "extracted_target_preview": current_translation[:50] + "..." if len(current_translation) > 50 else current_translation,
             },
         )
 

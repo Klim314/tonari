@@ -157,27 +157,25 @@ class TranslationStreamService:
         return segment
 
     def regenerate_chapter_segments(self, chapter: Chapter) -> None:
-        """Delete and regenerate segments for the most recent translation of a chapter.
+        """Delete and regenerate segments for all translations of a chapter.
 
         This is useful when chapter text changes and segments need to be
-        re-segmented with new character positions. Only regenerates for the most
-        recent translation (which is the one displayed on the chapter page).
+        re-segmented with new character positions. Regenerates for all
+        translations to ensure consistency.
         """
         stmt = (
             select(ChapterTranslation)
             .where(ChapterTranslation.chapter_id == chapter.id)
-            .order_by(ChapterTranslation.id.desc())
-            .limit(1)
         )
-        translation = self.session.execute(stmt).scalars().first()
-        if translation is None:
-            return
+        translations = self.session.execute(stmt).scalars().all()
+        
+        for translation in translations:
+            # Delete existing segments
+            self.session.query(TranslationSegment).filter(
+                TranslationSegment.chapter_translation_id == translation.id
+            ).delete(synchronize_session=False)
 
-        # Delete existing segments
-        self.session.query(TranslationSegment).filter(
-            TranslationSegment.chapter_translation_id == translation.id
-        ).delete(synchronize_session=False)
+            # Recreate segments
+            self.ensure_segments(translation, chapter.normalized_text, force=True)
+        
         self.session.commit()
-
-        # Recreate segments
-        self.ensure_segments(translation, chapter.normalized_text, force=True)

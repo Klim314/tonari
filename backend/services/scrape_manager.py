@@ -15,6 +15,7 @@ from app.models import ScrapeJob, Work
 from app.scrapers import scraper_registry
 from app.scrapers.exceptions import ScraperError, ScraperNotFoundError
 from services.chapters import ChaptersService, ChapterScrapeSummary
+from services.translation_stream import TranslationStreamService
 
 logger = logging.getLogger(__name__)
 
@@ -146,13 +147,20 @@ class ScrapeManager:
                         idx = chapters_service._idx_from_sort_key(sort_key)
 
                         if existing_chapter:
-                             if force or existing_chapter.text_hash != text_hash:
+                             text_changed = existing_chapter.text_hash != text_hash
+                             if force or text_changed:
                                 existing_chapter.idx = idx
                                 existing_chapter.sort_key = sort_key
                                 existing_chapter.title = title
                                 existing_chapter.normalized_text = normalized_text
                                 existing_chapter.text_hash = text_hash
                                 db.add(existing_chapter)
+
+                                # If text changed, we must regenerate segments to avoid index mismatch
+                                if text_changed:
+                                    translation_service = TranslationStreamService(db) 
+                                    translation_service.regenerate_chapter_segments(existing_chapter)
+
                                 await self._broadcast(job.work_id, "chapter-found", {
                                     "idx": float(sort_key), 
                                     "title": title,
