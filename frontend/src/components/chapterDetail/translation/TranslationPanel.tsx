@@ -223,34 +223,6 @@ export const TranslationPanel = memo(function TranslationPanel({
 					segmentId={explanationSegmentId}
 					workId={workId}
 					chapterId={chapterId}
-					currentSegment={{
-						src:
-							translationSegments.find(
-								(s) => s.segmentId === explanationSegmentId,
-							)?.src || "",
-						tgt:
-							translationSegments.find(
-								(s) => s.segmentId === explanationSegmentId,
-							)?.text || "",
-					}}
-					precedingSegment={
-						translationSegments
-							.filter((s) => s.segmentId < explanationSegmentId)
-							.slice(-1)
-							.map((s) => ({
-								src: s.src || "",
-								tgt: s.text || "",
-							}))[0]
-					}
-					followingSegment={
-						translationSegments
-							.filter((s) => s.segmentId > explanationSegmentId)
-							.slice(0, 1)
-							.map((s) => ({
-								src: s.src || "",
-								tgt: s.text || "",
-							}))[0]
-					}
 					isOpen={explanationSegmentId !== null}
 					onClose={() => setExplanationSegmentId(null)}
 				/>

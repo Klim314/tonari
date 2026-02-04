@@ -15,8 +15,9 @@ import {
 	VStack,
 } from "@chakra-ui/react";
 import { Loader, RefreshCw, Sparkles } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { client } from "../../../client/client.gen";
 
 interface SegmentContext {
 	src: string;
@@ -27,9 +28,6 @@ interface ExplanationPanelProps {
 	segmentId: number;
 	workId: number;
 	chapterId: number;
-	currentSegment: SegmentContext;
-	precedingSegment?: SegmentContext;
-	followingSegment?: SegmentContext;
 	isOpen: boolean;
 	onClose: () => void;
 }
@@ -38,18 +36,32 @@ export function ExplanationPanel({
 	segmentId,
 	workId,
 	chapterId,
-	currentSegment,
-	precedingSegment,
-	followingSegment,
 	isOpen,
 	onClose,
 }: ExplanationPanelProps) {
+	const { currentSegment, contextLoading, contextError } = useExplanationContext(
+		workId,
+		chapterId,
+		segmentId,
+		isOpen,
+	);
 	const { explanation, isLoading, error, regenerate } = useExplanationStream(
 		workId,
 		chapterId,
 		segmentId,
 		isOpen,
 	);
+
+	const currentSegmentRef = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		if (isOpen && currentSegmentRef.current) {
+			currentSegmentRef.current.scrollIntoView({
+				behavior: "auto",
+				block: "center",
+			});
+		}
+	}, [isOpen, segmentId]);
 
 	if (!isOpen) {
 		return null;
@@ -95,21 +107,10 @@ export function ExplanationPanel({
 									Context
 								</Text>
 
-								<Stack gap={3}>
-									{/* Previous Segment */}
-									{precedingSegment && (
-										<Box opacity={0.6}>
-											<Text fontSize="xs" color="gray.500" fontFamily="mono" mb={0.5}>
-												{precedingSegment.src}
-											</Text>
-											<Text fontSize="sm" color="gray.500">
-												{precedingSegment.tgt}
-											</Text>
-										</Box>
-									)}
-
+								<Stack gap={3} maxH="300px" overflowY="auto" position="relative" pr={2}>
 									{/* Current Segment */}
 									<Box
+										ref={currentSegmentRef}
 										p={4}
 										bg="blue.50"
 										borderLeftWidth="4px"
@@ -124,23 +125,16 @@ export function ExplanationPanel({
 											fontFamily="mono"
 											mb={1.5}
 										>
-											{currentSegment.src}
+											{currentSegment?.src || (contextLoading ? "Loading..." : "")}
 										</Text>
 										<Text fontSize="md" color="gray.900" fontWeight="medium">
-											{currentSegment.tgt}
+											{currentSegment?.tgt || ""}
 										</Text>
 									</Box>
-
-									{/* Next Segment */}
-									{followingSegment && (
-										<Box opacity={0.6}>
-											<Text fontSize="xs" color="gray.500" fontFamily="mono" mb={0.5}>
-												{followingSegment.src}
-											</Text>
-											<Text fontSize="sm" color="gray.500">
-												{followingSegment.tgt}
-											</Text>
-										</Box>
+									{contextError && (
+										<Text fontSize="xs" color="red.500">
+											{contextError}
+										</Text>
 									)}
 								</Stack>
 							</VStack>
@@ -236,6 +230,7 @@ function useExplanationStream(
 	const [explanation, setExplanation] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [shouldRegenerate, setShouldRegenerate] = useState(false);
+	const lastSegmentIdRef = useRef<number | null>(null);
 
 	const regenerate = useCallback(() => {
 		setShouldRegenerate(true);
@@ -246,7 +241,15 @@ function useExplanationStream(
 			setExplanation("");
 			setError(null);
 			setShouldRegenerate(false);
+			lastSegmentIdRef.current = null;
 			return;
+		}
+
+		if (lastSegmentIdRef.current !== segmentId) {
+			setExplanation("");
+			setError(null);
+			setShouldRegenerate(false);
+			lastSegmentIdRef.current = segmentId;
 		}
 
 		// Don't re-fetch if we're not regenerating and already have an explanation
@@ -374,4 +377,82 @@ function useExplanationStream(
 	}, [isOpen, segmentId, workId, chapterId, shouldRegenerate]);
 
 	return { explanation, isLoading, error, regenerate };
+}
+
+function useExplanationContext(
+	workId: number,
+	chapterId: number,
+	segmentId: number,
+	isOpen: boolean,
+) {
+	const [currentSegment, setCurrentSegment] = useState<SegmentContext | null>(
+		null,
+	);
+	const [contextLoading, setContextLoading] = useState(false);
+	const [contextError, setContextError] = useState<string | null>(null);
+
+	useEffect(() => {
+		if (!isOpen) {
+			setCurrentSegment(null);
+			setContextLoading(false);
+			setContextError(null);
+			return;
+		}
+
+		let cancelled = false;
+		const controller = new AbortController();
+
+		const loadContext = async () => {
+			setContextLoading(true);
+			setContextError(null);
+			try {
+				const response = await client.get({
+					url: `/works/${workId}/chapters/${chapterId}/translation`,
+					responseType: "json",
+					throwOnError: true,
+					signal: controller.signal,
+				});
+				if (cancelled) return;
+				const payload = response.data as {
+					segments: Array<{
+						id: number;
+						src: string;
+						tgt: string;
+					}>;
+				};
+				const index = payload.segments.findIndex(
+					(segment) => segment.id === segmentId,
+				);
+				if (index === -1) {
+					setCurrentSegment(null);
+					setContextError("Segment context not found");
+					return;
+				}
+				const toContext = (segment?: { src: string; tgt: string }) =>
+					segment ? { src: segment.src || "", tgt: segment.tgt || "" } : null;
+				setCurrentSegment(toContext(payload.segments[index]));
+			} catch (err) {
+				if (!cancelled) {
+					setContextError("Failed to load segment context");
+				}
+			} finally {
+				if (!cancelled) {
+					setContextLoading(false);
+				}
+			}
+		};
+
+		loadContext();
+
+		return () => {
+			cancelled = true;
+			controller.abort();
+		};
+	}, [isOpen, workId, chapterId, segmentId]);
+
+	return {
+		currentSegment,
+		contextLoading,
+		contextError,
+	};
 }
