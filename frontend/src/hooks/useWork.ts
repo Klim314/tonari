@@ -16,7 +16,11 @@ const defaultState: WorkState = {
 };
 
 export function useWork(workId?: number | null, refreshToken = 0) {
-	const [state, setState] = useState<WorkState>(defaultState);
+	// Initialize loading to true if workId is present to avoid flash of "Work not found"
+	const [state, setState] = useState<WorkState>({
+		...defaultState,
+		loading: !!workId,
+	});
 	const refreshKey = refreshToken;
 
 	useEffect(() => {
@@ -25,6 +29,9 @@ export function useWork(workId?: number | null, refreshToken = 0) {
 			setState({ ...defaultState });
 			return;
 		}
+		// Capture workId to ensure it's not null/undefined in the async function
+		const id = workId;
+
 		let cancelled = false;
 		const controller = new AbortController();
 
@@ -32,7 +39,7 @@ export function useWork(workId?: number | null, refreshToken = 0) {
 			setState((prev) => ({ ...prev, loading: true, error: null }));
 			try {
 				const response = await Works.getWorkWorksWorkIdGet({
-					path: { work_id: workId },
+					path: { work_id: id },
 					signal: controller.signal,
 					throwOnError: true,
 				});

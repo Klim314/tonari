@@ -16,7 +16,10 @@ const defaultState: WorksState = {
 };
 
 export function useWorks(searchQuery: string, refreshToken = 0) {
-	const [state, setState] = useState<WorksState>(defaultState);
+	const [state, setState] = useState<WorksState>({
+		...defaultState,
+		loading: true,
+	});
 	const refreshKey = refreshToken;
 
 	useEffect(() => {
