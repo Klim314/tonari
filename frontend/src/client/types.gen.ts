@@ -29,6 +29,10 @@ export type ChapterDetailOut = {
      */
     title: string;
     /**
+     * Is Fully Translated
+     */
+    is_fully_translated?: boolean;
+    /**
      * Normalized Text
      */
     normalized_text: string;
@@ -235,6 +239,10 @@ export type ChapterOut = {
      * Title
      */
     title: string;
+    /**
+     * Is Fully Translated
+     */
+    is_fully_translated?: boolean;
 };
 
 /**

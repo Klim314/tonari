@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.db import SessionLocal
+from app.models import ChapterTranslation
 from app.schemas import (
     ChapterGroupAddMembersRequest,
     ChapterGroupCreateRequest,
@@ -39,7 +42,7 @@ def create_chapter_group(work_id: int, payload: ChapterGroupCreateRequest):
 
         # Load detail with members
         group = service.get_group_detail(group.id)
-        return _build_group_detail_response(group)
+        return _build_group_detail_response(group, db)
 
 
 @router.get("/{work_id}/chapter-groups", response_model=list[ChapterGroupOut])
@@ -76,7 +79,7 @@ def get_chapter_group(work_id: int, group_id: int):
         if group.work_id != work_id:
             raise HTTPException(status_code=404, detail="Group not found")
 
-        return _build_group_detail_response(group)
+        return _build_group_detail_response(group, db)
 
 
 @router.patch("/{work_id}/chapter-groups/{group_id}", response_model=ChapterGroupDetailOut)
@@ -96,7 +99,7 @@ def update_chapter_group(work_id: int, group_id: int, payload: ChapterGroupUpdat
             group = service.update_group_name(group_id, payload.name)
 
         group = service.get_group_detail(group_id)
-        return _build_group_detail_response(group)
+        return _build_group_detail_response(group, db)
 
 
 @router.put("/{work_id}/chapter-groups/{group_id}/members", response_model=ChapterGroupDetailOut)
@@ -122,7 +125,7 @@ def update_chapter_group_members(
             raise HTTPException(status_code=409, detail=str(e)) from None
 
         group = service.get_group_detail(group_id)
-        return _build_group_detail_response(group)
+        return _build_group_detail_response(group, db)
 
 
 @router.post("/{work_id}/chapter-groups/{group_id}/members", response_model=ChapterGroupDetailOut)
@@ -148,7 +151,7 @@ def add_chapters_to_group(
             raise HTTPException(status_code=409, detail=str(e)) from None
 
         group = service.get_group_detail(group_id)
-        return _build_group_detail_response(group)
+        return _build_group_detail_response(group, db)
 
 
 @router.delete("/{work_id}/chapter-groups/{group_id}", status_code=204)
@@ -168,17 +171,35 @@ def delete_chapter_group(work_id: int, group_id: int):
         return None
 
 
-def _build_group_detail_response(group) -> ChapterGroupDetailOut:
+def _get_completed_translation_chapter_ids(db: Session, chapter_ids: list[int]) -> set[int]:
+    """Get set of chapter IDs that have a completed translation."""
+    if not chapter_ids:
+        return set()
+    stmt = select(ChapterTranslation.chapter_id).where(
+        ChapterTranslation.chapter_id.in_(chapter_ids),
+        ChapterTranslation.status == "completed",
+    )
+    return set(db.execute(stmt).scalars().all())
+
+
+def _build_group_detail_response(group, db: Session) -> ChapterGroupDetailOut:
     """Helper to build group detail response."""
-    members = [
-        ChapterGroupMemberOut(
-            id=member.id,
-            chapter_id=member.chapter_id,
-            order_index=member.order_index,
-            chapter=ChapterOut.model_validate(member.chapter),
+    # Collect chapter IDs and query translation status
+    chapter_ids = [member.chapter_id for member in group.members]
+    completed_chapter_ids = _get_completed_translation_chapter_ids(db, chapter_ids)
+
+    members = []
+    for member in sorted(group.members, key=lambda m: m.order_index):
+        chapter_out = ChapterOut.model_validate(member.chapter)
+        chapter_out.is_fully_translated = member.chapter_id in completed_chapter_ids
+        members.append(
+            ChapterGroupMemberOut(
+                id=member.id,
+                chapter_id=member.chapter_id,
+                order_index=member.order_index,
+                chapter=chapter_out,
+            )
         )
-        for member in sorted(group.members, key=lambda m: m.order_index)
-    ]
 
     min_sort_key = min(m.chapter.sort_key for m in members) if members else 0.0
 

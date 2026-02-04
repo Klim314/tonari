@@ -15,7 +15,7 @@ from agents.explanation_agent import ExplanationAgent, get_explanation_agent
 from agents.translation_agent import TranslationAgent
 from app.config import settings
 from app.db import SessionLocal
-from app.models import ScrapeJob
+from app.models import Chapter, ChapterTranslation, ScrapeJob
 from app.prompt_overrides import (
     PromptOverrideExpiredError,
     PromptOverrideInvalidError,
@@ -93,6 +93,18 @@ def get_work(work_id: int):
         return WorkOut.model_validate(work)
 
 
+def _get_completed_translation_chapter_ids(db, chapter_ids: list[int]) -> set[int]:
+    """Get set of chapter IDs that have a completed translation."""
+    if not chapter_ids:
+        return set()
+    from sqlalchemy import select
+    stmt = select(ChapterTranslation.chapter_id).where(
+        ChapterTranslation.chapter_id.in_(chapter_ids),
+        ChapterTranslation.status == "completed",
+    )
+    return set(db.execute(stmt).scalars().all())
+
+
 @router.get("/{work_id}/chapters", response_model=ChaptersWithGroupsResponse)
 def list_chapters_for_work(work_id: int, limit: int = 50, offset: int = 0):
     with SessionLocal() as db:
@@ -106,6 +118,15 @@ def list_chapters_for_work(work_id: int, limit: int = 50, offset: int = 0):
         items, total_chapters, total_groups, total_items, limit, offset = groups_service.get_chapters_with_groups(
             work_id, limit=limit, offset=offset
         )
+
+        # Collect all chapter IDs to query translation status
+        chapter_ids = []
+        for item_type, data, sort_key in items:
+            if item_type == "chapter":
+                chapter_ids.append(data.id)
+
+        # Get completed translation statuses in one query
+        completed_chapter_ids = _get_completed_translation_chapter_ids(db, chapter_ids)
 
         # Build response with mixed items
         response_items = []
@@ -132,9 +153,11 @@ def list_chapters_for_work(work_id: int, limit: int = 50, offset: int = 0):
                 )
             else:
                 # data is a Chapter
+                chapter_out = ChapterOut.model_validate(data)
+                chapter_out.is_fully_translated = data.id in completed_chapter_ids
                 response_items.append(
                     ChapterOrGroup(
-                        item_type="chapter", data=ChapterOut.model_validate(data)
+                        item_type="chapter", data=chapter_out
                     )
                 )
 

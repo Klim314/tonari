@@ -1,5 +1,6 @@
 import {
 	Alert,
+	Badge,
 	Box,
 	Button,
 	Checkbox,
@@ -336,10 +337,19 @@ export function WorkDetailPage({
 													_hover={{ bg: "gray.800" }}
 													onClick={handleChapterClick}
 												>
-													<Text fontWeight="semibold" color="teal.200">
-														Chapter {formatChapterKey(chapter.idx)}
-													</Text>
-													<Text>{chapter.title}</Text>
+													<HStack justify="space-between" align="flex-start">
+														<Box>
+															<Text fontWeight="semibold" color="teal.200">
+																Chapter {formatChapterKey(chapter.idx)}
+															</Text>
+															<Text>{chapter.title}</Text>
+														</Box>
+														{chapter.is_fully_translated && (
+															<Badge colorPalette="green" variant="subtle">
+																Translated
+															</Badge>
+														)}
+													</HStack>
 												</Box>
 											</HStack>
 										);

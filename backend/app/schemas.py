@@ -36,6 +36,7 @@ class ChapterOut(BaseModel):
     idx: int
     sort_key: float
     title: str
+    is_fully_translated: bool = False
 
     class Config:
         from_attributes = True
