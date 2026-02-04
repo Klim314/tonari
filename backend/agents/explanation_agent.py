@@ -60,6 +60,58 @@ class ExplanationAgent(BaseAgent):
         if not context_block:
             return
 
+        if self.prompt:
+            try:
+                messages = self.prompt.format_messages(
+                    source_text=current_source,
+                    context_block=context_block,
+                )
+                system_message = ""
+                human_message = ""
+                for message in messages:
+                    content = message.content
+                    if isinstance(content, list):
+                        parts: List[str] = []
+                        for item in content:
+                            if isinstance(item, str):
+                                parts.append(item)
+                            elif isinstance(item, dict) and "text" in item:
+                                parts.append(str(item["text"]))
+                        content_text = "".join(parts)
+                    else:
+                        content_text = str(content)
+                    if message.type == "system":
+                        system_message = content_text
+                    elif message.type == "human":
+                        human_message = content_text
+                logger.info(
+                    "ExplanationAgent prompt",
+                    extra={
+                        "model": self.model,
+                        "provider": self.provider,
+                        "system_prompt": system_message,
+                        "human_prompt": human_message,
+                    },
+                )
+            except Exception:  # pragma: no cover
+                logger.exception("Failed to render explanation prompt for debug logging")
+
+        logger.info(
+            "ExplanationAgent stream_explanation",
+            extra={
+                "model": self.model,
+                "provider": self.provider,
+                "preceding_count": len(preceding_segments or []),
+                "following_count": len(following_segments or []),
+                "source_preview": current_source[:80] + "..."
+                if len(current_source) > 80
+                else current_source,
+                "translation_preview": current_translation[:80] + "..."
+                if len(current_translation) > 80
+                else current_translation,
+            },
+        )
+
         async for chunk in self.stream(source_text=current_source, context_block=context_block):
             yield chunk
 
@@ -114,9 +166,7 @@ class ExplanationAgent(BaseAgent):
 
         # Add preceding context
         if preceding_segments:
-            preceding_block = BaseAgent._render_block(
-                preceding_segments, block_name="preceding"
-            )
+            preceding_block = BaseAgent._render_block(preceding_segments, block_name="preceding")
             if preceding_block:
                 lines.append(preceding_block)
 
@@ -133,9 +183,7 @@ class ExplanationAgent(BaseAgent):
 
         # Add following context
         if following_segments:
-            following_block = BaseAgent._render_block(
-                following_segments, block_name="following"
-            )
+            following_block = BaseAgent._render_block(following_segments, block_name="following")
             if following_block:
                 lines.append(following_block)
 

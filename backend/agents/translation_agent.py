@@ -58,6 +58,16 @@ class TranslationAgent(BaseAgent):
         if not cleaned:
             return
 
+        logger.info(
+            "TranslationAgent stream_segment",
+            extra={
+                "model": self.model,
+                "provider": self.provider,
+                "preceding_count": len(preceding_segments or []),
+                "source_preview": cleaned[:80] + "..." if len(cleaned) > 80 else cleaned,
+            },
+        )
+
         preceding_block = self._render_preceding_block(preceding_segments)
         async for chunk in self.stream(
             source_text=cleaned,

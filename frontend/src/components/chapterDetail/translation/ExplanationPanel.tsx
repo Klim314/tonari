@@ -231,6 +231,7 @@ function useExplanationStream(
 	const [error, setError] = useState<string | null>(null);
 	const [shouldRegenerate, setShouldRegenerate] = useState(false);
 	const lastSegmentIdRef = useRef<number | null>(null);
+	const suppressNextFetchRef = useRef(false);
 
 	const regenerate = useCallback(() => {
 		setShouldRegenerate(true);
@@ -250,10 +251,16 @@ function useExplanationStream(
 			setError(null);
 			setShouldRegenerate(false);
 			lastSegmentIdRef.current = segmentId;
+			suppressNextFetchRef.current = false;
 		}
 
 		// Don't re-fetch if we're not regenerating and already have an explanation
 		if (!shouldRegenerate && explanation) {
+			return;
+		}
+
+		if (!shouldRegenerate && suppressNextFetchRef.current) {
+			suppressNextFetchRef.current = false;
 			return;
 		}
 
@@ -289,25 +296,45 @@ function useExplanationStream(
 						throw new Error("No response body");
 					}
 
+					let buffer = "";
 					while (true) {
 						const { done, value } = await reader.read();
 						if (done) break;
 
-						const chunk = decoder.decode(value, { stream: true });
-						const lines = chunk.split("\n");
+						buffer += decoder.decode(value, { stream: true });
+						const events = buffer.split("\n\n");
+						buffer = events.pop() ?? "";
 
-						for (const line of lines) {
-							if (line.startsWith("data: ")) {
-								const data = JSON.parse(line.slice(6));
-
-								if (line.includes("explanation-delta")) {
-									setExplanation((prev) => prev + (data.delta || ""));
-								} else if (line.includes("explanation-complete")) {
-									setIsLoading(false);
-								} else if (line.includes("explanation-error")) {
-									setError(data.error || "Failed to generate explanation");
-									setIsLoading(false);
+						for (const rawEvent of events) {
+							let eventName = "message";
+							const dataLines: string[] = [];
+							for (const line of rawEvent.split("\n")) {
+								if (line.startsWith("event:")) {
+									eventName = line.slice(6).trim();
+								} else if (line.startsWith("data:")) {
+									dataLines.push(line.slice(5).trim());
 								}
+							}
+
+							if (!dataLines.length) continue;
+							let data: { delta?: string; error?: string; explanation?: string } = {};
+							try {
+								data = JSON.parse(dataLines.join("\n"));
+							} catch {
+								// Ignore non-JSON payloads
+							}
+
+							if (eventName === "explanation-delta") {
+								setExplanation((prev) => prev + (data.delta || ""));
+							} else if (eventName === "explanation-complete") {
+								if (data.explanation) {
+									setExplanation(data.explanation);
+								}
+								setIsLoading(false);
+								suppressNextFetchRef.current = true;
+							} else if (eventName === "explanation-error") {
+								setError(data.error || "Failed to generate explanation");
+								setIsLoading(false);
 							}
 						}
 					}

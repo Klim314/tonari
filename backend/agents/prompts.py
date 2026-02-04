@@ -16,6 +16,8 @@ Instructions:
 - Break down the translation into meaningful phrases.
 - Explain the grammatical and structural relationship between the source Japanese and target English.
 - Focus on how the Japanese logic transforms into natural English.
+- Only explain the <current> segment. The <preceding> and <following> segments are context only.
+- If context conflicts with <current>, prioritize <current> and ignore the context.
 
 Key Terms & Nuances: 
 Address specific word choices only where the translation deviates from literal dictionary meanings or captures a specific cultural nuance.

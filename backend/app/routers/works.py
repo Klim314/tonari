@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 from decimal import Decimal
@@ -548,6 +549,17 @@ async def _translate_segments_stream(
                 raise asyncio.CancelledError
 
             src = chapter_text[current.start : current.end]
+            logger.info(
+                "Translate segment start",
+                extra={
+                    "work_id": work_id,
+                    "chapter_translation_id": translation.id,
+                    "segment_id": current.id,
+                    "order_index": current.order_index,
+                    "segment_indices": {"start": current.start, "end": current.end},
+                    "extracted_source_preview": src[:80] + "..." if len(src) > 80 else src,
+                },
+            )
             yield _sse_event(
                 "segment-start",
                 {
@@ -907,6 +919,23 @@ async def explain_segment(
         current_source = chapter_text[segment.start : segment.end]
         current_translation = segment.tgt or ""
 
+        logger.info(
+            "Explain segment context",
+            extra={
+                "work_id": work_id,
+                "chapter_id": chapter_id,
+                "segment_id": segment_id,
+                "order_index": segment.order_index,
+                "segment_indices": {"start": segment.start, "end": segment.end},
+                "extracted_source_preview": current_source[:80] + "..."
+                if len(current_source) > 80
+                else current_source,
+                "extracted_target_preview": current_translation[:80] + "..."
+                if len(current_translation) > 80
+                else current_translation,
+            },
+        )
+
         # Get surrounding segments for context
         preceding_segments = explanation_service.get_preceding_segments(
             all_segments, segment, chapter_text, limit=1
@@ -922,6 +951,7 @@ async def explain_segment(
                 "chapter_id": chapter_id,
                 "segment_id": segment_id,
                 "model": explanation_agent.model,
+                "order_index": segment.order_index,
                 "segment_indices": {"start": segment.start, "end": segment.end},
                 "extracted_source_preview": current_source[:50] + "..." if len(current_source) > 50 else current_source,
                 "extracted_target_preview": current_translation[:50] + "..." if len(current_translation) > 50 else current_translation,
@@ -952,6 +982,26 @@ async def explain_segment(
                         )
 
                     # Save the explanation to the database
+                    logger.info(
+                        "Saving segment explanation",
+                        extra={
+                            "work_id": work_id,
+                            "chapter_id": chapter_id,
+                            "segment_id": segment_id,
+                            "order_index": segment.order_index,
+                            "source_preview": current_source[:80]
+                            + ("..." if len(current_source) > 80 else ""),
+                            "translation_preview": current_translation[:80]
+                            + ("..." if len(current_translation) > 80 else ""),
+                            "explanation_preview": collected[:120]
+                            + ("..." if len(collected) > 120 else ""),
+                            "explanation_sha256": hashlib.sha256(
+                                collected.encode("utf-8")
+                            ).hexdigest()
+                            if collected
+                            else None,
+                        },
+                    )
                     explanation_service.save_explanation(segment_id, collected)
 
                     yield _sse_event(
@@ -1044,6 +1094,23 @@ async def regenerate_explanation(
         current_source = chapter_text[segment.start : segment.end]
         current_translation = segment.tgt or ""
 
+        logger.info(
+            "Regenerate explanation context",
+            extra={
+                "work_id": work_id,
+                "chapter_id": chapter_id,
+                "segment_id": segment_id,
+                "order_index": segment.order_index,
+                "segment_indices": {"start": segment.start, "end": segment.end},
+                "extracted_source_preview": current_source[:80] + "..."
+                if len(current_source) > 80
+                else current_source,
+                "extracted_target_preview": current_translation[:80] + "..."
+                if len(current_translation) > 80
+                else current_translation,
+            },
+        )
+
         # Get surrounding segments for context
         preceding_segments = explanation_service.get_preceding_segments(
             all_segments, segment, chapter_text, limit=1
@@ -1059,6 +1126,7 @@ async def regenerate_explanation(
                 "chapter_id": chapter_id,
                 "segment_id": segment_id,
                 "model": explanation_agent.model,
+                "order_index": segment.order_index,
             },
         )
 
@@ -1086,6 +1154,26 @@ async def regenerate_explanation(
                         )
 
                     # Save the explanation to the database
+                    logger.info(
+                        "Saving segment explanation (regenerate)",
+                        extra={
+                            "work_id": work_id,
+                            "chapter_id": chapter_id,
+                            "segment_id": segment_id,
+                            "order_index": segment.order_index,
+                            "source_preview": current_source[:80]
+                            + ("..." if len(current_source) > 80 else ""),
+                            "translation_preview": current_translation[:80]
+                            + ("..." if len(current_translation) > 80 else ""),
+                            "explanation_preview": collected[:120]
+                            + ("..." if len(collected) > 120 else ""),
+                            "explanation_sha256": hashlib.sha256(
+                                collected.encode("utf-8")
+                            ).hexdigest()
+                            if collected
+                            else None,
+                        },
+                    )
                     explanation_service.save_explanation(segment_id, collected)
 
                     yield _sse_event(

@@ -72,7 +72,7 @@ class TranslationLogFormatter(logging.Formatter):
         }
         extra_fields = {k: v for k, v in record.__dict__.items() if k not in standard_attrs}
         if extra_fields:
-            extra_str = json.dumps(extra_fields)
+            extra_str = json.dumps(extra_fields, ensure_ascii=False)
             return f"{base_msg} | {extra_str}"
         return base_msg
 

@@ -146,8 +146,16 @@ export const TranslationPanel = memo(function TranslationPanel({
 	);
 
 	const handleSegmentExplain = useCallback((segmentId: number) => {
+		const selected = translationSegments.find(
+			(segment) => segment.segmentId === segmentId,
+		);
+		console.info("Explain segment selected", {
+			segmentId,
+			orderIndex: selected?.orderIndex,
+			src: selected?.src,
+		});
 		setExplanationSegmentId(segmentId);
-	}, []);
+	}, [translationSegments]);
 
 	return (
 		<Box
