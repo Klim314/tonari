@@ -5,35 +5,29 @@ import {
 	Button,
 	Checkbox,
 	Container,
-	Field,
 	HStack,
 	Heading,
 	Image,
-	Input,
 	Skeleton,
 	Stack,
-	Switch,
 	Text,
 } from "@chakra-ui/react";
 import {
-	type FormEvent,
 	type MouseEvent,
-	useCallback,
 	useMemo,
 	useState,
 } from "react";
-import { Works } from "../client";
 import { AddToGroupModal } from "../components/AddToGroupModal";
 import { ChapterGroupRow } from "../components/ChapterGroupRow";
 import { CreateChapterGroupModal } from "../components/CreateChapterGroupModal";
 import { WorkPromptSelector } from "../components/WorkPromptSelector";
 import { Pagination } from "../components/common/Pagination";
 import { useChapterSelection } from "../hooks/useChapterSelection";
-import { useScrapeStatus } from "../hooks/useScrapeStatus";
 import { useWork } from "../hooks/useWork";
 import { useWorkChapters } from "../hooks/useWorkChapters";
 import { getApiErrorMessage } from "../lib/api";
 import type { Chapter } from "../types/works";
+import { ScrapeModal } from "../components/ScrapeModal";
 
 const CHAPTERS_PER_PAGE = 10;
 const CHAPTER_SKELETON_KEYS = Array.from(
@@ -57,6 +51,7 @@ export function WorkDetailPage({
 	const [manageMode, setManageMode] = useState(false);
 	const [showCreateModal, setShowCreateModal] = useState(false);
 	const [showAddToGroupModal, setShowAddToGroupModal] = useState(false);
+	const [showScrapeModal, setShowScrapeModal] = useState(false);
 	const chapterSelection = useChapterSelection();
 
 	const {
@@ -83,15 +78,6 @@ export function WorkDetailPage({
 			? meta.description
 			: "No description available for this work yet.";
 
-	// Scrape Status
-	const handleChapterFound = useCallback(() => {
-		// Simple refresh on chapter found
-		setChaptersRefreshToken((prev) => prev + 1);
-	}, []);
-
-	const scrapeState = useScrapeStatus(workId, handleChapterFound);
-	const isScraping =
-		scrapeState.status === "pending" || scrapeState.status === "running";
 
 	// Handle mixed list of chapters and groups
 	const items = useMemo(() => {
@@ -104,7 +90,10 @@ export function WorkDetailPage({
 	const visibleChapterIds = useMemo(() => {
 		return items
 			.filter((item) => item.item_type === "chapter")
-			.map((item) => (item.data as Chapter).id);
+			.map((item) => {
+				const chapter = item.data as Chapter;
+				return chapter.id;
+			});
 	}, [items]);
 
 	const totalItems = chaptersData?.total_items ?? 0;
@@ -211,17 +200,6 @@ export function WorkDetailPage({
 					</Alert.Root>
 				)}
 
-				{isScraping && (
-					<Alert.Root status="info" mb={6} borderRadius="lg">
-						<Alert.Indicator />
-						<Alert.Content>
-							<Alert.Description>
-								Scraping in progress... {scrapeState.progress} chapters found so
-								far.
-							</Alert.Description>
-						</Alert.Content>
-					</Alert.Root>
-				)}
 
 				<Stack direction={{ base: "column", lg: "row" }} align="flex-start">
 					<Box flex="2" w="full">
@@ -387,14 +365,16 @@ export function WorkDetailPage({
 									Scrape Chapters
 								</Heading>
 								<Text fontSize="sm" color="gray.400" mb={4}>
-									Select the chapter range to scrape. Decimals (e.g. 2.1) are
-									supported.
+									Scrape new chapters or update existing ones.
 								</Text>
-								<ScrapeChaptersInlineForm
-									workId={workId}
-									onSuccess={handleScrapeSuccess}
-									isDisabled={isScraping}
-								/>
+								<Button
+									width="full"
+									variant="outline"
+									colorPalette="teal"
+									onClick={() => setShowScrapeModal(true)}
+								>
+									Open Scrape Tools
+								</Button>
 							</Box>
 						</Stack>
 					</Box>
@@ -417,131 +397,19 @@ export function WorkDetailPage({
 					onClose={() => setShowAddToGroupModal(false)}
 					onSuccess={handleGroupCreated}
 				/>
+
+				<ScrapeModal
+					workId={workId}
+					isOpen={showScrapeModal}
+					onClose={() => setShowScrapeModal(false)}
+					onSuccess={handleScrapeSuccess}
+				/>
 			</Container>
 		</Box>
 	);
 }
 
-interface ScrapeFormProps {
-	workId: number;
-	onSuccess?: () => void;
-	isDisabled?: boolean;
-}
 
-function ScrapeChaptersInlineForm({
-	workId,
-	onSuccess,
-	isDisabled,
-}: ScrapeFormProps) {
-	const [start, setStart] = useState("");
-	const [end, setEnd] = useState("");
-	const [force, setForce] = useState(false);
-	const [submitting, setSubmitting] = useState(false);
-	const [feedback, setFeedback] = useState<{
-		type: "success" | "error" | "warning";
-		message: string;
-	} | null>(null);
-
-	async function handleSubmit(event: FormEvent) {
-		event.preventDefault();
-		const startValue = Number.parseFloat(start);
-		const endValue = Number.parseFloat(end);
-		if (Number.isNaN(startValue) || Number.isNaN(endValue)) {
-			setFeedback({
-				type: "warning",
-				message: "Enter valid chapter numbers (e.g. 1 or 2.1).",
-			});
-			return;
-		}
-		if (endValue < startValue) {
-			setFeedback({
-				type: "warning",
-				message: "End chapter must be after start chapter.",
-			});
-			return;
-		}
-		setSubmitting(true);
-		try {
-			await Works.requestChapterScrapeWorksWorkIdScrapeChaptersPost({
-				path: { work_id: workId },
-				body: {
-					start: startValue,
-					end: endValue,
-					force,
-				},
-				throwOnError: true,
-			});
-			setStart("");
-			setEnd("");
-			setForce(false);
-			setFeedback({ type: "success", message: "Scrape request queued." });
-			onSuccess?.();
-		} catch (error) {
-			const message = getApiErrorMessage(error, "Failed to queue scrape");
-			setFeedback({ type: "error", message });
-		} finally {
-			setSubmitting(false);
-		}
-	}
-
-	return (
-		<Box as="form" onSubmit={handleSubmit}>
-			<Stack>
-				{feedback && (
-					<Alert.Root status={feedback.type} borderRadius="md">
-						<Alert.Indicator />
-						<Alert.Content>
-							<Alert.Description>{feedback.message}</Alert.Description>
-						</Alert.Content>
-					</Alert.Root>
-				)}
-				<Field.Root required>
-					<Field.Label>Start chapter</Field.Label>
-					<Input
-						type="text"
-						placeholder="e.g. 1 or 2.1"
-						value={start}
-						onChange={(event) => setStart(event.target.value)}
-					/>
-				</Field.Root>
-				<Field.Root required>
-					<Field.Label>End chapter</Field.Label>
-					<Input
-						type="text"
-						placeholder="e.g. 5 or 5.2"
-						value={end}
-						onChange={(event) => setEnd(event.target.value)}
-					/>
-				</Field.Root>
-				<Switch.Root
-					checked={force}
-					onCheckedChange={({ checked }) => setForce(checked)}
-					display="flex"
-					alignItems="center"
-					justifyContent="space-between"
-					px={1}
-				>
-					<Switch.Label flex="1">Rescrape existing chapters</Switch.Label>
-					<Switch.Control>
-						<Switch.Thumb />
-					</Switch.Control>
-				</Switch.Root>
-				<Button
-					type="submit"
-					colorScheme="teal"
-					loading={submitting}
-					disabled={isDisabled}
-				>
-					{isDisabled ? "Scrape in progress" : "Queue scrape"}
-				</Button>
-			</Stack>
-		</Box>
-	);
-}
-
-function sortChapters(chapters: Chapter[]) {
-	return [...chapters].sort((a, b) => compareChapterKey(a.idx, b.idx));
-}
 
 function compareChapterKey(aKey: Chapter["idx"], bKey: Chapter["idx"]) {
 	const aNum = Number(aKey);

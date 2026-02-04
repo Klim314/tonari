@@ -22,6 +22,10 @@ export function useScrapeStatus(workId: number, onChapterFound?: () => void) {
 	});
 
 	useEffect(() => {
+		if (workId <= 0) {
+			return;
+		}
+
 		const baseUrl = import.meta.env.VITE_API_BASE_URL ?? "/api";
 		const url = `${baseUrl}/works/${workId}/scrape-status`;
 		const eventSource = new EventSource(url);

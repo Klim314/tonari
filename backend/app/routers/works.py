@@ -254,6 +254,25 @@ def request_chapter_scrape(
         )
 
 
+
+@router.post("/{work_id}/scrape-cancel")
+def cancel_chapter_scrape(work_id: int):
+    """Cancel an active scrape job."""
+    with SessionLocal() as db:
+        scrape_manager = ScrapeManager(db)
+        
+        # Check active job
+        job = scrape_manager.get_active_job(work_id)
+        if not job:
+            return {"status": "no_active_job"}
+
+        job.status = "cancelled"
+        db.add(job)
+        db.commit()
+        
+        return {"status": "cancelled", "job_id": job.id}
+
+
 @router.get("/{work_id}/scrape-status")
 async def stream_scrape_status(work_id: int, request: Request):
     """Stream scrape status events for a work."""

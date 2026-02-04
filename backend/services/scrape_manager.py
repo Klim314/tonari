@@ -33,13 +33,16 @@ class ScrapeManager:
 
     def create_job(self, work_id: int, start: Decimal, end: Decimal) -> ScrapeJob:
         """Create a new scrape job record."""
+        start_key = self.chapters_service._normalize_sort_key(start)
+        end_key = self.chapters_service._normalize_sort_key(end)
+        keys_to_scrape = self.chapters_service._expand_sort_keys(start_key, end_key)
         job = ScrapeJob(
             work_id=work_id,
             start=start,
             end=end,
             status="pending",
             progress=0,
-            total=0,  # Unknown initially
+            total=len(keys_to_scrape),
         )
         self.db.add(job)
         self.db.commit()
@@ -108,6 +111,11 @@ class ScrapeManager:
                 keys_to_scrape = chapters_service._expand_sort_keys(start_key, end_key)
                 job.total = len(keys_to_scrape)
                 db.commit()
+                await self._broadcast(
+                    job.work_id,
+                    "job-status",
+                    {"status": "running", "progress": job.progress, "total": job.total},
+                )
 
                 scraper = scraper_registry.resolve_by_source(work.source)
                 
@@ -122,7 +130,6 @@ class ScrapeManager:
 
                     # Update heartbeat
                     job.updated_at = datetime.now(timezone.utc)
-                    job.progress = i
                     db.commit()
 
                     try:
@@ -186,11 +193,24 @@ class ScrapeManager:
                         
                         db.commit()
                         completed_count += 1
-                        
+
                     except Exception as e:
                         logger.error(f"Error scraping chapter {sort_key}: {e}")
                         # We continue to next chapter
                         pass
+                    finally:
+                        job.updated_at = datetime.now(timezone.utc)
+                        job.progress = i + 1
+                        db.commit()
+                        await self._broadcast(
+                            job.work_id,
+                            "job-status",
+                            {
+                                "status": "running",
+                                "progress": job.progress,
+                                "total": job.total,
+                            },
+                        )
 
                 # Done
                 job.status = "completed"
