@@ -23,3 +23,8 @@
 
 ## Docs & Ops
 - [ ] Document the new scraping workflow (curl examples, expected payloads, env vars) so manual testers can follow the flow end-to-end.
+
+## Translation UX
+- [ ] PRD draft: see `docs/translation-ux-prd.md`.
+- [ ] Glossary improvements: storage + retrieval plan, prompt injection strategy, and UI flow.
+- [ ] Nice-to-have: versioned translations (history + diff viewer/editor tab).
