@@ -4,7 +4,9 @@
 - Backend commands (pytest, Alembic) should run inside the `api-dev` container; bring everything up with `docker compose up -d db api-dev` before running the Just recipes.
 - Schema changes require Alembic migrations plus `just alembic upgrade head` to keep the dev Postgres schema aligned; revisions live in `backend/alembic/versions`.
 - Python tooling is not installed on the host, so running tests or scripts locally will fail unless you add the dependencies—stick to the containerized environment unless you explicitly install them.
-- Frontend linting runs through `just lint-web` (Biome). Use that target instead of calling `npm run lint` directly so it picks up the right toolchain.
+- **Backend Linting/Formatting**: Use **Ruff**. The project uses Ruff for both linting and formatting. Run `just lint` (check) or `just format` (fix imports & format) to execute these inside the container.
+- **Frontend Linting/Formatting**: Use **Biome**. The project is configured to use Biome for both linting and formatting. Run `just lint-web` or `npx biome check .` to verify. Do not expect ESLint or Prettier to be present.
+- **Avoid Frequent Builds**: Do not run `npm run build` or `vite build` constantly. Rely on the user's hot-reloading dev server. If you need to check for type errors, run `tsc -b` (or `npx tsc -b`) in the frontend directory instead of a full build.
 
 ## Frontend Iconography
 
