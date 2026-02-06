@@ -23,7 +23,8 @@ If you prefer direct `uv` usage instead of Docker, you can still run:
 
 ```
 uv sync
-uv run uvicorn app.main:app --reload --port 8087
+uv run uvicorn app.main:app --host 0.0.0.0 --reload --port 8087
+
 ```
 
 ## Database Migrations (Alembic)
