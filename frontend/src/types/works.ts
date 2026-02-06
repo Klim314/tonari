@@ -1,7 +1,8 @@
 import type {
 	ChapterDetailOut,
+	ChapterGroupOut,
 	ChapterOut,
-	PaginatedChaptersOut,
+	ChaptersWithGroupsResponse,
 	PaginatedWorksOut,
 	WorkOut,
 } from "../client";
@@ -9,5 +10,6 @@ import type {
 export type Work = WorkOut;
 export type PaginatedWorksResponse = PaginatedWorksOut;
 export type Chapter = ChapterOut;
+export type ChapterGroup = ChapterGroupOut;
 export type ChapterDetail = ChapterDetailOut;
-export type PaginatedChaptersResponse = PaginatedChaptersOut;
+export type PaginatedChaptersResponse = ChaptersWithGroupsResponse;

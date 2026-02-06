@@ -89,8 +89,8 @@ export function WorkDetailPage({
 	// Build list of visible chapter IDs for shift-click range selection
 	const visibleChapterIds = useMemo(() => {
 		return items
-			.filter((item) => item.item_type === "chapter")
-			.map((item) => {
+			.filter((item: any) => item.item_type === "chapter")
+			.map((item: any) => {
 				const chapter = item.data as Chapter;
 				return chapter.id;
 			});
@@ -256,7 +256,7 @@ export function WorkDetailPage({
 							<Stack>
 								{(() => {
 									let chapterIndex = 0;
-									return items.map((item) => {
+									return items.map((item: any) => {
 										if (item.item_type === "group") {
 											const group = item.data as any; // Will be typed properly once API client regenerates
 											return (
@@ -411,14 +411,6 @@ export function WorkDetailPage({
 
 
 
-function compareChapterKey(aKey: Chapter["idx"], bKey: Chapter["idx"]) {
-	const aNum = Number(aKey);
-	const bNum = Number(bKey);
-	if (!Number.isNaN(aNum) && !Number.isNaN(bNum)) {
-		return aNum - bNum;
-	}
-	return String(aKey).localeCompare(String(bKey), undefined, { numeric: true });
-}
 
 function formatChapterKey(key: Chapter["idx"]) {
 	if (typeof key === "number") {
