@@ -4,15 +4,13 @@ import {
     Button,
     Dialog,
     Field,
-    HStack,
     Input,
     Progress,
-    Spinner,
     Stack,
     Switch,
     Text,
 } from "@chakra-ui/react";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Works } from "../client";
 import { useScrapeStatus } from "../hooks/useScrapeStatus";
 import { getApiErrorMessage } from "../lib/api";
@@ -40,15 +38,19 @@ export function ScrapeModal({
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [chaptersFound, setChaptersFound] = useState<number>(0);
 
-    // Hook handles the SSE connection
-    const handleChapterFound = useCallback(() => {
-        setChaptersFound((prev) => prev + 1);
-    }, []);
+    // Log of recent activities (optional, but nice)
+    const [logs, setLogs] = useState<string[]>([]);
+    const addLog = (msg: string) =>
+        setLogs((prev) => [msg, ...prev].slice(0, 5));
 
+    // Hook handles the SSE connection
     const scrapeStatus = useScrapeStatus(
         // Only connect when modal is open
         isOpen ? workId : -1,
-        handleChapterFound,
+        () => {
+            setChaptersFound((prev) => prev + 1);
+            addLog(`Chapter found.`);
+        },
     );
 
     // Fetch latest chapter info for auto-population
@@ -62,9 +64,9 @@ export function ScrapeModal({
                             path: { work_id: workId },
                             query: { limit: 1, offset: 0 },
                         });
-                    const total = initialRes.data.total_items;
+                    const total = initialRes?.data?.total_items || 0;
 
-                    if (total === 0) {
+                    if (initialRes?.data && total === 0) {
                         setStart("1");
                         setEnd("5");
                         return;
@@ -77,7 +79,7 @@ export function ScrapeModal({
                             query: { limit: 1, offset: total - 1 },
                         });
 
-                    if (lastItemRes.data.items.length > 0) {
+                    if (lastItemRes?.data?.items && lastItemRes.data.items.length > 0) {
                         const lastItem = lastItemRes.data.items[0];
                         if (lastItem.item_type === "chapter") {
                             const chapter = lastItem.data as Chapter;
@@ -111,6 +113,7 @@ export function ScrapeModal({
             setModalState("input"); // Default to input
             setSubmitError(null);
             setChaptersFound(0);
+            setLogs([]);
             // Don't reset start/end here, let the auto-populator do it
             setForce(false);
         }
@@ -246,22 +249,10 @@ export function ScrapeModal({
                         {(modalState === "scraping" || modalState === "completed") && (
                             <Stack gap={6} py={4}>
                                 <Box>
-                                    <HStack mb={2} gap={2} align="center">
-                                        <Text fontSize="sm" fontWeight="medium">
-                                            Status:{" "}
-                                            {scrapeStatus.status === "running"
-                                                ? "Running"
-                                                : scrapeStatus.status === "completed"
-                                                    ? "Completed"
-                                                    : scrapeStatus.status === "failed"
-                                                        ? "Failed"
-                                                        : "Pending"}
-                                        </Text>
-                                        {(scrapeStatus.status === "running" ||
-                                            scrapeStatus.status === "pending") && (
-                                            <Spinner size="sm" color="teal.500" />
-                                        )}
-                                    </HStack>
+                                    <Text mb={2} fontSize="sm" fontWeight="medium">
+                                        Status:{" "}
+                                        {scrapeStatus.status === "running" ? "Running" : "Pending"}
+                                    </Text>
                                     <Progress.Root
                                         value={
                                             scrapeStatus.total > 0
@@ -302,6 +293,23 @@ export function ScrapeModal({
                                             </Alert.Description>
                                         </Alert.Content>
                                     </Alert.Root>
+                                )}
+
+                                {/* Simple Log View */}
+                                {logs.length > 0 && (
+                                    <Box
+                                        bg="gray.50"
+                                        p={2}
+                                        borderRadius="md"
+                                        fontSize="xs"
+                                        color="gray.600"
+                                        maxH="100px"
+                                        overflowY="auto"
+                                    >
+                                        {logs.map((log, i) => (
+                                            <Text key={i}>{log}</Text>
+                                        ))}
+                                    </Box>
                                 )}
                             </Stack>
                         )}
