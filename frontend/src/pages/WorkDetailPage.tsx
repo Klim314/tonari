@@ -12,14 +12,11 @@ import {
 	Stack,
 	Text,
 } from "@chakra-ui/react";
-import {
-	type MouseEvent,
-	useMemo,
-	useState,
-} from "react";
+import { type MouseEvent, useMemo, useState } from "react";
 import { AddToGroupModal } from "../components/AddToGroupModal";
 import { ChapterGroupRow } from "../components/ChapterGroupRow";
 import { CreateChapterGroupModal } from "../components/CreateChapterGroupModal";
+import { ScrapeModal } from "../components/ScrapeModal";
 import { WorkPromptSelector } from "../components/WorkPromptSelector";
 import { Pagination } from "../components/common/Pagination";
 import { useChapterSelection } from "../hooks/useChapterSelection";
@@ -27,7 +24,6 @@ import { useWork } from "../hooks/useWork";
 import { useWorkChapters } from "../hooks/useWorkChapters";
 import { getApiErrorMessage } from "../lib/api";
 import type { Chapter } from "../types/works";
-import { ScrapeModal } from "../components/ScrapeModal";
 
 const CHAPTERS_PER_PAGE = 10;
 const CHAPTER_SKELETON_KEYS = Array.from(
@@ -77,7 +73,6 @@ export function WorkDetailPage({
 		typeof meta.description === "string" && meta.description.trim().length > 0
 			? meta.description
 			: "No description available for this work yet.";
-
 
 	// Handle mixed list of chapters and groups
 	const items = useMemo(() => {
@@ -199,7 +194,6 @@ export function WorkDetailPage({
 						</Alert.Content>
 					</Alert.Root>
 				)}
-
 
 				<Stack direction={{ base: "column", lg: "row" }} align="flex-start">
 					<Box flex="2" w="full">
@@ -408,9 +402,6 @@ export function WorkDetailPage({
 		</Box>
 	);
 }
-
-
-
 
 function formatChapterKey(key: Chapter["idx"]) {
 	if (typeof key === "number") {

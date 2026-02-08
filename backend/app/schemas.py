@@ -398,3 +398,41 @@ class ChaptersWithGroupsResponse(BaseModel):
     total_items: int
     offset: int
     limit: int
+
+
+# Translation improvement schemas
+class SuggestImprovementsRequest(BaseModel):
+    """Request payload for generating translation improvement suggestions."""
+
+    instructions: str = Field(
+        ..., min_length=1, max_length=2000, description="User instructions to guide the improvement pass"
+    )
+
+
+class SuggestionOut(BaseModel):
+    """A single translation improvement suggestion."""
+
+    segment_id: int = Field(..., description="ID of the segment to improve")
+    before: str = Field(..., description="Original translation text")
+    after: str = Field(..., description="Improved translation text")
+    rationale: str = Field(..., description="Brief explanation of the improvement")
+    confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score for the suggestion")
+
+
+class ApplySuggestionsRequest(BaseModel):
+    """Request payload for applying selected suggestions."""
+
+    suggestions: list[SuggestionOut] = Field(..., min_length=1, description="List of suggestions to apply")
+
+
+class SegmentEditPayload(BaseModel):
+    """A single segment edit for manual translation editing."""
+
+    segment_id: int = Field(..., description="ID of the segment to update")
+    tgt: str = Field(..., description="New translation text")
+
+
+class BatchSegmentUpdateRequest(BaseModel):
+    """Request payload for batch updating segment translations."""
+
+    edits: list[SegmentEditPayload] = Field(..., min_length=1, description="List of segment edits to apply")

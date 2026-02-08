@@ -35,7 +35,7 @@ class TranslationAgent(BaseAgent):
             api_base=api_base,
             chunk_chars=chunk_chars,
             system_prompt=effective_prompt,
-            human_message_template="{preceding_block}<source>\n{source_text}\n</source>\n\nReturn the translation only.",
+            human_message_template="{preceding_block}<source>\n{source_text}\n</source>{instruction_block}\n\nReturn the translation only.",
             provider=provider,
         )
 
@@ -44,12 +44,18 @@ class TranslationAgent(BaseAgent):
         text: str,
         *,
         preceding_segments: Optional[Sequence[SegmentContextInput]] = None,
+        instruction: Optional[str] = None,
+        current_translation: Optional[str] = None,
     ) -> AsyncGenerator[str, None]:
         """Stream translation for a segment with preceding context.
 
         Args:
             text: Source text to translate.
             preceding_segments: Previous segments for context window.
+            instruction: Optional user instruction to guide the retranslation
+                (e.g., "make it more casual", "keep the honorific").
+            current_translation: The existing translation to improve upon.
+                Required when instruction is provided.
 
         Yields:
             Translation text chunks.
@@ -65,13 +71,17 @@ class TranslationAgent(BaseAgent):
                 "provider": self.provider,
                 "preceding_count": len(preceding_segments or []),
                 "source_preview": cleaned[:80] + "..." if len(cleaned) > 80 else cleaned,
+                "has_instruction": instruction is not None,
+                "has_current_translation": current_translation is not None,
             },
         )
 
         preceding_block = self._render_preceding_block(preceding_segments)
+        instruction_block = self._render_instruction_block(instruction, current_translation)
         async for chunk in self.stream(
             source_text=cleaned,
             preceding_block=preceding_block,
+            instruction_block=instruction_block,
         ):
             yield chunk
 
@@ -117,6 +127,32 @@ class TranslationAgent(BaseAgent):
 
         window = normalized[-self.context_window :]
         return self._render_block(window, block_name="preceding")
+
+    def _render_instruction_block(
+        self, instruction: Optional[str], current_translation: Optional[str] = None
+    ) -> str:
+        """Render instruction block for guided retranslation.
+
+        Args:
+            instruction: User-provided instruction for the retranslation.
+            current_translation: The existing translation to improve upon.
+
+        Returns:
+            XML-formatted block with current translation and instruction,
+            or empty string if no instruction.
+        """
+        if not instruction or not instruction.strip():
+            return ""
+
+        parts = []
+
+        # Include the current translation so the model knows what to improve
+        if current_translation and current_translation.strip():
+            parts.append(f"<current_translation>\n{current_translation.strip()}\n</current_translation>")
+
+        parts.append(f"<instruction>\n{instruction.strip()}\n</instruction>")
+
+        return "\n\n" + "\n\n".join(parts)
 
 
 @lru_cache(maxsize=1)

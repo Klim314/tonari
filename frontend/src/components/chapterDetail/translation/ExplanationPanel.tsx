@@ -39,12 +39,8 @@ export function ExplanationPanel({
 	isOpen,
 	onClose,
 }: ExplanationPanelProps) {
-	const { currentSegment, contextLoading, contextError } = useExplanationContext(
-		workId,
-		chapterId,
-		segmentId,
-		isOpen,
-	);
+	const { currentSegment, contextLoading, contextError } =
+		useExplanationContext(workId, chapterId, segmentId, isOpen);
 	const { explanation, isLoading, error, regenerate, stop, isRegenerating } =
 		useExplanationStream(workId, chapterId, segmentId, isOpen);
 
@@ -103,7 +99,13 @@ export function ExplanationPanel({
 									Context
 								</Text>
 
-								<Stack gap={3} maxH="300px" overflowY="auto" position="relative" pr={2}>
+								<Stack
+									gap={3}
+									maxH="300px"
+									overflowY="auto"
+									position="relative"
+									pr={2}
+								>
 									{/* Current Segment */}
 									<Box
 										ref={currentSegmentRef}
@@ -121,7 +123,8 @@ export function ExplanationPanel({
 											fontFamily="mono"
 											mb={1.5}
 										>
-											{currentSegment?.src || (contextLoading ? "Loading..." : "")}
+											{currentSegment?.src ||
+												(contextLoading ? "Loading..." : "")}
 										</Text>
 										<Text fontSize="md" color="gray.900" fontWeight="medium">
 											{currentSegment?.tgt || ""}
@@ -139,7 +142,12 @@ export function ExplanationPanel({
 
 							{/* Explanation Section */}
 							<Box>
-								<Stack direction="row" justify="space-between" align="center" mb={3}>
+								<Stack
+									direction="row"
+									justify="space-between"
+									align="center"
+									mb={3}
+								>
 									<Text
 										fontSize="xs"
 										textTransform="uppercase"
@@ -163,16 +171,16 @@ export function ExplanationPanel({
 									) : (
 										explanation &&
 										!isLoading && (
-										<Box
-											as="button"
-											onClick={regenerate}
-											color="gray.400"
-											_hover={{ color: "blue.500" }}
-											transition="color 0.2s"
-											title="Regenerate explanation"
-										>
-											<RefreshCw size={14} />
-										</Box>
+											<Box
+												as="button"
+												onClick={regenerate}
+												color="gray.400"
+												_hover={{ color: "blue.500" }}
+												transition="color 0.2s"
+												title="Regenerate explanation"
+											>
+												<RefreshCw size={14} />
+											</Box>
 										)
 									)}
 								</Stack>
@@ -209,12 +217,16 @@ export function ExplanationPanel({
 												"& p": { mb: 3 },
 												"& ul": { pl: 4, mb: 3 },
 												"& li": { mb: 1 },
-												"& code": { bg: "gray.100", px: 1, borderRadius: "sm" }
+												"& code": { bg: "gray.100", px: 1, borderRadius: "sm" },
 											}}
 										>
 											<ReactMarkdown>{explanation}</ReactMarkdown>
 											{isLoading && (
-												<Text as="span" color="blue.400" animation="pulse 1s infinite">
+												<Text
+													as="span"
+													color="blue.400"
+													animation="pulse 1s infinite"
+												>
 													▋
 												</Text>
 											)}
@@ -240,9 +252,9 @@ function useExplanationStream(
 	const [explanation, setExplanation] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [shouldRegenerate, setShouldRegenerate] = useState(false);
-	const [activeRequest, setActiveRequest] = useState<"initial" | "regenerate" | null>(
-		null,
-	);
+	const [activeRequest, setActiveRequest] = useState<
+		"initial" | "regenerate" | null
+	>(null);
 	const lastSegmentIdRef = useRef<number | null>(null);
 	const suppressNextFetchRef = useRef(false);
 	const eventSourceRef = useRef<EventSource | null>(null);
@@ -377,7 +389,11 @@ function useExplanationStream(
 							}
 
 							if (!dataLines.length) continue;
-							let data: { delta?: string; error?: string; explanation?: string } = {};
+							let data: {
+								delta?: string;
+								error?: string;
+								explanation?: string;
+							} = {};
 							try {
 								data = JSON.parse(dataLines.join("\n"));
 							} catch {
@@ -428,7 +444,7 @@ function useExplanationStream(
 					});
 
 					eventSource.onerror = () => {
-						// Only set error if we haven't received any content, 
+						// Only set error if we haven't received any content,
 						// otherwise it might just be a normal close in some browser environments
 						// or a network blip after we got the content.
 						// But for SSE usually onerror fires on connection loss.

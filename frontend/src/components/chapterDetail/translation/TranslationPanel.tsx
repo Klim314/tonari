@@ -12,11 +12,13 @@ import {
 } from "@chakra-ui/react";
 import { Pause, Play, RotateCcw } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { client } from "../../../client/client.gen";
 import {
 	type TranslationStreamStatus,
 	useChapterTranslationStream,
 } from "../../../hooks/useChapterTranslationStream";
 import { ExplanationPanel } from "./ExplanationPanel";
+import { RetranslateModal } from "./RetranslateModal";
 import { SegmentsList } from "./SegmentsList";
 
 type PrimaryAction = "start" | "resume" | "regenerate";
@@ -41,6 +43,10 @@ export const TranslationPanel = memo(function TranslationPanel({
 	const [explanationSegmentId, setExplanationSegmentId] = useState<
 		number | null
 	>(null);
+	const [retranslateModalSegmentId, setRetranslateModalSegmentId] = useState<
+		number | null
+	>(null);
+	const [editingSegmentId, setEditingSegmentId] = useState<number | null>(null);
 	const {
 		status: translationStatus,
 		error: translationError,
@@ -50,7 +56,6 @@ export const TranslationPanel = memo(function TranslationPanel({
 		pause,
 		isResetting,
 		regenerate,
-		retranslateSegment,
 	} = useChapterTranslationStream({ workId, chapterId });
 
 	useEffect(() => {
@@ -137,25 +142,59 @@ export const TranslationPanel = memo(function TranslationPanel({
 		setSelectedSegmentId(null);
 	}, []);
 
-	const handleSegmentRetranslate = useCallback(
+	const handleSegmentExplain = useCallback(
 		(segmentId: number) => {
-			setRetranslatingSegmentId(segmentId);
-			retranslateSegment(segmentId);
+			const selected = translationSegments.find(
+				(segment) => segment.segmentId === segmentId,
+			);
+			console.info("Explain segment selected", {
+				segmentId,
+				orderIndex: selected?.orderIndex,
+				src: selected?.src,
+			});
+			setExplanationSegmentId(segmentId);
 		},
-		[retranslateSegment],
+		[translationSegments],
 	);
 
-	const handleSegmentExplain = useCallback((segmentId: number) => {
-		const selected = translationSegments.find(
-			(segment) => segment.segmentId === segmentId,
-		);
-		console.info("Explain segment selected", {
-			segmentId,
-			orderIndex: selected?.orderIndex,
-			src: selected?.src,
-		});
-		setExplanationSegmentId(segmentId);
-	}, [translationSegments]);
+	// Retranslate opens the modal with instruction input
+	const handleSegmentRetranslateModal = useCallback((segmentId: number) => {
+		setRetranslateModalSegmentId(segmentId);
+	}, []);
+
+	const handleRetranslateComplete = useCallback(() => {
+		// The useChapterTranslationStream hook will auto-refresh on segment update
+		// via the SSE events, so we just need to close the modal
+		setRetranslateModalSegmentId(null);
+	}, []);
+
+	// Inline editing handlers
+	const handleSegmentEditStart = useCallback((segmentId: number) => {
+		setEditingSegmentId(segmentId);
+	}, []);
+
+	const handleSegmentEditSave = useCallback(
+		async (segmentId: number, newText: string) => {
+			try {
+				await client.patch({
+					url: `/works/${workId}/chapters/${chapterId}/segments/batch`,
+					body: {
+						edits: [{ segment_id: segmentId, tgt: newText }],
+					},
+					responseType: "json",
+					throwOnError: true,
+				});
+				setEditingSegmentId(null);
+			} catch (err) {
+				console.error("Failed to save segment edit:", err);
+			}
+		},
+		[workId, chapterId],
+	);
+
+	const handleSegmentEditCancel = useCallback(() => {
+		setEditingSegmentId(null);
+	}, []);
 
 	return (
 		<Box
@@ -220,9 +259,13 @@ export const TranslationPanel = memo(function TranslationPanel({
 					segments={translationSegments}
 					selectedSegmentId={selectedSegmentId}
 					retranslatingSegmentId={retranslatingSegmentId}
+					editingSegmentId={editingSegmentId}
 					onContextSelect={handleSegmentContextSelect}
-					onSegmentRetranslate={handleSegmentRetranslate}
+					onSegmentRetranslate={handleSegmentRetranslateModal}
 					onSegmentExplain={handleSegmentExplain}
+					onSegmentEditStart={handleSegmentEditStart}
+					onSegmentEditSave={handleSegmentEditSave}
+					onSegmentEditCancel={handleSegmentEditCancel}
 				/>
 			)}
 
@@ -233,6 +276,17 @@ export const TranslationPanel = memo(function TranslationPanel({
 					chapterId={chapterId}
 					isOpen={explanationSegmentId !== null}
 					onClose={() => setExplanationSegmentId(null)}
+				/>
+			)}
+
+			{retranslateModalSegmentId !== null && (
+				<RetranslateModal
+					segmentId={retranslateModalSegmentId}
+					workId={workId}
+					chapterId={chapterId}
+					isOpen={retranslateModalSegmentId !== null}
+					onClose={() => setRetranslateModalSegmentId(null)}
+					onRetranslateComplete={handleRetranslateComplete}
 				/>
 			)}
 		</Box>

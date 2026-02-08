@@ -5,6 +5,20 @@ export type ClientOptions = {
 };
 
 /**
+ * BatchSegmentUpdateRequest
+ *
+ * Request payload for batch updating segment translations.
+ */
+export type BatchSegmentUpdateRequest = {
+    /**
+     * Edits
+     *
+     * List of segment edits to apply
+     */
+    edits: Array<SegmentEditPayload>;
+};
+
+/**
  * ChapterDetailOut
  */
 export type ChapterDetailOut = {
@@ -113,6 +127,10 @@ export type ChapterGroupDetailOut = {
      */
     item_type?: string;
     /**
+     * Is Fully Translated
+     */
+    is_fully_translated?: boolean;
+    /**
      * Members
      */
     members: Array<ChapterGroupMemberOut>;
@@ -185,6 +203,10 @@ export type ChapterGroupOut = {
      * Item Type
      */
     item_type?: string;
+    /**
+     * Is Fully Translated
+     */
+    is_fully_translated?: boolean;
 };
 
 /**
@@ -806,6 +828,26 @@ export type PromptVersionOut = {
      * Created At
      */
     created_at: string;
+};
+
+/**
+ * SegmentEditPayload
+ *
+ * A single segment edit for manual translation editing.
+ */
+export type SegmentEditPayload = {
+    /**
+     * Segment Id
+     *
+     * ID of the segment to update
+     */
+    segment_id: number;
+    /**
+     * Tgt
+     *
+     * New translation text
+     */
+    tgt: string;
 };
 
 /**
@@ -1847,6 +1889,34 @@ export type RequestChapterScrapeWorksWorkIdScrapeChaptersPostResponses = {
 
 export type RequestChapterScrapeWorksWorkIdScrapeChaptersPostResponse = RequestChapterScrapeWorksWorkIdScrapeChaptersPostResponses[keyof RequestChapterScrapeWorksWorkIdScrapeChaptersPostResponses];
 
+export type CancelChapterScrapeWorksWorkIdScrapeCancelPostData = {
+    body?: never;
+    path: {
+        /**
+         * Work Id
+         */
+        work_id: number;
+    };
+    query?: never;
+    url: '/works/{work_id}/scrape-cancel';
+};
+
+export type CancelChapterScrapeWorksWorkIdScrapeCancelPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CancelChapterScrapeWorksWorkIdScrapeCancelPostError = CancelChapterScrapeWorksWorkIdScrapeCancelPostErrors[keyof CancelChapterScrapeWorksWorkIdScrapeCancelPostErrors];
+
+export type CancelChapterScrapeWorksWorkIdScrapeCancelPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
 export type StreamScrapeStatusWorksWorkIdScrapeStatusGetData = {
     body?: never;
     path: {
@@ -1975,6 +2045,40 @@ export type RegenerateChapterSegmentsWorksWorkIdChaptersChapterIdRegenerateSegme
     200: unknown;
 };
 
+export type BatchUpdateSegmentsWorksWorkIdChaptersChapterIdSegmentsBatchPatchData = {
+    body: BatchSegmentUpdateRequest;
+    path: {
+        /**
+         * Work Id
+         */
+        work_id: number;
+        /**
+         * Chapter Id
+         */
+        chapter_id: number;
+    };
+    query?: never;
+    url: '/works/{work_id}/chapters/{chapter_id}/segments/batch';
+};
+
+export type BatchUpdateSegmentsWorksWorkIdChaptersChapterIdSegmentsBatchPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type BatchUpdateSegmentsWorksWorkIdChaptersChapterIdSegmentsBatchPatchError = BatchUpdateSegmentsWorksWorkIdChaptersChapterIdSegmentsBatchPatchErrors[keyof BatchUpdateSegmentsWorksWorkIdChaptersChapterIdSegmentsBatchPatchErrors];
+
+export type BatchUpdateSegmentsWorksWorkIdChaptersChapterIdSegmentsBatchPatchResponses = {
+    /**
+     * Successful Response
+     */
+    200: ChapterTranslationStateOut;
+};
+
+export type BatchUpdateSegmentsWorksWorkIdChaptersChapterIdSegmentsBatchPatchResponse = BatchUpdateSegmentsWorksWorkIdChaptersChapterIdSegmentsBatchPatchResponses[keyof BatchUpdateSegmentsWorksWorkIdChaptersChapterIdSegmentsBatchPatchResponses];
+
 export type CreateChapterPromptOverrideWorksWorkIdChaptersChapterIdPromptOverridesPostData = {
     body: ChapterPromptOverrideRequest;
     path: {
@@ -2067,6 +2171,10 @@ export type RetranslateSegmentWorksWorkIdChaptersChapterIdSegmentsSegmentIdRetra
          * Prompt Override Token
          */
         prompt_override_token?: string | null;
+        /**
+         * Instruction
+         */
+        instruction?: string | null;
     };
     url: '/works/{work_id}/chapters/{chapter_id}/segments/{segment_id}/retranslate/stream';
 };

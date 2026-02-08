@@ -168,7 +168,7 @@ class TranslationStreamService:
             .where(ChapterTranslation.chapter_id == chapter.id)
         )
         translations = self.session.execute(stmt).scalars().all()
-        
+
         for translation in translations:
             # Delete existing segments
             self.session.query(TranslationSegment).filter(
@@ -177,5 +177,44 @@ class TranslationStreamService:
 
             # Recreate segments
             self.ensure_segments(translation, chapter.normalized_text, force=True)
-        
+
         self.session.commit()
+
+    def batch_update_segment_translations(
+        self, translation_id: int, edits: List[dict]
+    ) -> List[TranslationSegment]:
+        """Update multiple segments with user-provided translations.
+
+        Args:
+            translation_id: ID of the chapter translation
+            edits: List of dicts with 'segment_id' and 'tgt' keys
+
+        Returns:
+            List of updated TranslationSegment objects
+
+        Note:
+            Clears the explanation cache for edited segments since the
+            translation text has changed.
+        """
+        updated: List[TranslationSegment] = []
+        segment_ids = [edit["segment_id"] for edit in edits]
+
+        stmt = (
+            select(TranslationSegment)
+            .where(TranslationSegment.id.in_(segment_ids))
+            .where(TranslationSegment.chapter_translation_id == translation_id)
+        )
+        segments_by_id = {seg.id: seg for seg in self.session.execute(stmt).scalars().all()}
+
+        for edit in edits:
+            segment = segments_by_id.get(edit["segment_id"])
+            if segment is not None:
+                segment.tgt = edit["tgt"]
+                segment.explanation = None  # Clear cached explanation
+                self.session.add(segment)
+                updated.append(segment)
+
+        self.session.commit()
+        for seg in updated:
+            self.session.refresh(seg)
+        return updated

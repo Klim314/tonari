@@ -24,6 +24,7 @@ from app.prompt_overrides import (
     decode_prompt_override_token,
 )
 from app.schemas import (
+    BatchSegmentUpdateRequest,
     ChapterDetailOut,
     ChapterGroupOut,
     ChapterOrGroup,
@@ -403,6 +404,46 @@ def regenerate_chapter_segments(work_id: int, chapter_id: int):
         return _build_translation_state(chapter, translation, segments)
 
 
+@router.patch(
+    "/{work_id}/chapters/{chapter_id}/segments/batch",
+    response_model=ChapterTranslationStateOut,
+)
+def batch_update_segments(
+    work_id: int, chapter_id: int, payload: BatchSegmentUpdateRequest
+):
+    """Apply manual edits to multiple translation segments.
+
+    Updates the target translation text for each specified segment.
+    Clears any cached explanations for edited segments since the
+    translation text has changed.
+    """
+    with SessionLocal() as db:
+        works_service = WorksService(db)
+        chapters_service = ChaptersService(db)
+        translation_service = TranslationStreamService(db)
+
+        try:
+            work = works_service.get_work(work_id)
+        except WorkNotFoundError:
+            raise HTTPException(status_code=404, detail="work not found") from None
+
+        try:
+            chapter = chapters_service.get_chapter(chapter_id)
+        except ChapterNotFoundError:
+            raise HTTPException(status_code=404, detail="chapter not found") from None
+
+        if chapter.work_id != work.id:
+            raise HTTPException(status_code=404, detail="chapter not found") from None
+
+        translation = translation_service.get_or_create_translation(chapter.id)
+
+        edits = [{"segment_id": e.segment_id, "tgt": e.tgt} for e in payload.edits]
+        translation_service.batch_update_segment_translations(translation.id, edits)
+
+        segments = list(translation_service.get_segments_for_translation(translation.id))
+        return _build_translation_state(chapter, translation, segments)
+
+
 def _resolve_prompt_override(token: str | None, work_id: int, chapter_id: int):
     if not token:
         return None
@@ -534,6 +575,8 @@ async def _translate_segments_stream(
     chapter_text: str,
     work_id: int,
     is_single_segment: bool = False,
+    instruction: str | None = None,
+    current_translation: str | None = None,
 ):
     """
     Unified async generator for translating segments (either full chapter or single segment).
@@ -549,6 +592,8 @@ async def _translate_segments_stream(
         chapter_text: Full chapter text
         work_id: Work ID for logging
         is_single_segment: If True, don't set translation.status to completed at the end
+        instruction: Optional user instruction to guide the retranslation
+        current_translation: The existing translation to improve upon (for guided retranslation)
     """
     current_segment = None
     try:
@@ -600,7 +645,10 @@ async def _translate_segments_stream(
 
             collected = ""
             async for delta in translation_agent.stream_segment(
-                src, preceding_segments=context_segments
+                src,
+                preceding_segments=context_segments,
+                instruction=instruction,
+                current_translation=current_translation,
             ):
                 if await request.is_disconnected():
                     raise asyncio.CancelledError
@@ -779,8 +827,14 @@ async def retranslate_segment(
     segment_id: int,
     request: Request,
     prompt_override_token: str | None = Query(default=None),
+    instruction: str | None = Query(default=None, max_length=2000),
 ):
-    """Retranslate a single segment in a chapter translation."""
+    """Retranslate a single segment in a chapter translation.
+
+    Args:
+        instruction: Optional user instruction to guide the retranslation
+            (e.g., "make it more casual", "keep the honorific").
+    """
     from sqlalchemy import select
     from app.models import TranslationSegment
 
@@ -811,6 +865,9 @@ async def retranslate_segment(
 
         if segment is None or segment.chapter_translation_id != translation.id:
             raise HTTPException(status_code=404, detail="segment not found") from None
+
+        # Capture current translation before reset (for guided retranslation)
+        current_tgt = segment.tgt if instruction else None
 
         # Reset the segment for retranslation
         translation_service.reset_segment(segment_id)
@@ -851,6 +908,8 @@ async def retranslate_segment(
                     chapter_text=chapter_text,
                     work_id=work_id,
                     is_single_segment=True,
+                    instruction=instruction,
+                    current_translation=current_tgt,
                 ):
                     yield event
             finally:
