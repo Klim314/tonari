@@ -56,6 +56,7 @@ export const TranslationPanel = memo(function TranslationPanel({
 		pause,
 		isResetting,
 		regenerate,
+		updateSegmentText,
 	} = useChapterTranslationStream({ workId, chapterId });
 
 	useEffect(() => {
@@ -184,12 +185,13 @@ export const TranslationPanel = memo(function TranslationPanel({
 					responseType: "json",
 					throwOnError: true,
 				});
+				updateSegmentText(segmentId, newText);
 				setEditingSegmentId(null);
 			} catch (err) {
 				console.error("Failed to save segment edit:", err);
 			}
 		},
-		[workId, chapterId],
+		[workId, chapterId, updateSegmentText],
 	);
 
 	const handleSegmentEditCancel = useCallback(() => {

@@ -458,6 +458,20 @@ export function useChapterTranslationStream({
 		],
 	);
 
+	const updateSegmentText = useCallback(
+		(segmentId: number, newText: string) => {
+			setSegmentsMap((prev) => {
+				const existing = prev[segmentId];
+				if (!existing) return prev;
+				return {
+					...prev,
+					[segmentId]: { ...existing, text: newText },
+				};
+			});
+		},
+		[],
+	);
+
 	return {
 		status,
 		error,
@@ -469,5 +483,6 @@ export function useChapterTranslationStream({
 		isResetting,
 		regenerate,
 		retranslateSegment,
+		updateSegmentText,
 	};
 }
