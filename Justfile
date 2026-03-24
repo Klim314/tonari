@@ -38,3 +38,11 @@ lint-web:
 generate-api:
     curl -s http://localhost:8087/openapi.json > frontend/openapi.json && \
     cd frontend && npm run generate:api
+
+# Sync .ai/ instructions to platform files (CLAUDE.md, AGENTS.md, GEMINI.md)
+ai-sync:
+    bash .ai/sync.sh
+
+# Sync global ~/.ai/ instructions
+ai-sync-global:
+    bash .ai/sync.sh --global

@@ -23,7 +23,3 @@ This project uses `just` as a task runner. See `justfile` for all available comm
 - `just makemigrations [name]` - Generate new migration
 - `just generate-api` - Generate frontend API client from OpenAPI spec
 - `just --list` - See all available just recipes
-
-## Agents-Specific Instructions (Gemini / Codex)
-
-<!-- Add instructions specific to Gemini and Codex here -->
