@@ -62,7 +62,7 @@ class ScrapeManager:
         # Check for timeout (2 minutes since last update)
         # Assuming updated_at is timezone aware or UTC
         now = datetime.now(UTC)
-        # Ensure updated_at has timezone info for comparison, assuming DB stores as generic timestamp
+        # Ensure updated_at has timezone info for comparison
         last_update = job.updated_at
         if last_update.tzinfo is None:
             last_update = last_update.replace(tzinfo=UTC)
@@ -143,9 +143,7 @@ class ScrapeManager:
                         # Verify we can persist
                         db.refresh(work)  # Ensure work attached
 
-                        # Using internal helper to save chapter - we might want to expose this on service
-                        # For now, we'll manually invoke the logic from chapters service or replicate it slightly
-                        # Replicating slightly for granular control (or we could make `save_chapter` public)
+                        # Replicate chapter save logic for granular control
 
                         text_hash = chapters_service._hash_text(normalized_text)
 
@@ -164,7 +162,7 @@ class ScrapeManager:
                                 existing_chapter.text_hash = text_hash
                                 db.add(existing_chapter)
 
-                                # If text changed, we must regenerate segments to avoid index mismatch
+                                # Regenerate segments if text changed
                                 if text_changed:
                                     translation_service = TranslationStreamService(db)
                                     translation_service.regenerate_chapter_segments(

@@ -281,7 +281,7 @@ class PromptVersionCreateRequest(BaseModel):
             # This will raise ValueError if the template has invalid syntax
             list(Formatter().parse(v))
         except (ValueError, KeyError) as e:
-            raise ValueError(f"Invalid template syntax: {str(e)}")
+            raise ValueError(f"Invalid template syntax: {e!s}") from e
         return v
 
 

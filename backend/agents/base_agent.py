@@ -4,7 +4,7 @@ import asyncio
 import logging
 from collections.abc import AsyncGenerator, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Union
+from typing import Any
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import BaseMessage
@@ -29,7 +29,7 @@ class SegmentContext:
     tgt: str
 
 
-SegmentContextInput = Union[SegmentContext, Mapping[str, Any]]
+SegmentContextInput = SegmentContext | Mapping[str, Any]
 
 
 LOREM = (

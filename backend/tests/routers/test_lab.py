@@ -9,9 +9,9 @@ def test_stream_lab_translation(client):
         mock_get_info.return_value = mock_info
 
         # Mock the TranslationAgent
-        with patch("app.routers.lab.TranslationAgent") as MockAgent:
+        with patch("app.routers.lab.TranslationAgent") as mock_agent_cls:
             # User instance mock
-            mock_instance = MockAgent.return_value
+            mock_instance = mock_agent_cls.return_value
 
             # Async generator mock for stream_segment
             async def mock_stream(text, preceding_segments=None):
@@ -34,8 +34,8 @@ def test_stream_lab_translation(client):
             assert response.text == "Hello World"
 
             # Verify agent was initialized correctly
-            MockAgent.assert_called_once()
-            call_kwargs = MockAgent.call_args.kwargs
+            mock_agent_cls.assert_called_once()
+            call_kwargs = mock_agent_cls.call_args.kwargs
             assert call_kwargs["model"] == "test-model"
             assert call_kwargs["system_prompt"] == "Translate this."
             assert call_kwargs["context_window"] == 0

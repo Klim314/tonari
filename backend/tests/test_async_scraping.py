@@ -86,7 +86,7 @@ def test_api_concurrency_prevention(client, db_session, monkeypatch):
     # unless we mock the service method to hang.
 
     # Mock ChaptersService.scrape_work_for_chapters to just sleep
-    original_scrape = ChaptersService.scrape_work_for_chapters
+    _original_scrape = ChaptersService.scrape_work_for_chapters
 
     def slow_scrape(*args, **kwargs):
         # We don't actually need to sleep if we just want to test if the job exists

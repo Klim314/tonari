@@ -190,7 +190,7 @@ def test_update_group_members_conflict(db_session):
     chapters = _create_chapters(db_session, work, count=5)
 
     service = ChapterGroupsService(db_session)
-    group1 = service.create_group(work.id, "Arc 1", [chapters[0].id])
+    service.create_group(work.id, "Arc 1", [chapters[0].id])
     group2 = service.create_group(work.id, "Arc 2", [chapters[1].id])
 
     # Try to add chapter from group1 to group2
@@ -362,7 +362,7 @@ def test_get_chapters_with_groups_only_groups(db_session):
 def test_get_chapters_with_groups_no_groups(db_session):
     """Test when there are no groups."""
     work = _create_work(db_session)
-    chapters = _create_chapters(db_session, work, count=3)
+    _create_chapters(db_session, work, count=3)
 
     service = ChapterGroupsService(db_session)
     items, total_chapters, total_groups, total_items, _, _ = service.get_chapters_with_groups(
@@ -636,7 +636,7 @@ def test_add_chapters_to_group_conflict(client, db_session):
         json={"name": "Arc 1", "chapter_ids": [chapters[0].id, chapters[1].id]},
     )
     assert create_resp1.status_code == 201
-    group1_id = create_resp1.json()["id"]
+    create_resp1.json()["id"]
 
     # Create second group
     create_resp2 = client.post(

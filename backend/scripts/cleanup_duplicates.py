@@ -23,7 +23,7 @@ def cleanup_duplicates():
         print(f"Found {len(duplicates)} sets of duplicates")
 
         total_deleted = 0
-        for work_id, sort_key, count in duplicates:
+        for work_id, sort_key, _count in duplicates:
             # Get all chapters for this work/key tuple
             chapters = db.scalars(
                 select(Chapter)
@@ -38,7 +38,8 @@ def cleanup_duplicates():
             to_delete = chapters[1:]
 
             print(
-                f"Work {work_id} Ch {sort_key}: Keeping ID {to_keep.id}, deleting IDs {[c.id for c in to_delete]}"
+                f"Work {work_id} Ch {sort_key}: "
+                f"Keeping ID {to_keep.id}, deleting IDs {[c.id for c in to_delete]}"
             )
 
             for chap in to_delete:

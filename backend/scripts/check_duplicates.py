@@ -26,7 +26,7 @@ def check_duplicates():
         duplicates_with_translations = 0
         total_dup_chapters = 0
 
-        for work_id, sort_key, count in duplicates:
+        for work_id, sort_key, _count in duplicates:
             # Get all chapters for this work/key tuple, eagerly load translations
             chapters = db.scalars(
                 select(Chapter)

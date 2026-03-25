@@ -26,7 +26,7 @@ async def ingest_syosetu(req: IngestSyosetuRequest):
         url = _build_chapter_url(req.novel_id, req.chapter)
         title, normalized_text = await run_in_threadpool(scraper.scrape_chapter, url)
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=400, detail=f"Failed to fetch/parse: {e}")
+        raise HTTPException(status_code=400, detail=f"Failed to fetch/parse: {e}") from e
 
     text_hash = _hash_text(normalized_text)
 

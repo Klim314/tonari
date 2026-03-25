@@ -269,7 +269,7 @@ class PromptService:
             PromptNotFoundError: If prompt not found
             ValueError: If business logic validation fails
         """
-        prompt = self.get_prompt(prompt_id)
+        self.get_prompt(prompt_id)
 
         # Validation: ensure template is not identical to latest version
         # This helps prevent accidental duplicates

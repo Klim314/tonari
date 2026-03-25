@@ -80,7 +80,7 @@ class WorksService:
         from app.models import Prompt
 
         # Verify work and prompt exist
-        work = self.get_work(work_id)
+        self.get_work(work_id)
         prompt = self.session.get(Prompt, prompt_id)
         if not prompt:
             raise PromptNotFoundError(f"prompt {prompt_id} not found")

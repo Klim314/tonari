@@ -35,7 +35,10 @@ class TranslationAgent(BaseAgent):
             api_base=api_base,
             chunk_chars=chunk_chars,
             system_prompt=effective_prompt,
-            human_message_template="{preceding_block}<source>\n{source_text}\n</source>{instruction_block}\n\nReturn the translation only.",
+            human_message_template=(
+                "{preceding_block}<source>\n{source_text}\n</source>"
+                "{instruction_block}\n\nReturn the translation only."
+            ),
             provider=provider,
         )
 

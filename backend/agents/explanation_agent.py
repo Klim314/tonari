@@ -30,7 +30,10 @@ class ExplanationAgent(BaseAgent):
             api_base=api_base,
             chunk_chars=chunk_chars,
             system_prompt=SYSTEM_EXPLANATION,
-            human_message_template="{context_block}\n\nProvide a markdown explanation of how this translation was made.",
+            human_message_template=(
+                "{context_block}\n\n"
+                "Provide a markdown explanation of how this translation was made."
+            ),
             provider=provider,
         )
 

@@ -121,7 +121,7 @@ def list_chapters_for_work(work_id: int, limit: int = 50, offset: int = 0):
 
         # Collect all chapter IDs to query translation status
         chapter_ids = []
-        for item_type, data, sort_key in items:
+        for item_type, data, _sort_key in items:
             if item_type == "chapter":
                 chapter_ids.append(data.id)
             elif item_type == "group":
@@ -220,7 +220,6 @@ def request_chapter_scrape(
         # Check for existing job (and handle timeout logic)
         existing_job = scrape_manager.get_active_job(work_id)
         if existing_job:
-            # For now, return conflict. In future we could header "Location" to the monitoring endpoint
             raise HTTPException(
                 status_code=409, detail=f"Scrape already in progress (job {existing_job.id})"
             )
@@ -293,12 +292,7 @@ async def stream_scrape_status(work_id: int, request: Request):
         finally:
             db.close()
 
-        # Subscribe to broadcast
-        # Note: ScrapeManager uses a class-level subscriber list, so we can instantiate a new one
-        # Use a fresh instance/session for the subscription call if needed, but subscribe is generic
-        # However, we need to pass a db session to ScrapeManager constructor
-        # Ideally the subscriber list is global or singleton.
-        # In our implementation `_subscribers` is a global variable in the module, so any instance works.
+        # Subscribe to broadcast (_subscribers is module-global, any instance works)
 
         db_sub = SessionLocal()
         manager = ScrapeManager(db_sub)
@@ -718,8 +712,8 @@ async def stream_chapter_translation(
     works_service = WorksService(db)
     chapters_service = ChaptersService(db)
     translation_service = TranslationStreamService(db)
-    # TODO: Gate concurrent translators per chapter translation to avoid duplicate work.
-    # TODO: Handle reset_chapter_translation invalidating in-flight segments (emit reset event instead of crashing).
+    # TODO: Gate concurrent translators per chapter translation.
+    # TODO: Handle reset invalidating in-flight segments.
 
     try:
         try:

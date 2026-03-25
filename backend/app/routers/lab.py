@@ -34,9 +34,7 @@ async def stream_lab_translation(req: LabStreamRequest):
     agent = TranslationAgent(
         model=req.model,
         api_key=api_key,
-        api_base=settings.translation_api_base_url,  # Usually same base URL for same provider, but strictly this might need per-provider URLs if using different proxies.
-        # For now, assuming settings.translation_api_base_url is generic or ignored by SDKs that pick up env vars.
-        # Actually TranslationAgent passes this to BaseAgent.
+        api_base=settings.translation_api_base_url,
         chunk_chars=settings.translation_chunk_chars,
         context_window=0,  # Stateless
         system_prompt=req.template,
@@ -47,23 +45,7 @@ async def stream_lab_translation(req: LabStreamRequest):
     async def event_generator():
         try:
             async for chunk in agent.stream_segment(req.text):
-                # SSE format: "data: <content>\n\n"
-                # We replace newlines in data to avoid breaking SSE protocol if using standard library,
-                # but raw chunk usually is just text.
-                # Standardization: often we send JSON in data like data: {"text": "..."}
-                # but for simple text streaming, just raw text is often used.
-                # Let's use JSON to be safe and extensible.
-                # data = json.dumps({"text": chunk})
-                # yield f"data: {data}\n\n"
-
-                # Correction: The existing implementation might just want raw text or specific format.
-                # But typically SSE expects "data: ...\n\n".
-                # If we just yield raw text, it's a "StreamingResponse" but not technically SSE unless media_type="text/event-stream".
-                # If media_type is generic, browsers handle it as a long download.
-                # Implementation Plan said "Server-Sent Events".
-
-                # Let's output raw characters for now, as that's easiest for a simple "read stream" on frontend,
-                # unless we want structured events.
+                # Raw character streaming for simple frontend consumption
                 yield chunk
         except Exception as e:
             # yield f"error: {str(e)}"
