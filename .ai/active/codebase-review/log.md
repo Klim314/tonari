@@ -1,0 +1,28 @@
+# Codebase Review — Session Log
+
+Append-only. Each session adds an entry. Only consult when you need to understand past decisions.
+
+## 2026-03-25 — Initial review
+
+- Created persistent review workspace in `.ai/active/codebase-review/`.
+- Defined review principles, phases, severity model, and deliverables.
+- Established initial artifact split: plan, progress, findings, and checklist.
+- Added `process.md` to define main-agent ownership, subagent coordination, scratch-note conventions, and consolidation rules.
+- Confirmed the current dev environment is running via `docker compose ps` (`db`, `api-dev`, `frontend` all up).
+- Ran `just test`: failed with 7/79 tests failing. Failures cluster in chapter translation segmentation (`backend/tests/test_api.py`) and scrape job / scrape endpoint behavior (`backend/tests/test_async_scraping.py`, `backend/tests/test_works_api.py`).
+- Ran `just lint`: failed with 270 Ruff diagnostics. Errors are concentrated in `backend/agents/*`, selected service files, and multiple backend test modules.
+- Ran `npm --prefix frontend run lint`: failed with 23 Biome diagnostics. Most are formatting drift in recently touched UI files plus explicit `any` usage in `frontend/src/pages/WorkDetailPage.tsx`.
+- Ran `npm --prefix frontend run build`: failed with TypeScript errors in `frontend/src/clientConfig.ts`, `frontend/src/components/WorkCard.tsx`, `frontend/src/components/chapterDetail/translation/TranslationPanel.tsx`, and several data hooks.
+- Established hotspot map from baseline and entry-point inspection.
+- Spawned bounded review lanes: frontend workflows/build health, data model/migrations, tests/tooling.
+- Consolidated confirmed findings `F-001` through `F-011` into `findings.md`.
+- Added hotspot summary and remediation backlog to `findings.md`.
+
+## 2026-03-25 — F-005 remediation
+
+- Resolved `F-005`: centralized frontend API URL construction.
+  - Added `apiUrl()` helper in `frontend/src/clientConfig.ts` backed by the single `VITE_API_BASE_URL` constant.
+  - Replaced all 8 hardcoded `/api` fetch/EventSource call sites across 7 files to use `apiUrl()`.
+  - Consolidated duplicate base-URL logic in `useScrapeStatus.ts` and `useChapterTranslationStream.ts`.
+  - Verified no remaining hardcoded `/api` fetch/EventSource patterns in `frontend/src/`.
+  - Build output unchanged — no new errors introduced (pre-existing F-004 errors remain).

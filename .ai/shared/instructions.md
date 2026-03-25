@@ -24,3 +24,14 @@ This project uses `just` as a task runner. See `justfile` for all available comm
 - `just makemigrations [name]` - Generate new migration
 - `just generate-api` - Generate frontend API client from OpenAPI spec
 - `just --list` - See all available just recipes
+
+## Long-Running Task Tracking
+
+Multi-session tasks live under `.ai/active/`. Each subdirectory is a self-contained task.
+
+Progress uses a two-file pattern:
+
+- **`state.md`** — Compact current state: status, summary table, next steps, blockers. Overwritten each session. Read this first when resuming.
+- **`log.md`** — Append-only session history. Only consult when you need to understand past decisions.
+
+When starting a session: read `state.md`. When ending: overwrite `state.md`, append to `log.md`.

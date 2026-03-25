@@ -19,12 +19,19 @@ This keeps the overall review coherent while still allowing parallel deep dives.
 The main agent owns updates to:
 
 - `plan.md`
-- `progress.md`
+- `state.md` — compact current state: findings table, next steps, blockers. Overwritten each session. This is what agents should read first.
+- `log.md` — append-only session history. Only consult when you need to understand past decisions.
 - `findings.md`
 - `checklist.md`
 - `process.md`
 
 Subagents should not write directly to these files unless explicitly instructed.
+
+### State vs Log
+
+`state.md` is the working-memory handoff between sessions. Keep it small — it should contain only what the next agent needs to pick up work. No detailed narratives.
+
+`log.md` is the historical record. Append a dated entry at the end of each session summarizing what was done and any decisions made. It grows over time but is never loaded into context by default.
 
 ## Main Agent Responsibilities
 
@@ -64,7 +71,7 @@ The main agent first:
 - runs tests, lint, and build checks
 - inspects repo structure and entry points
 - identifies high-risk flows
-- updates `progress.md` and `checklist.md`
+- updates `state.md` and `checklist.md`
 
 No subagents should be spawned until this baseline exists.
 
@@ -87,7 +94,7 @@ The main agent:
 - merges duplicates
 - checks for cross-subsystem interactions
 - translates raw observations into formal findings
-- updates `findings.md`, `progress.md`, and `checklist.md`
+- updates `findings.md`, `state.md`, and `checklist.md`; appends to `log.md`
 
 ### Phase 4: Systemwide Pass
 
