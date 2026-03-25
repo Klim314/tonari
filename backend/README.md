@@ -1,57 +1,77 @@
-# Backend (FastAPI) — Dev Workflow
+# Backend
 
-## Tooling
-- Docker + Docker Compose (containers persist between commands; no `--rm`)
-- [just](https://github.com/casey/just) (command runner)
-- Optional: Python 3.11 + [uv](https://github.com/astral-sh/uv) for direct host execution
+FastAPI backend for works, chapters, prompts, scraping, and translation streaming.
 
-## Everyday Commands (from repo root)
+## Dev Workflow
 
-| Command | Description |
-| --- | --- |
-| `just dev-up` | Start Postgres + `api-dev` (FastAPI + `--reload`, mounted source) |
-| `just dev-down` | Stop the dev containers without deleting them |
-| `just sanity` | Smoke test via TestClient (runs inside `api-dev`, uses in-memory SQLite) |
-| `just test` | Pytest suite (inside `api-dev`, SQLite override per run) |
-| `just lint` / `just format` | Ruff check/format inside the running container |
+Primary development commands live in the root [README](/mnt/d/projects/tonari/readme.md).
 
-Run `just dev-up` once per session; the containers stay alive, so repeated `sanity`, `test`, or `lint` commands are fast `docker compose exec` calls. When dependencies change, rebuild with `docker compose build api-dev` or `docker compose build api`.
+The backend runs inside the `api-dev` container. The dev API is available at
+`http://localhost:8087` and reloads automatically when files under `backend/` change. The
+frontend dev server runs at `http://localhost:5173` and proxies API requests to `api-dev`.
 
-The live dev API is available at http://localhost:8087 and reloads automatically whenever files under `backend/` change (mounted into the container). The dev image installs the backend in editable mode, so the running interpreter always references the bind-mounted source instead of the copy baked into the image.
+If container dependencies change, rebuild the relevant image with `docker compose build api-dev`
+or `docker compose build api`.
 
-If you prefer direct `uv` usage instead of Docker, you can still run:
+## Direct Host Execution
 
-```
+Docker is the default path, but direct host execution is still possible:
+
+```bash
+cd backend
 uv sync
 uv run uvicorn app.main:app --host 0.0.0.0 --reload --port 8087
-
 ```
 
-## Database Migrations (Alembic)
+## Migrations
 
-We now manage schema changes with Alembic. Common commands (from `backend/`):
+Alembic lives under `backend/alembic/`.
 
-| Command | Description |
-| --- | --- |
-| `alembic revision --autogenerate -m "msg"` | Create a new migration from model diffs |
-| `alembic upgrade head` | Apply all pending migrations |
-| `alembic downgrade -1` | Roll back the last migration |
+Use the root-level `just migrate` and `just makemigrations` commands for normal development.
 
-For existing databases that pre-date Alembic, stamp the current schema once before upgrading:
+Direct Alembic invocation is only needed when working inside the backend container or debugging
+migration behavior manually:
 
-```
+```bash
 cd backend
-alembic stamp 0001_initial_schema
 alembic upgrade head
+alembic revision --autogenerate -m "describe change"
+alembic downgrade -1
 ```
 
-New environments can simply run `alembic upgrade head` (tables will be created via migrations).
+From the repo root, `just migrate` and `just makemigrations` run those commands inside the dev
+container.
 
-## Basic API Flow
-- Ingest a Syosetu chapter: `POST /ingest/syosetu { "novel_id": "n4811fg", "chapter": 2 }`
-- Create a chapter translation: `POST /chapter-translations { "chapter_id": <id> }`
-- Fetch segments: `GET /chapter-translations/{id}/segments`
+## Current Backend Surface
 
-Note
-- This prototype uses a fixed stub translator and naive sentence splitter. Replace with LLM later.
-- Imports are absolute (`app.*`) per project convention.
+Main app entry point: `backend/app/main.py`
+
+Current router groups:
+
+- `/health` basic health check
+- `/works` work import, chapter listing, scrape orchestration, translation state and streaming,
+  segment regeneration and editing, explanation streaming, chapter groups
+- `/prompts` global prompts, prompt versions, and work-level prompt assignment
+- `/models` supported translation model metadata
+- `/lab` prompt-lab translation streaming endpoint
+- `/ingest` legacy ingest endpoints still present in the app
+- `/chapter-translations` lower-level translation records and segment listing
+
+## Current Data Model
+
+Core tables currently represented in `backend/app/models.py`:
+
+- `works` and `chapters`
+- `chapter_translations` and `translation_segments`
+- `prompts`, `prompt_versions`, and `work_prompts`
+- `scrape_jobs`
+- `chapter_groups` and `chapter_group_members`
+
+This is the live schema shape for the current app. Older planning docs that mention artifact
+storage, workers, Redis, or export tables should not be treated as authoritative.
+
+## Notes
+
+- Configuration lives in `backend/app/config.py` and `.env`.
+- Tests live under `backend/tests/`.
+- Imports use the `app.*`, `services.*`, and `agents.*` package layout used throughout the repo.

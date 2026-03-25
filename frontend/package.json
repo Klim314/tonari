@@ -7,6 +7,7 @@
 		"dev": "vite",
 		"build": "tsc -b && vite build",
 		"lint": "biome check .",
+		"format": "biome check --write .",
 		"generate:api": "npx @hey-api/openapi-ts --file openapi-ts.config.ts",
 		"preview": "vite preview"
 	},
