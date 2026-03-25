@@ -35,6 +35,9 @@ lint-web:
 format-web:
     npm --prefix frontend run format
 
+typecheck:
+    npm --prefix frontend run typecheck
+
 generate-api:
     curl -fsSLo frontend/openapi.json http://localhost:8087/openapi.json && npm --prefix frontend run generate:api
 
