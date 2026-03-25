@@ -9,7 +9,12 @@
 		"lint": "biome check .",
 		"format": "biome check --write .",
 		"generate:api": "npx @hey-api/openapi-ts --file openapi-ts.config.ts",
-		"preview": "vite preview"
+		"preview": "vite preview",
+		"typecheck": "tsc --noEmit",
+		"prepare": "cd .. && husky"
+	},
+	"lint-staged": {
+		"*.{ts,tsx}": ["biome check --no-errors-on-unmatched"]
 	},
 	"dependencies": {
 		"@chakra-ui/react": "^3.29.0",
@@ -29,6 +34,8 @@
 		"@types/react": "^19.1.16",
 		"@types/react-dom": "^19.1.9",
 		"@vitejs/plugin-react": "^5.1.0",
+		"husky": "^9.1.7",
+		"lint-staged": "^16.4.0",
 		"typescript": "~5.9.3",
 		"vite": "^7.2.2"
 	}
