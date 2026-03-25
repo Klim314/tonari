@@ -117,7 +117,7 @@ Suggested fields per finding:
 
 - ID: `F-006`
 - Severity: `P1`
-- Status: `confirmed`
+- Status: `resolved`
 - Area: `data model / migrations`
 - Files:
   - `backend/app/models.py`
