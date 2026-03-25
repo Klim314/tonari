@@ -4,9 +4,6 @@ set shell := ["bash", "-lc"]
 default:
     @just --list
 
-sanity:
-    docker compose exec -e DATABASE_URL=sqlite+pysqlite:///:memory: api-dev python scripts/sanity_check.py
-
 test:
     docker compose exec -e DATABASE_URL=sqlite+pysqlite:///:memory: api-dev pytest
 
@@ -24,25 +21,20 @@ migrate:
     docker compose exec api-dev alembic upgrade head
 
 dev-up:
-    docker compose up -d db api-dev
+    docker compose up -d db api-dev frontend
 
 dev-down:
-    docker compose stop api-dev db
-
-alembic *args:
-    docker compose exec api-dev alembic {{args}}
+    docker compose stop frontend api-dev db
 
 lint-web:
-    cd frontend && npx @biomejs/biome check --write
+    npm --prefix frontend run lint
+
+format-web:
+    npm --prefix frontend run format
 
 generate-api:
-    curl -s http://localhost:8087/openapi.json > frontend/openapi.json && \
-    cd frontend && npm run generate:api
+    curl -fsSLo frontend/openapi.json http://localhost:8087/openapi.json && npm --prefix frontend run generate:api
 
 # Sync .ai/ instructions to platform files (CLAUDE.md, AGENTS.md, GEMINI.md)
 ai-sync:
     bash .ai/sync.sh
-
-# Sync global ~/.ai/ instructions
-ai-sync-global:
-    bash .ai/sync.sh --global
