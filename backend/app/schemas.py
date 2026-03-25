@@ -249,9 +249,7 @@ class PromptVersionCreateRequest(BaseModel):
         ..., min_length=1, max_length=50000, description="F-string template for the prompt"
     )
     parameters: dict[str, Any] | None = Field(None, description="Optional metadata parameters")
-    created_by: str | None = Field(
-        None, max_length=255, description="Optional creator identifier"
-    )
+    created_by: str | None = Field(None, max_length=255, description="Optional creator identifier")
 
     @field_validator("model", "template", "created_by", mode="before")
     @classmethod
@@ -274,14 +272,7 @@ class PromptVersionCreateRequest(BaseModel):
     @classmethod
     def validate_template_syntax(cls, v):
         """Validate f-string template syntax is valid"""
-        try:
-            # Test that template is a valid f-string format by parsing it
-            # We use a custom formatter that accepts any field names
-
-            # This will raise ValueError if the template has invalid syntax
-            list(Formatter().parse(v))
-        except (ValueError, KeyError) as e:
-            raise ValueError(f"Invalid template syntax: {e!s}") from e
+        list(Formatter().parse(v))
         return v
 
 
