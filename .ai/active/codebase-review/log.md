@@ -34,3 +34,15 @@ Append-only. Each session adds an entry. Only consult when you need to understan
 - Replaced stale `ChaptersService` scrape-job assertions in `backend/tests/test_async_scraping.py` with `ScrapeManager` coverage for job creation, active-job lookup, stale-job timeout handling, async progress updates, `409` concurrency rejection, and async failure on missing source data.
 - Updated `backend/tests/test_works_api.py` to assert `pending` scrape-job creation responses and added scrape-status SSE coverage for idle state, active-job bootstrap state, and forwarded broadcast events.
 - Ran `docker compose exec api-dev pytest tests/test_api.py tests/test_async_scraping.py tests/test_works_api.py`: `22 passed`.
+
+## 2026-03-26 — F-011 remediation (backend ruff)
+
+- Resolved `F-011` (backend): cleared all 34 ruff diagnostics to reach a zero-error baseline.
+- Fixed 25 E501 (line length) by rewrapping long comments and splitting string literals.
+- Fixed 4 F841 (unused variables) across services and tests — removed or prefixed with `_`.
+- Fixed 2 B007 (unused loop variables) in routers and scripts — prefixed with `_`.
+- Fixed 2 B904 (raise from) in `ingest.py` and `schemas.py`.
+- Fixed 1 UP007 (union syntax) in `base_agent.py` — `Union[X, Y]` → `X | Y`.
+- Fixed 1 N806 (naming) in `test_lab.py` — `MockAgent` → `mock_agent_cls`.
+- Ran `docker compose exec api-dev ruff check .`: `All checks passed!`
+- Frontend lint (`just lint-web`) not yet addressed.

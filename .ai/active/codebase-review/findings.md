@@ -197,7 +197,7 @@ Suggested fields per finding:
 
 - ID: `F-011`
 - Severity: `P2`
-- Status: `confirmed`
+- Status: `resolved`
 - Area: `tooling / lint signal`
 - Files:
   - `justfile`
