@@ -24,4 +24,6 @@ class Base(DeclarativeBase):
 def init_db() -> None:
     from app import models  # noqa: F401 ensure models import
 
-    Base.metadata.create_all(bind=engine)
+    # Schema is managed by Alembic migrations. Use `alembic upgrade head`
+    # to provision or update the database. Tests use Base.metadata.create_all()
+    # directly in conftest.py for speed.
