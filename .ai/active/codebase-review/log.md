@@ -26,3 +26,11 @@ Append-only. Each session adds an entry. Only consult when you need to understan
   - Consolidated duplicate base-URL logic in `useScrapeStatus.ts` and `useChapterTranslationStream.ts`.
   - Verified no remaining hardcoded `/api` fetch/EventSource patterns in `frontend/src/`.
   - Build output unchanged — no new errors introduced (pre-existing F-004 errors remain).
+
+## 2026-03-25 — F-010 remediation
+
+- Resolved `F-010`: realigned backend tests with the current async scrape-job and newline-segmentation contracts.
+- Updated `backend/tests/test_api.py` to assert newline-delimited translation segments, including explicit whitespace-segment handling.
+- Replaced stale `ChaptersService` scrape-job assertions in `backend/tests/test_async_scraping.py` with `ScrapeManager` coverage for job creation, active-job lookup, stale-job timeout handling, async progress updates, `409` concurrency rejection, and async failure on missing source data.
+- Updated `backend/tests/test_works_api.py` to assert `pending` scrape-job creation responses and added scrape-status SSE coverage for idle state, active-job bootstrap state, and forwarded broadcast events.
+- Ran `docker compose exec api-dev pytest tests/test_api.py tests/test_async_scraping.py tests/test_works_api.py`: `22 passed`.

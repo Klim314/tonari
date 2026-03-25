@@ -179,7 +179,7 @@ Suggested fields per finding:
 
 - ID: `F-010`
 - Severity: `P2`
-- Status: `confirmed`
+- Status: `resolved`
 - Area: `tests / contract coverage`
 - Files:
   - `backend/tests/test_api.py`

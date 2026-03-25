@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import json
 from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Chapter, Work
+from app.models import Chapter, ScrapeJob, Work
 from app.syosetu.scraper import SyosetuScraper
+from services.scrape_manager import ScrapeManager
 
 
 def _create_work(
@@ -111,25 +113,28 @@ def test_scrape_chapters_request(client, db_session, monkeypatch):
     work = _create_work(db_session, "Queued Work")
     resp = client.post(
         f"/works/{work.id}/scrape-chapters",
-        json={"start": 1, "end": 3.5, "force": True},
+        json={"start": 1, "end": 3, "force": True},
     )
     assert resp.status_code == 200
     data = resp.json()
-    assert data["status"] == "partial"
+    assert data["status"] == "pending"
     assert data["work_id"] == work.id
     assert data["force"] is True
     assert data["start"] == 1.0
-    assert data["end"] == 3.5
-    assert data["requested"] == 4
-    assert data["created"] == 3
+    assert data["end"] == 3.0
+    assert data["requested"] == 0
+    assert data["created"] == 0
     assert data["updated"] == 0
     assert data["skipped"] == 0
-    assert len(data["errors"]) == 1
-    assert data["errors"][0]["chapter"] == 3.5
-    assert "whole numbers" in data["errors"][0]["reason"]
+    assert data["errors"] == []
+    assert data["job_id"] is not None
 
     rows = db_session.execute(select(Chapter).where(Chapter.work_id == work.id)).scalars().all()
     assert len(rows) == 3
+
+    job = db_session.get(ScrapeJob, data["job_id"])
+    assert job is not None
+    assert job.work_id == work.id
 
 
 def test_scrape_chapters_missing_work(client):
@@ -137,13 +142,74 @@ def test_scrape_chapters_missing_work(client):
     assert resp.status_code == 404
 
 
-def test_scrape_chapters_without_source(client, db_session):
+def test_scrape_chapters_without_source_fails_async_job(client, db_session):
     work = Work(title="Loose Work")
     db_session.add(work)
     db_session.commit()
 
     resp = client.post(f"/works/{work.id}/scrape-chapters", json={"start": 1, "end": 2})
-    assert resp.status_code == 400
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert payload["status"] == "pending"
+    assert payload["job_id"] is not None
+
+    job = db_session.get(ScrapeJob, payload["job_id"])
+    assert job is not None
+    assert job.status == "failed"
+
+
+def test_scrape_status_stream_starts_with_idle_state(client, monkeypatch):
+    async def no_events(self, work_id: int):
+        if False:
+            yield {"event": "job-status", "data": {"status": "running"}}
+        return
+
+    monkeypatch.setattr(ScrapeManager, "subscribe", no_events)
+
+    response = client.get("/works/123/scrape-status")
+
+    assert response.status_code == 200
+    assert "event: job-status" in response.text
+    assert '{"status": "idle"}' in response.text
+
+
+def test_scrape_status_stream_emits_active_job_state(client, db_session, monkeypatch):
+    work = _create_work(db_session, "Streaming Work")
+    manager = ScrapeManager(db_session)
+    manager.create_job(work.id, Decimal("1"), Decimal("2"))
+
+    async def no_events(self, work_id: int):
+        if False:
+            yield {"event": "job-status", "data": {"status": "running"}}
+        return
+
+    monkeypatch.setattr(ScrapeManager, "subscribe", no_events)
+
+    response = client.get(f"/works/{work.id}/scrape-status")
+
+    assert response.status_code == 200
+    assert "event: job-status" in response.text
+    assert '"status": "pending"' in response.text
+    assert '"progress": 0' in response.text
+    assert '"total": 2' in response.text
+
+
+def test_scrape_status_stream_forwards_broadcast_events(client, monkeypatch):
+    async def fake_subscribe(self, work_id: int):
+        yield {"event": "job-status", "data": {"status": "running", "progress": 1, "total": 3}}
+        yield {"event": "chapter-found", "data": {"idx": 1.0, "title": "Chapter 1"}}
+
+    monkeypatch.setattr(ScrapeManager, "get_active_job", lambda self, work_id: None)
+    monkeypatch.setattr(ScrapeManager, "subscribe", fake_subscribe)
+
+    response = client.get("/works/456/scrape-status")
+    body = response.text
+
+    assert response.status_code == 200
+    assert body.count("event: job-status") >= 1
+    assert body.count("event: chapter-found") == 1
+    assert json.dumps({"status": "running", "progress": 1, "total": 3}) in body
+    assert json.dumps({"idx": 1.0, "title": "Chapter 1"}) in body
 
 
 def test_get_chapter_detail(client, db_session):

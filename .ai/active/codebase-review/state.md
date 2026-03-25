@@ -3,8 +3,8 @@
 ## Status
 
 - State: `in progress`
-- Started: 2025-03-25
-- Last updated: 2025-03-25
+- Started: 2026-03-25
+- Last updated: 2026-03-25
 
 ## Findings Summary
 
@@ -19,7 +19,7 @@
 | F-007 | P1 | confirmed | backend / prompt assignment lifecycle |
 | F-008 | P1 | confirmed | data model / translation lifecycle |
 | F-009 | P2 | confirmed | data model / chapter groups |
-| F-010 | P2 | confirmed | tests / contract coverage |
+| F-010 | P2 | resolved | tests / contract coverage |
 | F-011 | P2 | confirmed | tooling / lint signal |
 
 ## Current Focus
