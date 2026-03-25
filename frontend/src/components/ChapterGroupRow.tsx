@@ -11,6 +11,7 @@ import {
 } from "@chakra-ui/react";
 import { ChevronDown, ChevronRight, Folder, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { apiUrl } from "../clientConfig";
 
 // Placeholder types - will be replaced with generated API types
 interface ChapterGroupMember {
@@ -69,7 +70,7 @@ export function ChapterGroupRow({
 
 		try {
 			const response = await fetch(
-				`/api/works/${group.work_id}/chapter-groups/${group.id}`,
+				apiUrl(`/works/${group.work_id}/chapter-groups/${group.id}`),
 			);
 			if (!response.ok) {
 				throw new Error("Failed to load group details");

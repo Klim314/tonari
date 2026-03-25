@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { client } from "../client/client.gen";
+import { apiUrl } from "../clientConfig";
 
 export type TranslationStreamStatus =
 	| "idle"
@@ -57,13 +58,6 @@ interface ChapterTranslationStateResponse {
 	}>;
 }
 
-function sanitizeBaseUrl(baseURL?: string): string {
-	if (!baseURL) {
-		return "";
-	}
-	return baseURL.endsWith("/") ? baseURL.slice(0, -1) : baseURL;
-}
-
 function buildStreamUrl(
 	workId: number,
 	chapterId: number,
@@ -78,9 +72,7 @@ function buildChapterActionUrl(
 	actionPath: string,
 	query?: Record<string, string | undefined>,
 ): string {
-	const baseURL = sanitizeBaseUrl(client.getConfig().baseURL || "/api");
-	const path = `/works/${workId}/chapters/${chapterId}${actionPath}`;
-	const url = baseURL ? `${baseURL}${path}` : path;
+	const url = apiUrl(`/works/${workId}/chapters/${chapterId}${actionPath}`);
 	const queryString = buildQueryString(query);
 	if (queryString) {
 		return `${url}?${queryString}`;

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { apiUrl } from "../clientConfig";
 
 export type ScrapeStatus =
 	| "pending"
@@ -26,8 +27,7 @@ export function useScrapeStatus(workId: number, onChapterFound?: () => void) {
 			return;
 		}
 
-		const baseUrl = import.meta.env.VITE_API_BASE_URL ?? "/api";
-		const url = `${baseUrl}/works/${workId}/scrape-status`;
+		const url = apiUrl(`/works/${workId}/scrape-status`);
 		const eventSource = new EventSource(url);
 
 		eventSource.addEventListener("job-status", (event) => {

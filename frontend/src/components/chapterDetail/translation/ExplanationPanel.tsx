@@ -18,6 +18,7 @@ import { Loader, RefreshCw, Sparkles, Square } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { client } from "../../../client/client.gen";
+import { apiUrl } from "../../../clientConfig";
 
 interface SegmentContext {
 	src: string;
@@ -331,7 +332,7 @@ function useExplanationStream(
 					abortController = new AbortController();
 					abortControllerRef.current = abortController;
 					const response = await fetch(
-						`/api/works/${workId}/chapters/${chapterId}/segments/${segmentId}/regenerate-explanation`,
+						apiUrl(`/works/${workId}/chapters/${chapterId}/segments/${segmentId}/regenerate-explanation`),
 						{
 							method: "POST",
 							signal: abortController.signal,
@@ -418,7 +419,7 @@ function useExplanationStream(
 					setActiveRequest(null);
 				} else {
 					// Use EventSource for GET request
-					const url = `/api/works/${workId}/chapters/${chapterId}/segments/${segmentId}/explain/stream`;
+					const url = apiUrl(`/works/${workId}/chapters/${chapterId}/segments/${segmentId}/explain/stream`);
 					eventSource = new EventSource(url);
 					eventSourceRef.current = eventSource;
 

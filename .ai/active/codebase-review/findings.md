@@ -96,7 +96,7 @@ Suggested fields per finding:
 
 - ID: `F-005`
 - Severity: `P2`
-- Status: `confirmed`
+- Status: `resolved`
 - Area: `frontend / API contract handling`
 - Files:
   - `frontend/src/clientConfig.ts`

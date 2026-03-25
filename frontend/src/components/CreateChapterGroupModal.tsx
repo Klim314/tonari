@@ -20,6 +20,7 @@ import {
 	Stack,
 } from "@chakra-ui/react";
 import { useEffect, useState } from "react";
+import { apiUrl } from "../clientConfig";
 import { getApiErrorMessage } from "../lib/api";
 
 interface CreateChapterGroupModalProps {
@@ -82,7 +83,7 @@ export function CreateChapterGroupModal({
 
 		try {
 			// Using fetch directly since the API client might not be regenerated yet
-			const response = await fetch(`/api/works/${workId}/chapter-groups`, {
+			const response = await fetch(apiUrl(`/works/${workId}/chapter-groups`), {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",

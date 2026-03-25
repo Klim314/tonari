@@ -22,6 +22,7 @@ import {
 } from "@chakra-ui/react";
 import { Folder } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { apiUrl } from "../clientConfig";
 import { getApiErrorMessage } from "../lib/api";
 
 interface ChapterGroup {
@@ -56,7 +57,7 @@ export function AddToGroupModal({
 		setError(null);
 
 		try {
-			const response = await fetch(`/api/works/${workId}/chapter-groups`);
+			const response = await fetch(apiUrl(`/works/${workId}/chapter-groups`));
 			if (!response.ok) {
 				throw new Error("Failed to load groups");
 			}
@@ -90,7 +91,7 @@ export function AddToGroupModal({
 
 		try {
 			const response = await fetch(
-				`/api/works/${workId}/chapter-groups/${groupId}/members`,
+				apiUrl(`/works/${workId}/chapter-groups/${groupId}/members`),
 				{
 					method: "POST",
 					headers: {

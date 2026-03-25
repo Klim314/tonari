@@ -22,6 +22,7 @@ import { Pagination } from "../components/common/Pagination";
 import { useChapterSelection } from "../hooks/useChapterSelection";
 import { useWork } from "../hooks/useWork";
 import { useWorkChapters } from "../hooks/useWorkChapters";
+import { apiUrl } from "../clientConfig";
 import { getApiErrorMessage } from "../lib/api";
 import type { Chapter } from "../types/works";
 
@@ -121,7 +122,7 @@ export function WorkDetailPage({
 
 		try {
 			const response = await fetch(
-				`/api/works/${workId}/chapter-groups/${groupId}`,
+				apiUrl(`/works/${workId}/chapter-groups/${groupId}`),
 				{
 					method: "DELETE",
 				},

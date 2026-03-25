@@ -12,6 +12,7 @@ import {
 } from "@chakra-ui/react";
 import { useEffect, useState } from "react";
 import { Works } from "../client";
+import { apiUrl } from "../clientConfig";
 import { useScrapeStatus } from "../hooks/useScrapeStatus";
 import { getApiErrorMessage } from "../lib/api";
 import type { Chapter } from "../types/works";
@@ -163,7 +164,7 @@ export function ScrapeModal({
 	const handleCancel = async () => {
 		// Call backend cancel
 		try {
-			await fetch(`/api/works/${workId}/scrape-cancel`, { method: "POST" });
+			await fetch(apiUrl(`/works/${workId}/scrape-cancel`), { method: "POST" });
 		} catch (e) {
 			console.error("Failed to cancel scrape", e);
 		}
