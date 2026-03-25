@@ -1,6 +1,6 @@
 from datetime import datetime
 from string import Formatter
-from typing import Any, Literal, Optional, Union
+from typing import Any, Literal
 
 from pydantic import AnyHttpUrl, BaseModel, Field, field_validator, model_validator
 
@@ -22,9 +22,9 @@ class WorkImportRequest(BaseModel):
 class WorkOut(BaseModel):
     id: int
     title: str
-    source: Optional[str] = None
-    source_id: Optional[str] = None
-    source_meta: Optional[dict[str, Any]] = None
+    source: str | None = None
+    source_id: str | None = None
+    source_meta: dict[str, Any] | None = None
 
     class Config:
         from_attributes = True
@@ -44,8 +44,8 @@ class ChapterOut(BaseModel):
 
 class ChapterDetailOut(ChapterOut):
     normalized_text: str
-    next_chapter_id: Optional[int] = None
-    prev_chapter_id: Optional[int] = None
+    next_chapter_id: int | None = None
+    prev_chapter_id: int | None = None
 
     class Config:
         from_attributes = True
@@ -92,9 +92,10 @@ class ScrapeJobOut(BaseModel):
     total: int
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
+
 
 class ChapterScrapeResponse(BaseModel):
     # Backward compatibility fields (optional or derived)
@@ -103,10 +104,10 @@ class ChapterScrapeResponse(BaseModel):
     end: float
     force: bool = False
     status: str
-    
+
     # New fields
     job_id: int | None = None
-    
+
     # These might be empty if async
     requested: int = 0
     created: int = 0
@@ -118,7 +119,7 @@ class ChapterScrapeResponse(BaseModel):
 class ChapterTranslationCreate(BaseModel):
     chapter_id: int
     cache_policy: str = Field(default="reuse")
-    params: Optional[dict] = None
+    params: dict | None = None
 
 
 class TranslationSegmentOut(BaseModel):
@@ -149,7 +150,7 @@ class ChapterTranslationStateOut(BaseModel):
 class ChapterPromptOverrideRequest(BaseModel):
     model: str = Field(..., min_length=1, max_length=128, description="Model identifier")
     template: str = Field(..., min_length=1, description="Prompt template to use for this run")
-    parameters: Optional[dict[str, Any]] = Field(
+    parameters: dict[str, Any] | None = Field(
         default=None, description="Optional structured parameter overrides"
     )
 
@@ -159,8 +160,6 @@ class ChapterPromptOverrideResponse(BaseModel):
     expires_at: datetime
 
 
-
-
 # Prompt-related schemas
 class PromptVersionOut(BaseModel):
     id: int
@@ -168,8 +167,8 @@ class PromptVersionOut(BaseModel):
     version_number: int
     model: str
     template: str
-    parameters: Optional[dict[str, Any]] = None
-    created_by: Optional[str] = None
+    parameters: dict[str, Any] | None = None
+    created_by: str | None = None
     created_at: datetime
 
     class Config:
@@ -179,8 +178,8 @@ class PromptVersionOut(BaseModel):
 class PromptOut(BaseModel):
     id: int
     name: str
-    description: Optional[str] = None
-    owner_work_id: Optional[int] = None
+    description: str | None = None
+    owner_work_id: int | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -191,7 +190,7 @@ class PromptOut(BaseModel):
 class PromptDetailOut(PromptOut):
     """Prompt with latest version info included."""
 
-    latest_version: Optional[PromptVersionOut] = None
+    latest_version: PromptVersionOut | None = None
 
     class Config:
         from_attributes = True
@@ -213,7 +212,7 @@ class PaginatedPromptVersionsOut(BaseModel):
 
 class PromptCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Prompt name")
-    description: Optional[str] = Field(None, max_length=2000, description="Optional description")
+    description: str | None = Field(None, max_length=2000, description="Optional description")
 
     @field_validator("name", "description", mode="before")
     @classmethod
@@ -225,8 +224,8 @@ class PromptCreateRequest(BaseModel):
 
 
 class PromptUpdateRequest(BaseModel):
-    name: Optional[str] = Field(None, min_length=1, max_length=255, description="New prompt name")
-    description: Optional[str] = Field(None, max_length=2000, description="New description")
+    name: str | None = Field(None, min_length=1, max_length=255, description="New prompt name")
+    description: str | None = Field(None, max_length=2000, description="New description")
 
     @field_validator("name", "description", mode="before")
     @classmethod
@@ -249,8 +248,8 @@ class PromptVersionCreateRequest(BaseModel):
     template: str = Field(
         ..., min_length=1, max_length=50000, description="F-string template for the prompt"
     )
-    parameters: Optional[dict[str, Any]] = Field(None, description="Optional metadata parameters")
-    created_by: Optional[str] = Field(
+    parameters: dict[str, Any] | None = Field(None, description="Optional metadata parameters")
+    created_by: str | None = Field(
         None, max_length=255, description="Optional creator identifier"
     )
 
@@ -316,7 +315,7 @@ class LabStreamRequest(BaseModel):
     text: str = Field(..., min_length=1, description="Text to translate")
     model: str = Field(..., description="Model identifier")
     template: str = Field(..., description="Prompt template")
-    params: Optional[dict[str, Any]] = Field(default=None, description="Optional parameters")
+    params: dict[str, Any] | None = Field(default=None, description="Optional parameters")
 
 
 # Chapter Group schemas
@@ -333,7 +332,7 @@ class ChapterGroupCreateRequest(BaseModel):
 
 
 class ChapterGroupUpdateRequest(BaseModel):
-    name: Optional[str] = Field(None, min_length=1, max_length=512, description="New group name")
+    name: str | None = Field(None, min_length=1, max_length=512, description="New group name")
 
     @field_validator("name", mode="before")
     @classmethod
@@ -344,7 +343,9 @@ class ChapterGroupUpdateRequest(BaseModel):
 
 
 class ChapterGroupMembersUpdateRequest(BaseModel):
-    chapter_ids: list[int] = Field(..., description="Complete list of chapter IDs (order preserved)")
+    chapter_ids: list[int] = Field(
+        ..., description="Complete list of chapter IDs (order preserved)"
+    )
 
 
 class ChapterGroupAddMembersRequest(BaseModel):
@@ -388,7 +389,7 @@ class ChapterOrGroup(BaseModel):
     """Union type for mixed chapter/group list"""
 
     item_type: Literal["chapter", "group"]
-    data: Union[ChapterOut, ChapterGroupOut]
+    data: ChapterOut | ChapterGroupOut
 
 
 class ChaptersWithGroupsResponse(BaseModel):
@@ -405,7 +406,10 @@ class SuggestImprovementsRequest(BaseModel):
     """Request payload for generating translation improvement suggestions."""
 
     instructions: str = Field(
-        ..., min_length=1, max_length=2000, description="User instructions to guide the improvement pass"
+        ...,
+        min_length=1,
+        max_length=2000,
+        description="User instructions to guide the improvement pass",
     )
 
 
@@ -416,13 +420,17 @@ class SuggestionOut(BaseModel):
     before: str = Field(..., description="Original translation text")
     after: str = Field(..., description="Improved translation text")
     rationale: str = Field(..., description="Brief explanation of the improvement")
-    confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score for the suggestion")
+    confidence: float = Field(
+        ..., ge=0.0, le=1.0, description="Confidence score for the suggestion"
+    )
 
 
 class ApplySuggestionsRequest(BaseModel):
     """Request payload for applying selected suggestions."""
 
-    suggestions: list[SuggestionOut] = Field(..., min_length=1, description="List of suggestions to apply")
+    suggestions: list[SuggestionOut] = Field(
+        ..., min_length=1, description="List of suggestions to apply"
+    )
 
 
 class SegmentEditPayload(BaseModel):
@@ -435,4 +443,6 @@ class SegmentEditPayload(BaseModel):
 class BatchSegmentUpdateRequest(BaseModel):
     """Request payload for batch updating segment translations."""
 
-    edits: list[SegmentEditPayload] = Field(..., min_length=1, description="List of segment edits to apply")
+    edits: list[SegmentEditPayload] = Field(
+        ..., min_length=1, description="List of segment edits to apply"
+    )

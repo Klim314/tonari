@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncGenerator, Sequence
 from functools import lru_cache
-from typing import AsyncGenerator, List, Optional, Sequence
 
 from agents.base_agent import BaseAgent, SegmentContext, SegmentContextInput
 from agents.prompts import SYSTEM_DEFAULT
@@ -43,9 +43,9 @@ class TranslationAgent(BaseAgent):
         self,
         text: str,
         *,
-        preceding_segments: Optional[Sequence[SegmentContextInput]] = None,
-        instruction: Optional[str] = None,
-        current_translation: Optional[str] = None,
+        preceding_segments: Sequence[SegmentContextInput] | None = None,
+        instruction: str | None = None,
+        current_translation: str | None = None,
     ) -> AsyncGenerator[str, None]:
         """Stream translation for a segment with preceding context.
 
@@ -89,7 +89,7 @@ class TranslationAgent(BaseAgent):
         self,
         text: str,
         *,
-        preceding_segments: Optional[Sequence[SegmentContextInput]] = None,
+        preceding_segments: Sequence[SegmentContextInput] | None = None,
     ) -> str:
         """Generate complete translation for a segment.
 
@@ -100,15 +100,13 @@ class TranslationAgent(BaseAgent):
         Returns:
             Complete translated text.
         """
-        collected: List[str] = []
-        async for chunk in self.stream_segment(
-            text, preceding_segments=preceding_segments
-        ):
+        collected: list[str] = []
+        async for chunk in self.stream_segment(text, preceding_segments=preceding_segments):
             collected.append(chunk)
         return "".join(collected).strip()
 
     def _render_preceding_block(
-        self, preceding_segments: Optional[Sequence[SegmentContextInput]]
+        self, preceding_segments: Sequence[SegmentContextInput] | None
     ) -> str:
         """Render preceding segments as context block.
 
@@ -129,7 +127,7 @@ class TranslationAgent(BaseAgent):
         return self._render_block(window, block_name="preceding")
 
     def _render_instruction_block(
-        self, instruction: Optional[str], current_translation: Optional[str] = None
+        self, instruction: str | None, current_translation: str | None = None
     ) -> str:
         """Render instruction block for guided retranslation.
 
@@ -148,7 +146,9 @@ class TranslationAgent(BaseAgent):
 
         # Include the current translation so the model knows what to improve
         if current_translation and current_translation.strip():
-            parts.append(f"<current_translation>\n{current_translation.strip()}\n</current_translation>")
+            parts.append(
+                f"<current_translation>\n{current_translation.strip()}\n</current_translation>"
+            )
 
         parts.append(f"<instruction>\n{instruction.strip()}\n</instruction>")
 

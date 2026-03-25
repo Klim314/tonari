@@ -3,6 +3,7 @@
 These tests run against a throwaway Postgres database on the local instance —
 they never touch the dev database.
 """
+
 from __future__ import annotations
 
 import os
@@ -38,9 +39,7 @@ def _alembic_cmd(db_url: str, *args: str) -> None:
         text=True,
     )
     if result.returncode != 0:
-        raise RuntimeError(
-            f"alembic {' '.join(args)} failed:\n{result.stderr}"
-        )
+        raise RuntimeError(f"alembic {' '.join(args)} failed:\n{result.stderr}")
 
 
 @pytest.fixture()
@@ -60,10 +59,12 @@ def migration_db():
     # Drop the temp database
     admin_engine = create_engine(_ADMIN_URL, isolation_level="AUTOCOMMIT")
     with admin_engine.connect() as conn:
-        conn.execute(text(
-            f"SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
-            f"WHERE datname = '{db_name}' AND pid <> pg_backend_pid()"
-        ))
+        conn.execute(
+            text(
+                f"SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+                f"WHERE datname = '{db_name}' AND pid <> pg_backend_pid()"
+            )
+        )
         conn.execute(text(f"DROP DATABASE {db_name}"))
     admin_engine.dispose()
 
@@ -77,9 +78,7 @@ class TestMigrationIntegrity:
 
         inspector = inspect(engine)
         tables = inspector.get_table_names()
-        assert "scrape_jobs" in tables, (
-            "scrape_jobs table should exist after alembic upgrade head"
-        )
+        assert "scrape_jobs" in tables, "scrape_jobs table should exist after alembic upgrade head"
 
     def test_scrape_jobs_columns(self, migration_db):
         engine, db_url = migration_db
@@ -88,12 +87,17 @@ class TestMigrationIntegrity:
         inspector = inspect(engine)
         columns = {c["name"] for c in inspector.get_columns("scrape_jobs")}
         expected = {
-            "id", "work_id", "start", "end", "status",
-            "progress", "total", "created_at", "updated_at",
+            "id",
+            "work_id",
+            "start",
+            "end",
+            "status",
+            "progress",
+            "total",
+            "created_at",
+            "updated_at",
         }
-        assert expected <= columns, (
-            f"Missing columns: {expected - columns}"
-        )
+        assert expected <= columns, f"Missing columns: {expected - columns}"
 
     def test_scrape_jobs_indexes(self, migration_db):
         engine, db_url = migration_db
@@ -130,7 +134,8 @@ class TestMigrationIntegrity:
         _alembic_cmd(db_url, "upgrade", "a21635cef4ae")
         # Manually create the table (simulating prior create_all behavior)
         with engine.begin() as conn:
-            conn.execute(text("""
+            conn.execute(
+                text("""
                 CREATE TABLE scrape_jobs (
                     id SERIAL PRIMARY KEY,
                     work_id INTEGER NOT NULL,
@@ -142,7 +147,8 @@ class TestMigrationIntegrity:
                     created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
                     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
                 )
-            """))
+            """)
+            )
         # Now run the migration — should not fail
         _alembic_cmd(db_url, "upgrade", "head")
 
@@ -157,8 +163,11 @@ class TestMigrationIntegrity:
         inspector = inspect(engine)
         tables = set(inspector.get_table_names())
         expected_tables = {
-            "works", "chapters", "scrape_jobs",
-            "chapter_translations", "translation_segments",
+            "works",
+            "chapters",
+            "scrape_jobs",
+            "chapter_translations",
+            "translation_segments",
         }
         missing = expected_tables - tables
         assert not missing, f"Tables missing from Alembic-only DB: {missing}"

@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Optional, Tuple
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import Chapter, ChapterGroup, ChapterGroupMember
@@ -57,9 +56,7 @@ class ChapterGroupsService:
 
         # Add members in specified order
         for idx, chapter_id in enumerate(chapter_ids):
-            member = ChapterGroupMember(
-                group_id=group.id, chapter_id=chapter_id, order_index=idx
-            )
+            member = ChapterGroupMember(group_id=group.id, chapter_id=chapter_id, order_index=idx)
             self.session.add(member)
 
         self.session.commit()
@@ -71,9 +68,7 @@ class ChapterGroupsService:
         stmt = (
             select(ChapterGroup)
             .where(ChapterGroup.id == group_id)
-            .options(
-                joinedload(ChapterGroup.members).joinedload(ChapterGroupMember.chapter)
-            )
+            .options(joinedload(ChapterGroup.members).joinedload(ChapterGroupMember.chapter))
         )
         group = self.session.execute(stmt).unique().scalar_one_or_none()
         if not group:
@@ -85,16 +80,14 @@ class ChapterGroupsService:
         stmt = (
             select(ChapterGroup)
             .where(ChapterGroup.work_id == work_id)
-            .options(
-                joinedload(ChapterGroup.members).joinedload(ChapterGroupMember.chapter)
-            )
+            .options(joinedload(ChapterGroup.members).joinedload(ChapterGroupMember.chapter))
             .order_by(ChapterGroup.name)
         )
         return list(self.session.execute(stmt).scalars().unique().all())
 
     def get_chapters_with_groups(
         self, work_id: int, limit: int = 10, offset: int = 0
-    ) -> Tuple[list[tuple[str, ChapterGroup | Chapter, Decimal]], int, int, int, int, int]:
+    ) -> tuple[list[tuple[str, ChapterGroup | Chapter, Decimal]], int, int, int, int, int]:
         """Get mixed list of groups and ungrouped chapters, sorted by sort_key.
 
         Returns:
@@ -107,9 +100,7 @@ class ChapterGroupsService:
         groups_stmt = (
             select(ChapterGroup)
             .where(ChapterGroup.work_id == work_id)
-            .options(
-                joinedload(ChapterGroup.members).joinedload(ChapterGroupMember.chapter)
-            )
+            .options(joinedload(ChapterGroup.members).joinedload(ChapterGroupMember.chapter))
         )
         groups = list(self.session.execute(groups_stmt).scalars().unique().all())
 
@@ -140,9 +131,7 @@ class ChapterGroupsService:
         all_items = sorted(group_items + chapter_items, key=lambda x: x[2])
 
         # 5. Count totals
-        total_chapters = len(ungrouped_chapters) + sum(
-            len(g.members) for _, g, _ in group_items
-        )
+        total_chapters = len(ungrouped_chapters) + sum(len(g.members) for _, g, _ in group_items)
         total_groups = len(group_items)
         total_items = len(all_items)  # Total number of items in the mixed list
 
@@ -172,9 +161,7 @@ class ChapterGroupsService:
             raise ChapterGroupNotFoundError(f"Group {group_id} not found")
 
         # Validate chapters exist and belong to same work
-        stmt = select(Chapter).where(
-            Chapter.id.in_(chapter_ids), Chapter.work_id == group.work_id
-        )
+        stmt = select(Chapter).where(Chapter.id.in_(chapter_ids), Chapter.work_id == group.work_id)
         chapters = list(self.session.execute(stmt).scalars().all())
 
         if len(chapters) != len(chapter_ids):
@@ -190,14 +177,10 @@ class ChapterGroupsService:
         conflicts = list(self.session.execute(existing_stmt).scalars().all())
         if conflicts:
             conflict_ids = [m.chapter_id for m in conflicts]
-            raise ChapterGroupConflictError(
-                f"Chapters {conflict_ids} belong to another group"
-            )
+            raise ChapterGroupConflictError(f"Chapters {conflict_ids} belong to another group")
 
         # Delete existing members
-        delete_stmt = select(ChapterGroupMember).where(
-            ChapterGroupMember.group_id == group_id
-        )
+        delete_stmt = select(ChapterGroupMember).where(ChapterGroupMember.group_id == group_id)
         for member in self.session.execute(delete_stmt).scalars():
             self.session.delete(member)
 
@@ -206,9 +189,7 @@ class ChapterGroupsService:
 
         # Add new members
         for idx, chapter_id in enumerate(chapter_ids):
-            member = ChapterGroupMember(
-                group_id=group.id, chapter_id=chapter_id, order_index=idx
-            )
+            member = ChapterGroupMember(group_id=group.id, chapter_id=chapter_id, order_index=idx)
             self.session.add(member)
 
         self.session.commit()
@@ -229,9 +210,7 @@ class ChapterGroupsService:
             raise ChapterGroupNotFoundError(f"Group {group_id} not found")
 
         # Validate chapters exist and belong to same work
-        stmt = select(Chapter).where(
-            Chapter.id.in_(chapter_ids), Chapter.work_id == group.work_id
-        )
+        stmt = select(Chapter).where(Chapter.id.in_(chapter_ids), Chapter.work_id == group.work_id)
         chapters = list(self.session.execute(stmt).scalars().all())
 
         if len(chapters) != len(chapter_ids):
@@ -284,7 +263,7 @@ class ChapterGroupsService:
         self.session.delete(group)
         self.session.commit()
 
-    def get_chapter_group_membership(self, chapter_id: int) -> Optional[ChapterGroup]:
+    def get_chapter_group_membership(self, chapter_id: int) -> ChapterGroup | None:
         """Get the group a chapter belongs to (if any)."""
         stmt = (
             select(ChapterGroup)

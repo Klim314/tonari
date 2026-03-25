@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import hashlib
 from dataclasses import dataclass
-from typing import Dict, List
 
 from agents.translation_agent import get_translation_agent
 
@@ -16,7 +15,7 @@ class SegmentSlice:
     requires_translation: bool
 
 
-def newline_segment_slices(text: str) -> List[SegmentSlice]:
+def newline_segment_slices(text: str) -> list[SegmentSlice]:
     """Split text into segments separated by at least two consecutive newlines.
 
     This keeps related content (like bullet points) together in the same segment.
@@ -25,7 +24,7 @@ def newline_segment_slices(text: str) -> List[SegmentSlice]:
     if not text:
         return []
 
-    segments: List[SegmentSlice] = []
+    segments: list[SegmentSlice] = []
     cursor = 0
     anchor = 0
     n = len(text)
@@ -74,13 +73,13 @@ def hash_text(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
-async def async_segment_and_translate(text: str) -> List[Dict]:
+async def async_segment_and_translate(text: str) -> list[dict]:
     agent = get_translation_agent()
-    out: List[Dict] = []
+    out: list[dict] = []
     context_limit = max(0, getattr(agent, "context_window", 0))
-    context_buffer: List[Dict[str, str]] = []
+    context_buffer: list[dict[str, str]] = []
     for segment in newline_segment_slices(text):
-        flags: List[str] = []
+        flags: list[str] = []
         tgt = ""
         if not segment.requires_translation:
             flags.append("whitespace")
@@ -98,5 +97,5 @@ async def async_segment_and_translate(text: str) -> List[Dict]:
     return out
 
 
-def segment_and_translate(text: str) -> List[Dict]:
+def segment_and_translate(text: str) -> list[dict]:
     return asyncio.run(async_segment_and_translate(text))

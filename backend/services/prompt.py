@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import List, Tuple
+from datetime import UTC, datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -20,7 +19,7 @@ class PromptService:
 
     def get_prompts(
         self, q: str | None = None, limit: int = 50, offset: int = 0, max_limit: int = 100
-    ) -> Tuple[List[Prompt], int, int, int]:
+    ) -> tuple[list[Prompt], int, int, int]:
         """Search and list all prompts globally.
 
         Args:
@@ -88,7 +87,7 @@ class PromptService:
         limit: int = 50,
         offset: int = 0,
         max_limit: int = 100,
-    ) -> Tuple[List[Prompt], int, int, int]:
+    ) -> tuple[list[Prompt], int, int, int]:
         """Search and list all available prompts that can be assigned to a work.
 
         Returns all non-deleted prompts available for selection by a work.
@@ -183,13 +182,13 @@ class PromptService:
         prompt = self.get_prompt(prompt_id)
         if prompt.deleted_at is not None:
             return
-        prompt.deleted_at = datetime.now(timezone.utc)
+        prompt.deleted_at = datetime.now(UTC)
         self.session.add(prompt)
         self.session.commit()
 
     def get_prompt_versions(
         self, prompt_id: int, limit: int = 50, offset: int = 0, max_limit: int = 100
-    ) -> Tuple[List[PromptVersion], int, int, int]:
+    ) -> tuple[list[PromptVersion], int, int, int]:
         """List all versions for a prompt.
 
         Args:

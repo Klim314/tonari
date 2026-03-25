@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass, field
 from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
-from typing import Dict, List, Tuple
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -58,7 +57,7 @@ class ChaptersService:
 
     def get_chapters_for_work(
         self, work_id: int, limit: int, offset: int, max_limit: int = 100
-    ) -> Tuple[List[Chapter], int, int, int]:
+    ) -> tuple[list[Chapter], int, int, int]:
         limit, offset = sanitize_pagination(limit, offset, max_limit=max_limit)
 
         stmt = (
@@ -174,8 +173,8 @@ class ChaptersService:
         return summary
 
     def _load_existing_chapters(
-        self, work_id: int, sort_keys: List[Decimal]
-    ) -> Dict[Decimal, Chapter]:
+        self, work_id: int, sort_keys: list[Decimal]
+    ) -> dict[Decimal, Chapter]:
         if not sort_keys:
             return {}
         stmt = select(Chapter).where(
@@ -185,7 +184,7 @@ class ChaptersService:
         rows = self.session.execute(stmt).scalars().all()
         return {self._normalize_sort_key(row.sort_key): row for row in rows}
 
-    def _expand_sort_keys(self, start: Decimal, end: Decimal) -> List[Decimal]:
+    def _expand_sort_keys(self, start: Decimal, end: Decimal) -> list[Decimal]:
         if start == end:
             return [start]
 

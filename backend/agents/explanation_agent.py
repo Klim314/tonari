@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncGenerator, Sequence
 from functools import lru_cache
-from typing import AsyncGenerator, List, Optional, Sequence
 
-from agents.base_agent import BaseAgent, SegmentContext, SegmentContextInput
+from agents.base_agent import BaseAgent, SegmentContextInput
 from agents.prompts import SYSTEM_EXPLANATION
 from app.config import settings
 from constants.llm import get_model_info
@@ -39,8 +39,8 @@ class ExplanationAgent(BaseAgent):
         current_source: str,
         current_translation: str,
         *,
-        preceding_segments: Optional[Sequence[SegmentContextInput]] = None,
-        following_segments: Optional[Sequence[SegmentContextInput]] = None,
+        preceding_segments: Sequence[SegmentContextInput] | None = None,
+        following_segments: Sequence[SegmentContextInput] | None = None,
     ) -> AsyncGenerator[str, None]:
         """Stream explanation for a translation with surrounding context.
 
@@ -71,7 +71,7 @@ class ExplanationAgent(BaseAgent):
                 for message in messages:
                     content = message.content
                     if isinstance(content, list):
-                        parts: List[str] = []
+                        parts: list[str] = []
                         for item in content:
                             if isinstance(item, str):
                                 parts.append(item)
@@ -120,8 +120,8 @@ class ExplanationAgent(BaseAgent):
         current_source: str,
         current_translation: str,
         *,
-        preceding_segments: Optional[Sequence[SegmentContextInput]] = None,
-        following_segments: Optional[Sequence[SegmentContextInput]] = None,
+        preceding_segments: Sequence[SegmentContextInput] | None = None,
+        following_segments: Sequence[SegmentContextInput] | None = None,
     ) -> str:
         """Generate complete explanation for a translation.
 
@@ -134,7 +134,7 @@ class ExplanationAgent(BaseAgent):
         Returns:
             Complete explanation markdown text.
         """
-        collected: List[str] = []
+        collected: list[str] = []
         async for chunk in self.stream_explanation(
             current_source,
             current_translation,
@@ -146,10 +146,10 @@ class ExplanationAgent(BaseAgent):
 
     @staticmethod
     def _render_context_block(
-        preceding_segments: Optional[Sequence[SegmentContextInput]],
+        preceding_segments: Sequence[SegmentContextInput] | None,
         current_source: str,
         current_translation: str,
-        following_segments: Optional[Sequence[SegmentContextInput]],
+        following_segments: Sequence[SegmentContextInput] | None,
     ) -> str:
         """Render current and surrounding segments as context block.
 
@@ -162,7 +162,7 @@ class ExplanationAgent(BaseAgent):
         Returns:
             XML-formatted context block.
         """
-        lines: List[str] = []
+        lines: list[str] = []
 
         # Add preceding context
         if preceding_segments:

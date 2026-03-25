@@ -11,9 +11,9 @@ from app.schemas import (
     ChapterGroupCreateRequest,
     ChapterGroupDetailOut,
     ChapterGroupMemberOut,
+    ChapterGroupMembersUpdateRequest,
     ChapterGroupOut,
     ChapterGroupUpdateRequest,
-    ChapterGroupMembersUpdateRequest,
     ChapterOut,
 )
 from services.chapter_groups import ChapterGroupsService
@@ -59,7 +59,9 @@ def list_chapter_groups(work_id: int):
                 created_at=g.created_at,
                 updated_at=g.updated_at,
                 member_count=len(g.members),
-                min_sort_key=float(min(m.chapter.sort_key for m in g.members)) if g.members else 0.0,
+                min_sort_key=float(min(m.chapter.sort_key for m in g.members))
+                if g.members
+                else 0.0,
                 item_type="group",
             )
             for g in groups
@@ -129,9 +131,7 @@ def update_chapter_group_members(
 
 
 @router.post("/{work_id}/chapter-groups/{group_id}/members", response_model=ChapterGroupDetailOut)
-def add_chapters_to_group(
-    work_id: int, group_id: int, payload: ChapterGroupAddMembersRequest
-):
+def add_chapters_to_group(work_id: int, group_id: int, payload: ChapterGroupAddMembersRequest):
     """Add chapters to an existing group."""
     with SessionLocal() as db:
         service = ChapterGroupsService(db)

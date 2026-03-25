@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import List, Optional, Sequence, cast
+from collections.abc import Sequence
+from typing import cast
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -36,7 +37,7 @@ class TranslationStreamService:
 
     def ensure_segments(
         self, translation: ChapterTranslation, chapter_text: str, *, force: bool = False
-    ) -> List[TranslationSegment]:
+    ) -> list[TranslationSegment]:
         """Ensure translation segments mirror the chapter text.
 
         - When segments already exist and `force` is false, they are returned as-is.
@@ -54,7 +55,7 @@ class TranslationStreamService:
             self.session.commit()
 
         slices = newline_segment_slices(chapter_text)
-        new_segments: List[TranslationSegment] = []
+        new_segments: list[TranslationSegment] = []
         for idx, slice_ in enumerate(slices):
             flags: list[str] = []
             if not slice_.requires_translation:
@@ -88,14 +89,14 @@ class TranslationStreamService:
         flags = segment.flags or []
         if "whitespace" in flags or "empty" in flags:
             return False
-        tgt_value = cast(Optional[str], segment.tgt)
+        tgt_value = cast(str | None, segment.tgt)
         if tgt_value is None:
             return True
         return not tgt_value.strip()
 
     def first_pending_segment(
         self, segments: Sequence[TranslationSegment]
-    ) -> Optional[TranslationSegment]:
+    ) -> TranslationSegment | None:
         for segment in segments:
             if self.needs_translation(segment):
                 return segment
@@ -103,15 +104,15 @@ class TranslationStreamService:
 
     def build_context_window(
         self,
-        segments: List[TranslationSegment],
+        segments: list[TranslationSegment],
         current: TranslationSegment,
         chapter_text: str,
         *,
         limit: int = 3,
-    ) -> List[dict[str, str]]:
+    ) -> list[dict[str, str]]:
         if limit <= 0:
             return []
-        context: List[dict[str, str]] = []
+        context: list[dict[str, str]] = []
         # Keep the logic intentionally simple; segment counts are small.
         for segment in reversed(segments):
             if segment.order_index >= current.order_index:
@@ -140,7 +141,7 @@ class TranslationStreamService:
         self.session.refresh(translation)
         return translation
 
-    def reset_segment(self, segment_id: int) -> Optional[TranslationSegment]:
+    def reset_segment(self, segment_id: int) -> TranslationSegment | None:
         """Reset a single segment for retranslation.
 
         Clears the translated text and sets the segment back to pending status.
@@ -163,10 +164,7 @@ class TranslationStreamService:
         re-segmented with new character positions. Regenerates for all
         translations to ensure consistency.
         """
-        stmt = (
-            select(ChapterTranslation)
-            .where(ChapterTranslation.chapter_id == chapter.id)
-        )
+        stmt = select(ChapterTranslation).where(ChapterTranslation.chapter_id == chapter.id)
         translations = self.session.execute(stmt).scalars().all()
 
         for translation in translations:
@@ -181,8 +179,8 @@ class TranslationStreamService:
         self.session.commit()
 
     def batch_update_segment_translations(
-        self, translation_id: int, edits: List[dict]
-    ) -> List[TranslationSegment]:
+        self, translation_id: int, edits: list[dict]
+    ) -> list[TranslationSegment]:
         """Update multiple segments with user-provided translations.
 
         Args:
@@ -196,7 +194,7 @@ class TranslationStreamService:
             Clears the explanation cache for edited segments since the
             translation text has changed.
         """
-        updated: List[TranslationSegment] = []
+        updated: list[TranslationSegment] = []
         segment_ids = [edit["segment_id"] for edit in edits]
 
         stmt = (

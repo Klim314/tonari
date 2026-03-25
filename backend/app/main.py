@@ -97,10 +97,10 @@ def health():
 from app.routers.chapter_groups import router as chapter_groups_router  # noqa: E402
 from app.routers.chapter_translations import router as chapter_translations_router  # noqa: E402
 from app.routers.ingest import router as ingest_router  # noqa: E402
+from app.routers.lab import router as lab_router  # noqa: E402
 from app.routers.models import router as models_router  # noqa: E402
 from app.routers.prompts import router as prompts_router  # noqa: E402
 from app.routers.works import router as works_router  # noqa: E402
-from app.routers.lab import router as lab_router  # noqa: E402
 
 app.include_router(ingest_router, prefix="/ingest", tags=["ingest"])
 app.include_router(

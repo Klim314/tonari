@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from typing import List, Optional, Sequence, cast
+from collections.abc import Sequence
+from typing import cast
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Chapter, ChapterTranslation, TranslationSegment
+from app.models import TranslationSegment
 
 
 class ExplanationStreamService:
@@ -14,7 +15,7 @@ class ExplanationStreamService:
     def __init__(self, session: Session) -> None:
         self.session = session
 
-    def get_segment(self, segment_id: int) -> Optional[TranslationSegment]:
+    def get_segment(self, segment_id: int) -> TranslationSegment | None:
         """Get a segment by ID."""
         stmt = select(TranslationSegment).where(TranslationSegment.id == segment_id)
         return self.session.execute(stmt).scalars().first()
@@ -24,7 +25,7 @@ class ExplanationStreamService:
         flags = segment.flags or []
         if "whitespace" in flags or "empty" in flags:
             return False
-        tgt_value = cast(Optional[str], segment.tgt)
+        tgt_value = cast(str | None, segment.tgt)
         if tgt_value is None:
             return False
         return bool(tgt_value.strip())
@@ -45,7 +46,7 @@ class ExplanationStreamService:
         chapter_text: str,
         *,
         limit: int = 1,
-    ) -> List[dict[str, str]]:
+    ) -> list[dict[str, str]]:
         """Get preceding segments as context.
 
         Args:
@@ -60,7 +61,7 @@ class ExplanationStreamService:
         if limit <= 0:
             return []
 
-        context: List[dict[str, str]] = []
+        context: list[dict[str, str]] = []
         for segment in reversed(segments):
             if segment.order_index >= current.order_index:
                 continue
@@ -82,7 +83,7 @@ class ExplanationStreamService:
         chapter_text: str,
         *,
         limit: int = 1,
-    ) -> List[dict[str, str]]:
+    ) -> list[dict[str, str]]:
         """Get following segments as context.
 
         Args:
@@ -97,7 +98,7 @@ class ExplanationStreamService:
         if limit <= 0:
             return []
 
-        context: List[dict[str, str]] = []
+        context: list[dict[str, str]] = []
         for segment in segments:
             if segment.order_index <= current.order_index:
                 continue
@@ -111,7 +112,7 @@ class ExplanationStreamService:
                 break
         return context
 
-    def save_explanation(self, segment_id: int, explanation: str) -> Optional[TranslationSegment]:
+    def save_explanation(self, segment_id: int, explanation: str) -> TranslationSegment | None:
         """Save generated explanation to a segment.
 
         Args:
@@ -131,7 +132,7 @@ class ExplanationStreamService:
         self.session.refresh(segment)
         return segment
 
-    def clear_explanation(self, segment_id: int) -> Optional[TranslationSegment]:
+    def clear_explanation(self, segment_id: int) -> TranslationSegment | None:
         """Clear the explanation for a segment.
 
         Args:

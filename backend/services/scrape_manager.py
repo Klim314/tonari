@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timedelta, timezone
+from collections.abc import AsyncGenerator
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import AsyncGenerator, Dict, Tuple
 
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import select
@@ -13,15 +13,14 @@ from sqlalchemy.orm import Session
 from app.db import SessionLocal
 from app.models import ScrapeJob, Work
 from app.scrapers import scraper_registry
-from app.scrapers.exceptions import ScraperError, ScraperNotFoundError
-from services.chapters import ChaptersService, ChapterScrapeSummary
+from services.chapters import ChaptersService
 from services.translation_stream import TranslationStreamService
 
 logger = logging.getLogger(__name__)
 
 # In-memory broadcaster for SSE
 # Map: work_id -> list of queues
-_subscribers: Dict[int, list[asyncio.Queue]] = {}
+_subscribers: dict[int, list[asyncio.Queue]] = {}
 
 
 class ScrapeManager:
@@ -56,25 +55,25 @@ class ScrapeManager:
             ScrapeJob.status.in_(["pending", "running"]),
         )
         job = self.db.execute(stmt).scalars().first()
-        
+
         if not job:
             return None
 
         # Check for timeout (2 minutes since last update)
         # Assuming updated_at is timezone aware or UTC
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         # Ensure updated_at has timezone info for comparison, assuming DB stores as generic timestamp
         last_update = job.updated_at
         if last_update.tzinfo is None:
-            last_update = last_update.replace(tzinfo=timezone.utc)
-            
+            last_update = last_update.replace(tzinfo=UTC)
+
         if now - last_update > timedelta(minutes=2):
             logger.warning(f"Marking stale scrape job {job.id} as failed (timeout)")
             job.status = "failed"
             self.db.add(job)
             self.db.commit()
             return None
-            
+
         return job
 
     async def run_scrape_job(self, job_id: int, force: bool = False):
@@ -99,14 +98,14 @@ class ScrapeManager:
                     raise Exception("Work not found")
 
                 chapters_service = ChaptersService(db)
-                
+
                 # Validation logic duplicated/borrowed from ChaptersService to setup the loop
                 if not work.source or not work.source_id:
                     raise Exception("Work missing source info")
 
                 start_key = chapters_service._normalize_sort_key(job.start)
                 end_key = chapters_service._normalize_sort_key(job.end)
-                
+
                 # Expand specific keys to scrape
                 keys_to_scrape = chapters_service._expand_sort_keys(start_key, end_key)
                 job.total = len(keys_to_scrape)
@@ -118,9 +117,9 @@ class ScrapeManager:
                 )
 
                 scraper = scraper_registry.resolve_by_source(work.source)
-                
+
                 completed_count = 0
-                
+
                 for i, sort_key in enumerate(keys_to_scrape):
                     # Check for cancellation/freshness
                     db.refresh(job)
@@ -129,33 +128,35 @@ class ScrapeManager:
                         return
 
                     # Update heartbeat
-                    job.updated_at = datetime.now(timezone.utc)
+                    job.updated_at = datetime.now(UTC)
                     db.commit()
 
                     try:
                         # Scrape Logic
                         chapter_url = scraper.build_chapter_url(work.source_id, sort_key)
-                        
+
                         # Run synchronous scrape in threadpool to avoid blocking event loop
-                        title, normalized_text = await run_in_threadpool(scraper.scrape_chapter, chapter_url)
-                        
+                        title, normalized_text = await run_in_threadpool(
+                            scraper.scrape_chapter, chapter_url
+                        )
+
                         # Verify we can persist
-                        db.refresh(work) # Ensure work attached
-                        
+                        db.refresh(work)  # Ensure work attached
+
                         # Using internal helper to save chapter - we might want to expose this on service
                         # For now, we'll manually invoke the logic from chapters service or replicate it slightly
                         # Replicating slightly for granular control (or we could make `save_chapter` public)
-                        
+
                         text_hash = chapters_service._hash_text(normalized_text)
-                        
+
                         # Check existing
                         existing = chapters_service._load_existing_chapters(work.id, [sort_key])
                         existing_chapter = existing.get(sort_key)
                         idx = chapters_service._idx_from_sort_key(sort_key)
 
                         if existing_chapter:
-                             text_changed = existing_chapter.text_hash != text_hash
-                             if force or text_changed:
+                            text_changed = existing_chapter.text_hash != text_hash
+                            if force or text_changed:
                                 existing_chapter.idx = idx
                                 existing_chapter.sort_key = sort_key
                                 existing_chapter.title = title
@@ -165,17 +166,20 @@ class ScrapeManager:
 
                                 # If text changed, we must regenerate segments to avoid index mismatch
                                 if text_changed:
-                                    translation_service = TranslationStreamService(db) 
-                                    translation_service.regenerate_chapter_segments(existing_chapter)
+                                    translation_service = TranslationStreamService(db)
+                                    translation_service.regenerate_chapter_segments(
+                                        existing_chapter
+                                    )
 
-                                await self._broadcast(job.work_id, "chapter-found", {
-                                    "idx": float(sort_key), 
-                                    "title": title,
-                                    "status": "updated"
-                                })
+                                await self._broadcast(
+                                    job.work_id,
+                                    "chapter-found",
+                                    {"idx": float(sort_key), "title": title, "status": "updated"},
+                                )
                         else:
                             # Create new
                             from app.models import Chapter
+
                             new_chapter = Chapter(
                                 work_id=work.id,
                                 idx=idx,
@@ -185,12 +189,12 @@ class ScrapeManager:
                                 text_hash=text_hash,
                             )
                             db.add(new_chapter)
-                            await self._broadcast(job.work_id, "chapter-found", {
-                                "idx": float(sort_key), 
-                                "title": title,
-                                "status": "created"
-                            })
-                        
+                            await self._broadcast(
+                                job.work_id,
+                                "chapter-found",
+                                {"idx": float(sort_key), "title": title, "status": "created"},
+                            )
+
                         db.commit()
                         completed_count += 1
 
@@ -199,7 +203,7 @@ class ScrapeManager:
                         # We continue to next chapter
                         pass
                     finally:
-                        job.updated_at = datetime.now(timezone.utc)
+                        job.updated_at = datetime.now(UTC)
                         job.progress = i + 1
                         db.commit()
                         await self._broadcast(
@@ -223,8 +227,9 @@ class ScrapeManager:
                 job.status = "failed"
                 # TODO: Store error reason
                 db.commit()
-                await self._broadcast(job.work_id, "job-status", {"status": "failed", "error": str(e)})
-
+                await self._broadcast(
+                    job.work_id, "job-status", {"status": "failed", "error": str(e)}
+                )
 
     async def subscribe(self, work_id: int) -> AsyncGenerator[dict, None]:
         """Subscribe to SSE events for a work."""
@@ -247,7 +252,9 @@ class ScrapeManager:
     async def _broadcast(self, work_id: int, event_type: str, data: dict):
         """Push event to all subscribers."""
         if work_id in _subscribers:
-            msg = {"event": event_type, "data": data} # sse-starlette format handles json dumps often, but we'll do it cleanly
+            msg = {
+                "event": event_type,
+                "data": data,
+            }  # sse-starlette format handles json dumps often, but we'll do it cleanly
             for q in _subscribers[work_id]:
                 await q.put(msg)
-

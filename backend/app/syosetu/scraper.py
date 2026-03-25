@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Tuple
 from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup
@@ -71,7 +70,7 @@ class SyosetuScraper:
             extra=extra,
         )
 
-    def scrape_chapter(self, url: str) -> Tuple[str, str]:
+    def scrape_chapter(self, url: str) -> tuple[str, str]:
         html = self.http_client.fetch(url)
         return syosetu_parser.parse_chapter(html)
 

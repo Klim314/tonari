@@ -1,9 +1,8 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, create_engine
+from sqlalchemy import DateTime, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 from sqlalchemy.pool import StaticPool
-from sqlalchemy.types import JSON
 
 from app.config import settings
 

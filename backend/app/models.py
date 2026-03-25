@@ -32,7 +32,9 @@ class Work(Base):
         "WorkPrompt", back_populates="work", cascade="all, delete-orphan"
     )
     owned_prompts: Mapped[list["Prompt"]] = relationship("Prompt", back_populates="owner_work")
-    chapter_groups: Mapped[list["ChapterGroup"]] = relationship("ChapterGroup", back_populates="work")
+    chapter_groups: Mapped[list["ChapterGroup"]] = relationship(
+        "ChapterGroup", back_populates="work"
+    )
 
 
 class Chapter(Base):
@@ -104,7 +106,9 @@ class TranslationSegment(Base):
     end: Mapped[int] = mapped_column(Integer)
     order_index: Mapped[int] = mapped_column(Integer)
     tgt: Mapped[str] = mapped_column(Text)  # target-language text for this segment
-    explanation: Mapped[str | None] = mapped_column(Text, nullable=True)  # markdown explanation of translation
+    explanation: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )  # markdown explanation of translation
     flags: Mapped[list | None] = mapped_column(JSON, default=list)
     cache_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
     src_hash: Mapped[str] = mapped_column(String(128))
@@ -202,8 +206,12 @@ class ChapterGroupMember(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    group_id: Mapped[int] = mapped_column(ForeignKey("chapter_groups.id", ondelete="CASCADE"), index=True)
-    chapter_id: Mapped[int] = mapped_column(ForeignKey("chapters.id", ondelete="CASCADE"), index=True)
+    group_id: Mapped[int] = mapped_column(
+        ForeignKey("chapter_groups.id", ondelete="CASCADE"), index=True
+    )
+    chapter_id: Mapped[int] = mapped_column(
+        ForeignKey("chapters.id", ondelete="CASCADE"), index=True
+    )
     order_index: Mapped[int] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

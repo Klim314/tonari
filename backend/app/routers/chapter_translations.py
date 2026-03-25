@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 from app.db import SessionLocal
 from app.models import Chapter, ChapterTranslation, TranslationSegment

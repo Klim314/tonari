@@ -4,19 +4,19 @@ import asyncio
 import hashlib
 import json
 import logging
+from datetime import UTC, datetime
 from decimal import Decimal
-from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
 from sqlalchemy.orm import Session as DBSession
 from sse_starlette.sse import EventSourceResponse
 
-from agents.explanation_agent import ExplanationAgent, get_explanation_agent
+from agents.explanation_agent import get_explanation_agent
 from agents.translation_agent import TranslationAgent
 from app.config import settings
 from app.db import SessionLocal
-from app.models import Chapter, ChapterTranslation, ScrapeJob
+from app.models import ChapterTranslation
 from app.prompt_overrides import (
     PromptOverrideExpiredError,
     PromptOverrideInvalidError,
@@ -31,22 +31,19 @@ from app.schemas import (
     ChapterOut,
     ChapterPromptOverrideRequest,
     ChapterPromptOverrideResponse,
-    ChapterScrapeErrorItem,
     ChapterScrapeRequest,
     ChapterScrapeResponse,
-    ChapterTranslationStateOut,
     ChaptersWithGroupsResponse,
-    PaginatedChaptersOut,
+    ChapterTranslationStateOut,
     PaginatedWorksOut,
     TranslationSegmentOut,
     WorkImportRequest,
     WorkOut,
 )
 from app.scrapers.exceptions import ScraperError, ScraperNotFoundError
-from app.translation_service import get_translation_agent
 from services.chapter_groups import ChapterGroupsService
 from services.chapters import ChaptersService
-from services.exceptions import ChapterNotFoundError, ChapterScrapeError, WorkNotFoundError
+from services.exceptions import ChapterNotFoundError, WorkNotFoundError
 from services.explanation_stream import ExplanationStreamService
 from services.prompt import PromptService
 from services.scrape_manager import ScrapeManager
@@ -100,6 +97,7 @@ def _get_completed_translation_chapter_ids(db, chapter_ids: list[int]) -> set[in
     if not chapter_ids:
         return set()
     from sqlalchemy import select
+
     stmt = select(ChapterTranslation.chapter_id).where(
         ChapterTranslation.chapter_id.in_(chapter_ids),
         ChapterTranslation.status == "completed",
@@ -117,8 +115,8 @@ def list_chapters_for_work(work_id: int, limit: int = 50, offset: int = 0):
         except WorkNotFoundError:
             raise HTTPException(status_code=404, detail="work not found") from None
 
-        items, total_chapters, total_groups, total_items, limit, offset = groups_service.get_chapters_with_groups(
-            work_id, limit=limit, offset=offset
+        items, total_chapters, total_groups, total_items, limit, offset = (
+            groups_service.get_chapters_with_groups(work_id, limit=limit, offset=offset)
         )
 
         # Collect all chapter IDs to query translation status
@@ -141,11 +139,10 @@ def list_chapters_for_work(work_id: int, limit: int = 50, offset: int = 0):
                 group = data
                 members_count = len(group.members)
                 min_sort_key = float(sort_key)
-                
+
                 group_chapter_ids = [m.chapter_id for m in group.members]
-                is_group_translated = (
-                    len(group_chapter_ids) > 0 and 
-                    all(cid in completed_chapter_ids for cid in group_chapter_ids)
+                is_group_translated = len(group_chapter_ids) > 0 and all(
+                    cid in completed_chapter_ids for cid in group_chapter_ids
                 )
 
                 response_items.append(
@@ -168,11 +165,7 @@ def list_chapters_for_work(work_id: int, limit: int = 50, offset: int = 0):
                 # data is a Chapter
                 chapter_out = ChapterOut.model_validate(data)
                 chapter_out.is_fully_translated = data.id in completed_chapter_ids
-                response_items.append(
-                    ChapterOrGroup(
-                        item_type="chapter", data=chapter_out
-                    )
-                )
+                response_items.append(ChapterOrGroup(item_type="chapter", data=chapter_out))
 
         return ChaptersWithGroupsResponse(
             items=response_items,
@@ -211,14 +204,14 @@ def get_chapter_for_work(work_id: int, chapter_id: int):
 
 @router.post("/{work_id}/scrape-chapters", response_model=ChapterScrapeResponse)
 def request_chapter_scrape(
-    work_id: int, 
+    work_id: int,
     payload: ChapterScrapeRequest,
     background_tasks: BackgroundTasks,
 ):
     with SessionLocal() as db:
         works_service = WorksService(db)
         scrape_manager = ScrapeManager(db)
-        
+
         try:
             work = works_service.get_work(work_id)
         except WorkNotFoundError:
@@ -228,15 +221,15 @@ def request_chapter_scrape(
         existing_job = scrape_manager.get_active_job(work_id)
         if existing_job:
             # For now, return conflict. In future we could header "Location" to the monitoring endpoint
-            raise HTTPException(status_code=409, detail=f"Scrape already in progress (job {existing_job.id})")
+            raise HTTPException(
+                status_code=409, detail=f"Scrape already in progress (job {existing_job.id})"
+            )
 
         # Create new job
         job = scrape_manager.create_job(
-            work_id=work.id, 
-            start=Decimal(str(payload.start)), 
-            end=Decimal(str(payload.end))
+            work_id=work.id, start=Decimal(str(payload.start)), end=Decimal(str(payload.end))
         )
-        
+
         # Start background task
         background_tasks.add_task(scrape_manager.run_scrape_job, job.id, force=payload.force)
 
@@ -255,13 +248,12 @@ def request_chapter_scrape(
         )
 
 
-
 @router.post("/{work_id}/scrape-cancel")
 def cancel_chapter_scrape(work_id: int):
     """Cancel an active scrape job."""
     with SessionLocal() as db:
         scrape_manager = ScrapeManager(db)
-        
+
         # Check active job
         job = scrape_manager.get_active_job(work_id)
         if not job:
@@ -270,7 +262,7 @@ def cancel_chapter_scrape(work_id: int):
         job.status = "cancelled"
         db.add(job)
         db.commit()
-        
+
         return {"status": "cancelled", "job_id": job.id}
 
 
@@ -279,36 +271,35 @@ async def stream_scrape_status(work_id: int, request: Request):
     """Stream scrape status events for a work."""
     # We don't use the DB session directly here for the generator context potentially
     # But checking if work exists is good practice
-    
+
     # We'll rely on the manager to handle subscription
     # Note: Using ScrapeManager with a ephemeral session just for setup if needed
-    
+
     async def event_generator():
         # Short-lived session to check work existence/current status
         db = SessionLocal()
         scrape_manager = ScrapeManager(db)
-        
+
         try:
             # Check active job to send initial state
             job = scrape_manager.get_active_job(work_id)
             if job:
-                yield _sse_event("job-status", {
-                    "status": job.status, 
-                    "progress": job.progress, 
-                    "total": job.total
-                })
+                yield _sse_event(
+                    "job-status",
+                    {"status": job.status, "progress": job.progress, "total": job.total},
+                )
             else:
                 yield _sse_event("job-status", {"status": "idle"})
         finally:
             db.close()
-            
+
         # Subscribe to broadcast
         # Note: ScrapeManager uses a class-level subscriber list, so we can instantiate a new one
         # Use a fresh instance/session for the subscription call if needed, but subscribe is generic
         # However, we need to pass a db session to ScrapeManager constructor
-        # Ideally the subscriber list is global or singleton. 
+        # Ideally the subscriber list is global or singleton.
         # In our implementation `_subscribers` is a global variable in the module, so any instance works.
-        
+
         db_sub = SessionLocal()
         manager = ScrapeManager(db_sub)
         try:
@@ -408,9 +399,7 @@ def regenerate_chapter_segments(work_id: int, chapter_id: int):
     "/{work_id}/chapters/{chapter_id}/segments/batch",
     response_model=ChapterTranslationStateOut,
 )
-def batch_update_segments(
-    work_id: int, chapter_id: int, payload: BatchSegmentUpdateRequest
-):
+def batch_update_segments(work_id: int, chapter_id: int, payload: BatchSegmentUpdateRequest):
     """Apply manual edits to multiple translation segments.
 
     Updates the target translation text for each specified segment.
@@ -498,10 +487,8 @@ def create_chapter_prompt_override(
             parameters=payload.parameters,
         )
 
-        expires_at = datetime.fromtimestamp(token.expires_at, tz=timezone.utc)
+        expires_at = datetime.fromtimestamp(token.expires_at, tz=UTC)
         return ChapterPromptOverrideResponse(token=token.token, expires_at=expires_at)
-
-
 
 
 def _sse_event(event: str, payload: dict) -> dict:
@@ -836,6 +823,7 @@ async def retranslate_segment(
             (e.g., "make it more casual", "keep the honorific").
     """
     from sqlalchemy import select
+
     from app.models import TranslationSegment
 
     db = SessionLocal()
@@ -1031,8 +1019,12 @@ async def explain_segment(
                 "model": explanation_agent.model,
                 "order_index": segment.order_index,
                 "segment_indices": {"start": segment.start, "end": segment.end},
-                "extracted_source_preview": current_source[:50] + "..." if len(current_source) > 50 else current_source,
-                "extracted_target_preview": current_translation[:50] + "..." if len(current_translation) > 50 else current_translation,
+                "extracted_source_preview": current_source[:50] + "..."
+                if len(current_source) > 50
+                else current_source,
+                "extracted_target_preview": current_translation[:50] + "..."
+                if len(current_translation) > 50
+                else current_translation,
             },
         )
 

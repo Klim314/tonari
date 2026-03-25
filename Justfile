@@ -10,6 +10,9 @@ test:
 lint:
     docker compose exec api-dev ruff check .
 
+lint-fix:
+    docker compose exec api-dev ruff check --fix .
+
 format:
     docker compose exec api-dev ruff check --select I --fix .
     docker compose exec api-dev ruff format .

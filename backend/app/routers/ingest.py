@@ -4,11 +4,10 @@ from decimal import Decimal
 from fastapi import APIRouter, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 from app.db import SessionLocal
 from app.models import Chapter, Work
-from app.schemas import ChapterOut, IngestSyosetuRequest, WorkOut
+from app.schemas import ChapterOut, IngestSyosetuRequest
 from app.syosetu.scraper import SyosetuScraper
 
 router = APIRouter()

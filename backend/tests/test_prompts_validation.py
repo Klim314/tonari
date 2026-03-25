@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from app.db import SessionLocal
 from app.main import app
-from app.models import Prompt, PromptVersion
+from app.models import Prompt
 
 
 @pytest.fixture

@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import AsyncGenerator, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, AsyncGenerator, List, Mapping, Optional, Sequence, Union
+from typing import Any, Union
 
+from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import BaseMessage
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.language_models.chat_models import BaseChatModel
 
 try:
     from langchain_openai import ChatOpenAI
@@ -61,7 +62,7 @@ def _chunk_content_to_text(chunk_content) -> str:
     if isinstance(chunk_content, str):
         return chunk_content
     if isinstance(chunk_content, list):
-        text_parts: List[str] = []
+        text_parts: list[str] = []
         for item in chunk_content:
             if isinstance(item, str):
                 text_parts.append(item)
@@ -89,8 +90,8 @@ class BaseAgent:
         self.chunk_chars = max(8, chunk_chars)
         self._api_key = api_key
         self.provider = provider
-        self._llm: Optional[BaseChatModel] = None
-        self.prompt: Optional[ChatPromptTemplate] = None
+        self._llm: BaseChatModel | None = None
+        self.prompt: ChatPromptTemplate | None = None
 
         if api_key and ChatPromptTemplate:
             try:
@@ -110,9 +111,7 @@ class BaseAgent:
                 logger.warning(f"Failed to initialize LLM for provider {provider}: {e}")
                 logger.info("Using stub instead")
         else:
-            logger.info(
-                "LangChain dependencies unavailable or API key missing; using stub"
-            )
+            logger.info("LangChain dependencies unavailable or API key missing; using stub")
 
     @staticmethod
     def _create_llm(
@@ -168,13 +167,11 @@ class BaseAgent:
             return
 
         if not self._llm or not self.prompt:
-            async for chunk in stub_stream(
-                source_text, chunk_size=self.chunk_chars
-            ):
+            async for chunk in stub_stream(source_text, chunk_size=self.chunk_chars):
                 yield chunk
             return
 
-        messages: List[BaseMessage] = self.prompt.format_messages(**format_kwargs)
+        messages: list[BaseMessage] = self.prompt.format_messages(**format_kwargs)
         try:
             async for chunk in self._llm.astream(messages):
                 delta = _chunk_content_to_text(chunk.content)
@@ -196,7 +193,7 @@ class BaseAgent:
         Returns:
             Complete generated text.
         """
-        collected: List[str] = []
+        collected: list[str] = []
         async for chunk in self.stream(**format_kwargs):
             collected.append(chunk)
         return "".join(collected).strip()
@@ -204,8 +201,8 @@ class BaseAgent:
     @staticmethod
     def _normalize_context_segments(
         segments: Sequence[SegmentContextInput],
-    ) -> List[SegmentContext]:
-        normalized: List[SegmentContext] = []
+    ) -> list[SegmentContext]:
+        normalized: list[SegmentContext] = []
         for raw in segments:
             if isinstance(raw, SegmentContext):
                 normalized.append(raw)
@@ -222,7 +219,7 @@ class BaseAgent:
 
     @staticmethod
     def _render_block(
-        segments: Optional[Sequence[SegmentContextInput]],
+        segments: Sequence[SegmentContextInput] | None,
         block_name: str = "preceding",
     ) -> str:
         """Render context segments as XML block.
@@ -241,7 +238,7 @@ class BaseAgent:
         if not normalized:
             return ""
 
-        lines: List[str] = [f"<{block_name}>"]
+        lines: list[str] = [f"<{block_name}>"]
         for segment in normalized:
             if not segment.src and not segment.tgt:
                 continue

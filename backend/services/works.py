@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import List, Tuple
-
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -21,7 +19,7 @@ class WorksService:
 
     def search(
         self, q: str | None, limit: int, offset: int, max_limit: int = 100
-    ) -> Tuple[List[Work], int, int, int]:
+    ) -> tuple[list[Work], int, int, int]:
         limit, offset = sanitize_pagination(limit, offset, max_limit=max_limit)
 
         stmt = select(Work)

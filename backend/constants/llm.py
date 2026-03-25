@@ -1,7 +1,6 @@
 """Supported LLM models for translations."""
 
 from dataclasses import dataclass
-from typing import List
 
 
 @dataclass
@@ -177,7 +176,7 @@ GEMINI_2_0_FLASH_LITE = ModelInfo(
 )
 
 # All available models
-AVAILABLE_MODELS: List[ModelInfo] = [
+AVAILABLE_MODELS: list[ModelInfo] = [
     # OpenAI mainline text models (newest first)
     GPT_5_2,
     GPT_5_1,
@@ -208,6 +207,6 @@ def get_model_info(model_id: str) -> ModelInfo | None:
     return MODEL_BY_ID.get(model_id)
 
 
-def list_models_by_provider(provider: str) -> List[ModelInfo]:
+def list_models_by_provider(provider: str) -> list[ModelInfo]:
     """Get all models from a specific provider."""
     return [m for m in AVAILABLE_MODELS if m.provider == provider]

@@ -1,4 +1,5 @@
 """Tests for chapter groups functionality."""
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -6,7 +7,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy import select
 
-from app.models import Chapter, ChapterGroup, ChapterGroupMember, Work
+from app.models import Chapter, ChapterGroupMember, Work
 from services.chapter_groups import ChapterGroupsService
 from services.exceptions import (
     ChapterGroupConflictError,
@@ -58,9 +59,13 @@ def test_create_group_success(db_session):
     assert group.work_id == work.id
 
     # Verify members were created
-    members = db_session.execute(
-        select(ChapterGroupMember).where(ChapterGroupMember.group_id == group.id)
-    ).scalars().all()
+    members = (
+        db_session.execute(
+            select(ChapterGroupMember).where(ChapterGroupMember.group_id == group.id)
+        )
+        .scalars()
+        .all()
+    )
     assert len(members) == 3
     assert [m.chapter_id for m in sorted(members, key=lambda x: x.order_index)] == chapter_ids
 
@@ -209,9 +214,13 @@ def test_delete_group(db_session):
         service.get_group_detail(group.id)
 
     # Verify members deleted (cascade)
-    members = db_session.execute(
-        select(ChapterGroupMember).where(ChapterGroupMember.group_id == group.id)
-    ).scalars().all()
+    members = (
+        db_session.execute(
+            select(ChapterGroupMember).where(ChapterGroupMember.group_id == group.id)
+        )
+        .scalars()
+        .all()
+    )
     assert len(members) == 0
 
 
@@ -249,8 +258,8 @@ def test_get_chapters_with_groups_mixed_list(db_session):
     # Create group with chapters 2 and 3 (sort_key 2.0 and 3.0)
     service.create_group(work.id, "Arc 1", [chapters[1].id, chapters[2].id])
 
-    items, total_chapters, total_groups, total_items, limit, offset = service.get_chapters_with_groups(
-        work.id, limit=10, offset=0
+    items, total_chapters, total_groups, total_items, limit, offset = (
+        service.get_chapters_with_groups(work.id, limit=10, offset=0)
     )
 
     # Should have 4 items: Chapter 1 (ungrouped), Group (min 2.0), Chapter 4 (ungrouped), Chapter 5 (ungrouped)
@@ -512,9 +521,7 @@ def test_update_chapter_group_members_api(client, db_session):
 
     # Replace members
     payload = {"chapter_ids": [chapters[2].id, chapters[3].id, chapters[4].id]}
-    response = client.put(
-        f"/works/{work.id}/chapter-groups/{group_id}/members", json=payload
-    )
+    response = client.put(f"/works/{work.id}/chapter-groups/{group_id}/members", json=payload)
     assert response.status_code == 200
 
     data = response.json()
