@@ -282,6 +282,9 @@ async def stream_scrape_status(work_id: int, request: Request):
         try:
             # Check active job to send initial state
             job = scrape_manager.get_active_job(work_id)
+            if not job:
+                job = scrape_manager.get_latest_job(work_id)
+
             if job:
                 yield _sse_event(
                     "job-status",

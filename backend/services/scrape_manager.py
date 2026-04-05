@@ -76,6 +76,15 @@ class ScrapeManager:
 
         return job
 
+    def get_latest_job(self, work_id: int) -> ScrapeJob | None:
+        """Return the most recent scrape job for a work."""
+        stmt = (
+            select(ScrapeJob)
+            .where(ScrapeJob.work_id == work_id)
+            .order_by(ScrapeJob.created_at.desc(), ScrapeJob.id.desc())
+        )
+        return self.db.execute(stmt).scalars().first()
+
     async def run_scrape_job(self, job_id: int, force: bool = False):
         """
         Main async loop for scraping.

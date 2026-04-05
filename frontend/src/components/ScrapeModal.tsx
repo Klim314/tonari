@@ -13,7 +13,7 @@ import {
 import { useEffect, useState } from "react";
 import { Works } from "../client";
 import { apiUrl } from "../clientConfig";
-import { useScrapeStatus } from "../hooks/useScrapeStatus";
+import { type ScrapeStatus, useScrapeStatus } from "../hooks/useScrapeStatus";
 import { getApiErrorMessage } from "../lib/api";
 import type { Chapter } from "../types/works";
 
@@ -25,6 +25,14 @@ interface ScrapeModalProps {
 }
 
 type ModalState = "input" | "scraping" | "completed";
+
+const STATUS_LABELS: Record<ScrapeStatus, string> = {
+	pending: "Pending",
+	running: "Running",
+	completed: "Completed",
+	failed: "Failed",
+	idle: "Idle",
+};
 
 export function ScrapeModal({
 	workId,
@@ -38,6 +46,7 @@ export function ScrapeModal({
 	const [modalState, setModalState] = useState<ModalState>("input");
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	const [chaptersFound, setChaptersFound] = useState<number>(0);
+	const [isTrackingScrape, setIsTrackingScrape] = useState(false);
 
 	// Log of recent activities (optional, but nice)
 	const [logs, setLogs] = useState<string[]>([]);
@@ -114,6 +123,7 @@ export function ScrapeModal({
 			setSubmitError(null);
 			setChaptersFound(0);
 			setLogs([]);
+			setIsTrackingScrape(false);
 			// Don't reset start/end here, let the auto-populator do it
 			setForce(false);
 		}
@@ -127,11 +137,12 @@ export function ScrapeModal({
 			scrapeStatus.status === "running" ||
 			scrapeStatus.status === "pending"
 		) {
+			setIsTrackingScrape(true);
 			setModalState("scraping");
-		} else if (scrapeStatus.status === "completed") {
+		} else if (scrapeStatus.status === "completed" && isTrackingScrape) {
 			setModalState("completed");
 		}
-	}, [scrapeStatus.status, isOpen]);
+	}, [scrapeStatus.status, isOpen, isTrackingScrape]);
 
 	const handleQueueScrape = async () => {
 		const startValue = Number.parseFloat(start);
@@ -153,6 +164,7 @@ export function ScrapeModal({
 				},
 				throwOnError: true,
 			});
+			setIsTrackingScrape(true);
 			setModalState("scraping");
 			setChaptersFound(0);
 			setLogs(["Scrape queued..."]);
@@ -181,6 +193,8 @@ export function ScrapeModal({
 			onClose();
 		}
 	};
+
+	const statusLabel = STATUS_LABELS[scrapeStatus.status];
 
 	return (
 		<Dialog.Root
@@ -253,8 +267,7 @@ export function ScrapeModal({
 							<Stack gap={6} py={4}>
 								<Box>
 									<Text mb={2} fontSize="sm" fontWeight="medium">
-										Status:{" "}
-										{scrapeStatus.status === "running" ? "Running" : "Pending"}
+										Status: {statusLabel}
 									</Text>
 									<Progress.Root
 										value={

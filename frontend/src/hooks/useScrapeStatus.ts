@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 import { apiUrl } from "../clientConfig";
 
 export type ScrapeStatus =
@@ -20,6 +20,9 @@ export function useScrapeStatus(workId: number, onChapterFound?: () => void) {
 		status: "idle",
 		progress: 0,
 		total: 0,
+	});
+	const handleChapterFound = useEffectEvent(() => {
+		onChapterFound?.();
 	});
 
 	useEffect(() => {
@@ -46,7 +49,7 @@ export function useScrapeStatus(workId: number, onChapterFound?: () => void) {
 		});
 
 		eventSource.addEventListener("chapter-found", () => {
-			onChapterFound?.();
+			handleChapterFound();
 		});
 
 		eventSource.onerror = () => {
@@ -57,7 +60,7 @@ export function useScrapeStatus(workId: number, onChapterFound?: () => void) {
 		return () => {
 			eventSource.close();
 		};
-	}, [workId, onChapterFound]);
+	}, [workId]);
 
 	return scrapeState;
 }
