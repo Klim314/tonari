@@ -396,44 +396,6 @@ export type ChapterScrapeResponse = {
 };
 
 /**
- * ChapterTranslationCreate
- */
-export type ChapterTranslationCreate = {
-    /**
-     * Chapter Id
-     */
-    chapter_id: number;
-    /**
-     * Cache Policy
-     */
-    cache_policy?: string;
-    /**
-     * Params
-     */
-    params?: {
-        [key: string]: unknown;
-    } | null;
-};
-
-/**
- * ChapterTranslationOut
- */
-export type ChapterTranslationOut = {
-    /**
-     * Id
-     */
-    id: number;
-    /**
-     * Chapter Id
-     */
-    chapter_id: number;
-    /**
-     * Status
-     */
-    status: string;
-};
-
-/**
  * ChapterTranslationStateOut
  */
 export type ChapterTranslationStateOut = {
@@ -998,93 +960,6 @@ export type IngestSyosetuIngestSyosetuPostResponses = {
 };
 
 export type IngestSyosetuIngestSyosetuPostResponse = IngestSyosetuIngestSyosetuPostResponses[keyof IngestSyosetuIngestSyosetuPostResponses];
-
-export type CreateChapterTranslationChapterTranslationsPostData = {
-    body: ChapterTranslationCreate;
-    path?: never;
-    query?: never;
-    url: '/chapter-translations/';
-};
-
-export type CreateChapterTranslationChapterTranslationsPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type CreateChapterTranslationChapterTranslationsPostError = CreateChapterTranslationChapterTranslationsPostErrors[keyof CreateChapterTranslationChapterTranslationsPostErrors];
-
-export type CreateChapterTranslationChapterTranslationsPostResponses = {
-    /**
-     * Successful Response
-     */
-    200: ChapterTranslationOut;
-};
-
-export type CreateChapterTranslationChapterTranslationsPostResponse = CreateChapterTranslationChapterTranslationsPostResponses[keyof CreateChapterTranslationChapterTranslationsPostResponses];
-
-export type GetChapterTranslationChapterTranslationsCtIdGetData = {
-    body?: never;
-    path: {
-        /**
-         * Ct Id
-         */
-        ct_id: number;
-    };
-    query?: never;
-    url: '/chapter-translations/{ct_id}';
-};
-
-export type GetChapterTranslationChapterTranslationsCtIdGetErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetChapterTranslationChapterTranslationsCtIdGetError = GetChapterTranslationChapterTranslationsCtIdGetErrors[keyof GetChapterTranslationChapterTranslationsCtIdGetErrors];
-
-export type GetChapterTranslationChapterTranslationsCtIdGetResponses = {
-    /**
-     * Successful Response
-     */
-    200: ChapterTranslationOut;
-};
-
-export type GetChapterTranslationChapterTranslationsCtIdGetResponse = GetChapterTranslationChapterTranslationsCtIdGetResponses[keyof GetChapterTranslationChapterTranslationsCtIdGetResponses];
-
-export type ListTranslationSegmentsChapterTranslationsCtIdSegmentsGetData = {
-    body?: never;
-    path: {
-        /**
-         * Ct Id
-         */
-        ct_id: number;
-    };
-    query?: never;
-    url: '/chapter-translations/{ct_id}/segments';
-};
-
-export type ListTranslationSegmentsChapterTranslationsCtIdSegmentsGetErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type ListTranslationSegmentsChapterTranslationsCtIdSegmentsGetError = ListTranslationSegmentsChapterTranslationsCtIdSegmentsGetErrors[keyof ListTranslationSegmentsChapterTranslationsCtIdSegmentsGetErrors];
-
-export type ListTranslationSegmentsChapterTranslationsCtIdSegmentsGetResponses = {
-    /**
-     * Response List Translation Segments Chapter Translations  Ct Id  Segments Get
-     *
-     * Successful Response
-     */
-    200: Array<TranslationSegmentOut>;
-};
-
-export type ListTranslationSegmentsChapterTranslationsCtIdSegmentsGetResponse = ListTranslationSegmentsChapterTranslationsCtIdSegmentsGetResponses[keyof ListTranslationSegmentsChapterTranslationsCtIdSegmentsGetResponses];
 
 export type ListModelsModelsGetData = {
     body?: never;

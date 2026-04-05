@@ -9,7 +9,7 @@ from app.main import app
 from app.models import Chapter, Work
 
 
-def seed_demo_chapter() -> int:
+def seed_demo_chapter() -> tuple[int, int]:
     with SessionLocal() as session:
         work = Work(title="Sanity Work", source_meta={"source": "sanity"})
         session.add(work)
@@ -26,13 +26,13 @@ def seed_demo_chapter() -> int:
         session.add(chapter)
         session.commit()
         session.refresh(chapter)
-        return chapter.id
+        return work.id, chapter.id
 
 
 def run_sanity_checks() -> None:
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
-    chapter_id = seed_demo_chapter()
+    work_id, chapter_id = seed_demo_chapter()
 
     with TestClient(app) as client:
         health = client.get("/health")
@@ -41,18 +41,19 @@ def run_sanity_checks() -> None:
             raise SystemExit(msg)
         print("✓ /health responded OK")
 
-        resp = client.post("/chapter-translations/", json={"chapter_id": chapter_id})
+        resp = client.get(f"/works/{work_id}/chapters/{chapter_id}/translate/stream")
         if resp.status_code != 200:
-            msg = f"Translation creation failed: {resp.status_code} {resp.text}"
+            msg = f"Streaming translation failed: {resp.status_code} {resp.text}"
             raise SystemExit(msg)
-        ct_id = resp.json()["id"]
-        print(f"✓ Created chapter translation #{ct_id}")
+        if "event: translation-complete" not in resp.text:
+            raise SystemExit("Streaming translation did not complete")
+        print(f"✓ Streamed chapter translation for work #{work_id}, chapter #{chapter_id}")
 
-        segments = client.get(f"/chapter-translations/{ct_id}/segments")
-        if segments.status_code != 200 or not segments.json():
-            msg = f"Segments fetch failed: {segments.status_code} {segments.text}"
+        segments = client.get(f"/works/{work_id}/chapters/{chapter_id}/translation")
+        if segments.status_code != 200 or not segments.json()["segments"]:
+            msg = f"Translation state fetch failed: {segments.status_code} {segments.text}"
             raise SystemExit(msg)
-        print(f"✓ Retrieved {len(segments.json())} segments")
+        print(f"✓ Retrieved {len(segments.json()['segments'])} translated segments")
 
 
 if __name__ == "__main__":

@@ -55,7 +55,6 @@ Current router groups:
 - `/models` supported translation model metadata
 - `/lab` prompt-lab translation streaming endpoint
 - `/ingest` legacy ingest endpoints still present in the app
-- `/chapter-translations` lower-level translation records and segment listing
 
 ## Current Data Model
 

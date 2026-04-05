@@ -116,12 +116,6 @@ class ChapterScrapeResponse(BaseModel):
     errors: list[ChapterScrapeErrorItem] = Field(default_factory=list)
 
 
-class ChapterTranslationCreate(BaseModel):
-    chapter_id: int
-    cache_policy: str = Field(default="reuse")
-    params: dict | None = None
-
-
 class TranslationSegmentOut(BaseModel):
     id: int
     start: int

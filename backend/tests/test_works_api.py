@@ -194,6 +194,31 @@ def test_scrape_status_stream_emits_active_job_state(client, db_session, monkeyp
     assert '"total": 2' in response.text
 
 
+def test_scrape_status_stream_emits_latest_completed_job_state(client, db_session, monkeypatch):
+    work = _create_work(db_session, "Completed Streaming Work")
+    manager = ScrapeManager(db_session)
+    job = manager.create_job(work.id, Decimal("1"), Decimal("2"))
+    job.status = "completed"
+    job.progress = 2
+    db_session.add(job)
+    db_session.commit()
+
+    async def no_events(self, work_id: int):
+        if False:
+            yield {"event": "job-status", "data": {"status": "running"}}
+        return
+
+    monkeypatch.setattr(ScrapeManager, "subscribe", no_events)
+
+    response = client.get(f"/works/{work.id}/scrape-status")
+
+    assert response.status_code == 200
+    assert "event: job-status" in response.text
+    assert '"status": "completed"' in response.text
+    assert '"progress": 2' in response.text
+    assert '"total": 2' in response.text
+
+
 def test_scrape_status_stream_forwards_broadcast_events(client, monkeypatch):
     async def fake_subscribe(self, work_id: int):
         yield {"event": "job-status", "data": {"status": "running", "progress": 1, "total": 3}}
@@ -232,3 +257,38 @@ def test_get_chapter_detail_wrong_work(client, db_session):
     )
     resp = client.get(f"/works/{second.id}/chapters/{chapter.id}")
     assert resp.status_code == 404
+
+
+def test_stream_chapter_translation_persists_segments(client, db_session):
+    work = _create_work(db_session, "Translated Work")
+    chapter = Chapter(
+        work_id=work.id,
+        idx=1,
+        sort_key=Decimal(1),
+        title="Translated Work #1",
+        normalized_text="彼は歩く。\n彼女も歩く。\n\n場面転換。",
+        text_hash="translated-work-1",
+    )
+    db_session.add(chapter)
+    db_session.commit()
+    db_session.refresh(chapter)
+
+    response = client.get(f"/works/{work.id}/chapters/{chapter.id}/translate/stream")
+
+    assert response.status_code == 200
+    assert "event: translation-complete" in response.text
+
+    state = client.get(f"/works/{work.id}/chapters/{chapter.id}/translation")
+    assert state.status_code == 200
+    payload = state.json()
+    assert payload["status"] == "completed"
+    assert len(payload["segments"]) == 3
+    assert payload["segments"][0]["src"] == "彼は歩く。\n彼女も歩く。"
+    assert payload["segments"][0]["tgt"] != ""
+    assert payload["segments"][0]["flags"] == []
+    assert payload["segments"][1]["src"] == "\n\n"
+    assert payload["segments"][1]["tgt"] == ""
+    assert payload["segments"][1]["flags"] == ["whitespace"]
+    assert payload["segments"][2]["src"] == "場面転換。"
+    assert payload["segments"][2]["tgt"] != ""
+    assert payload["segments"][2]["flags"] == []

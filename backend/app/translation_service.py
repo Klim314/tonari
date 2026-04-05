@@ -1,10 +1,7 @@
 from __future__ import annotations
 
-import asyncio
 import hashlib
 from dataclasses import dataclass
-
-from agents.translation_agent import get_translation_agent
 
 
 @dataclass(slots=True)
@@ -71,31 +68,3 @@ def newline_segment_slices(text: str) -> list[SegmentSlice]:
 
 def hash_text(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
-
-
-async def async_segment_and_translate(text: str) -> list[dict]:
-    agent = get_translation_agent()
-    out: list[dict] = []
-    context_limit = max(0, getattr(agent, "context_window", 0))
-    context_buffer: list[dict[str, str]] = []
-    for segment in newline_segment_slices(text):
-        flags: list[str] = []
-        tgt = ""
-        if not segment.requires_translation:
-            flags.append("whitespace")
-        else:
-            preceding = list(context_buffer) if context_limit > 0 and context_buffer else None
-            tgt = await agent.translate_segment(segment.text, preceding_segments=preceding)
-            if context_limit > 0:
-                src_for_context = segment.text.strip()
-                tgt_for_context = tgt.strip()
-                if src_for_context and tgt_for_context:
-                    context_buffer.append({"src": src_for_context, "tgt": tgt_for_context})
-                    if len(context_buffer) > context_limit:
-                        context_buffer.pop(0)
-        out.append({"start": segment.start, "end": segment.end, "tgt": tgt, "flags": flags})
-    return out
-
-
-def segment_and_translate(text: str) -> list[dict]:
-    return asyncio.run(async_segment_and_translate(text))

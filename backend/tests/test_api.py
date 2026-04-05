@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import SessionLocal
-from app.models import Chapter, TranslationSegment, Work
+from app.models import Chapter, Work
 from app.syosetu.scraper import SyosetuScraper
 
 
@@ -27,47 +27,6 @@ def _create_chapter(session: Session, text: str = "彼は歩く。彼女も歩�
     session.commit()
     session.refresh(chapter)
     return chapter
-
-
-def test_create_chapter_translation_flow(client, db_session):
-    chapter = _create_chapter(db_session, text="彼は歩く。\n彼女も歩く。\n\n場面転換。")
-
-    resp = client.post("/chapter-translations/", json={"chapter_id": chapter.id})
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["chapter_id"] == chapter.id
-    assert data["status"] == "completed"
-
-    ct_id = data["id"]
-    resp = client.get(f"/chapter-translations/{ct_id}/segments")
-    assert resp.status_code == 200
-    segments = resp.json()
-    assert len(segments) == 3
-    assert segments[0]["src"] == "彼は歩く。\n彼女も歩く。"
-    assert segments[0]["tgt"] != ""
-    assert segments[0]["flags"] == []
-    assert segments[1]["src"] == "\n\n"
-    assert segments[1]["tgt"] == ""
-    assert segments[1]["flags"] == ["whitespace"]
-    assert segments[2]["src"] == "場面転換。"
-    assert segments[2]["tgt"] != ""
-    assert segments[2]["flags"] == []
-
-    db_session.expire_all()
-    rows = (
-        db_session.execute(
-            select(TranslationSegment).where(TranslationSegment.chapter_translation_id == ct_id)
-        )
-        .scalars()
-        .all()
-    )
-    assert len(rows) == 3
-    assert rows[0].order_index == 0
-
-
-def test_create_chapter_translation_missing_chapter(client):
-    resp = client.post("/chapter-translations/", json={"chapter_id": 999})
-    assert resp.status_code == 404
 
 
 def test_ingest_syosetu_creates_chapter(monkeypatch, client):
