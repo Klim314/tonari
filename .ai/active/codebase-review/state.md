@@ -4,7 +4,7 @@
 
 - State: `in progress`
 - Started: 2026-03-25
-- Last updated: 2026-03-25
+- Last updated: 2026-04-05
 
 ## Findings Summary
 
@@ -13,7 +13,7 @@
 | F-001 | P1 | confirmed | backend / scrape lifecycle |
 | F-002 | P1 | confirmed | backend / translation streaming |
 | F-003 | P1 | confirmed | backend / prompt versioning |
-| F-004 | P1 | confirmed | frontend / build and chapter detail |
+| F-004 | P1 | resolved | frontend / build and chapter detail |
 | F-005 | P2 | resolved | frontend / API contract handling |
 | F-006 | P1 | confirmed | data model / migrations |
 | F-007 | P1 | confirmed | backend / prompt assignment lifecycle |
@@ -24,11 +24,12 @@
 
 ## Current Focus
 
-Major findings consolidated. Remediation of individual findings in progress.
+Major findings consolidated. Remediation of individual findings in progress, with task-level planning now tracked under `codebase-review/tasks/`.
 
 ## Next Steps
 
 - Continue remediation of confirmed findings (prioritize P1s)
+- Begin A-003 frontend server-state migration using `tasks/a-003-react-query-migration.md`
 - Complete unchecked review lanes (see checklist.md)
 
 ## Open Review Lanes

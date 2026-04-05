@@ -46,3 +46,19 @@ Append-only. Each session adds an entry. Only consult when you need to understan
 - Fixed 1 N806 (naming) in `test_lab.py` — `MockAgent` → `mock_agent_cls`.
 - Ran `docker compose exec api-dev ruff check .`: `All checks passed!`
 - Frontend lint (`just lint-web`) not yet addressed.
+
+## 2026-04-05 — F-004 remediation
+
+- Resolved `F-004`: frontend type-boundary regressions blocking typecheck/build were fixed.
+- Updated `frontend/src/clientConfig.ts` to guard optional generated-client config fields.
+- Aligned `TranslationStreamHook` with its implementation by adding `updateSegmentText`.
+- Fixed `WorkCard` typing by splitting anchor vs non-anchor rendering and keeping the select handler safe at the call sites.
+- Updated affected fetch hooks to use narrowed local ids after null guards so generated-client path params stay typed as `number`.
+- Corrected `ScrapeModal` log updates to use the component's structured log shape.
+- Ran `npm --prefix frontend run typecheck`: passed.
+
+## 2026-04-05 — A-003 remediation planning
+
+- Created `.ai/active/codebase-review/tasks/` for execution-oriented remediation plans tied to review findings.
+- Added `tasks/a-003-react-query-migration.md` to capture the TanStack Query migration plan for architecture finding `A-003`.
+- Kept the task plan separate from `plan.md` so review strategy and remediation execution remain distinct artifacts.
