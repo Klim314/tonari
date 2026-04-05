@@ -172,7 +172,7 @@ export function ScrapeModal({
 			setIsTrackingScrape(true);
 			setModalState("scraping");
 			setChaptersFound(0);
-			setLogs(["Scrape queued..."]);
+			addLog("Scrape queued...");
 		} catch (err) {
 			setSubmitError(getApiErrorMessage(err, "Failed to queue scrape"));
 		}

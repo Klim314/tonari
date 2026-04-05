@@ -9,10 +9,10 @@ export function apiUrl(path: string): string {
 
 export const createClientConfig: CreateClientConfig = (config) => ({
 	...config,
-	baseURL: config.baseURL ?? DEFAULT_BASE_URL,
+	baseURL: config?.baseURL ?? DEFAULT_BASE_URL,
 	headers: {
 		"Content-Type": "application/json",
-		...config.headers,
+		...config?.headers,
 	},
-	timeout: config.timeout ?? 15000,
+	timeout: config?.timeout ?? 15000,
 });

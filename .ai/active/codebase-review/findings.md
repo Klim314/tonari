@@ -75,7 +75,7 @@ Suggested fields per finding:
 
 - ID: `F-004`
 - Severity: `P1`
-- Status: `confirmed`
+- Status: `resolved`
 - Area: `frontend / build and chapter detail workflow`
 - Files:
   - `frontend/src/components/chapterDetail/translation/TranslationPanel.tsx`
@@ -87,10 +87,10 @@ Suggested fields per finding:
   - `frontend/src/hooks/usePromptVersions.ts`
   - `frontend/src/hooks/useWorkChapters.ts`
   - `frontend/src/hooks/useWorkPromptDetail.ts`
-- Summary: The frontend does not currently typecheck or build. The chapter-detail translation UI imports a missing `RetranslateModal`, consumes `updateSegmentText` even though the hook interface omits it, and multiple hooks/config components no longer match the generated client’s nullability and prop typing requirements.
-- Risk: The current tree cannot produce a releasable frontend artifact. That blocks CI from validating chapter-detail, prompt, and work-detail flows and hides additional regressions behind a broken baseline.
-- Recommended action: Finish or revert the incomplete refactor as one coherent unit. Restore the missing translation modal or remove the dependency, align `TranslationStreamHook` with its implementation/consumers, then fix generated-client call sites and component props until `npm --prefix frontend run build` passes again.
-- Test follow-up: Gate CI on the frontend build, then add focused coverage around chapter-detail translation editing/retranslation and the affected hooks once the type boundary is stable.
+- Summary: The frontend type-boundary regressions in chapter-detail, work-detail, and generated-client integration have been corrected. `TranslationStreamHook` now matches its implementation, generated-client config and hook call sites align with current nullability expectations, `WorkCard` uses a properly typed link/render split, and the scrape modal log update matches component state shape.
+- Risk: Frontend typecheck is green again, but CI still needs an explicit frontend build/typecheck gate to prevent future drift from landing unnoticed.
+- Recommended action: Keep frontend typecheck or build in CI and treat generated-client regeneration or Chakra component refactors as contract-boundary changes that require compiler verification before merge.
+- Test follow-up: Add focused coverage around chapter-detail translation editing/retranslation and the affected hooks once the type boundary is stable.
 
 ### F-005
 

@@ -94,6 +94,8 @@ Each finding includes:
 - Files:
   - `frontend/src/client/`
   - `frontend/src/clientConfig.ts`
+  - `frontend/src/components/PromptEditor/PromptEditor.tsx`
+  - `frontend/src/hooks/usePrompt.ts`
   - `frontend/src/hooks/useWorks.ts`
   - `frontend/src/hooks/useWork.ts`
   - `frontend/src/hooks/useWorkChapters.ts`
@@ -101,7 +103,7 @@ Each finding includes:
   - `frontend/src/hooks/usePromptVersions.ts`
   - `frontend/src/hooks/useWorkPromptDetail.ts`
 - Root cause: The frontend adopted generated API bindings, but stopped short of adopting a shared query/cache layer.
-- Explanation: The current hooks repeat the same `useEffect` + `loading/error/data` pattern with ad hoc refresh tokens and local invalidation rules. The generated client is already the right low-level contract boundary, but without a server-state layer the app keeps rebuilding the same fetching logic and cannot express cache invalidation cleanly. This is the highest-leverage frontend architecture fix because it removes repeated boilerplate and makes later route, mutation, and state refactors much easier.
+- Explanation: The current hooks repeat the same `useEffect` + `loading/error/data` pattern with ad hoc refresh tokens and local invalidation rules. The prompt editor is the clearest example: it increments a local refresh token after save so both prompt detail and prompt versions refetch, and each hook manages its own abort, loading, and error behavior. The generated client is already the right low-level contract boundary, but without a server-state layer the app keeps rebuilding the same fetching logic and cannot express cache invalidation cleanly. This is the highest-leverage frontend architecture fix because it removes repeated boilerplate, replaces manual refresh-token plumbing with query invalidation, and makes later route, mutation, and state refactors much easier.
 - Proposed solution: Standardize frontend data access on generated bindings plus TanStack Query.
 - Suggested approach:
   1. Add TanStack Query at the app root.

@@ -25,6 +25,7 @@ export function usePrompt(promptId: number | null, refreshToken = 0) {
 			setState(defaultState);
 			return;
 		}
+		const resolvedPromptId = promptId;
 
 		let cancelled = false;
 		const controller = new AbortController();
@@ -33,7 +34,7 @@ export function usePrompt(promptId: number | null, refreshToken = 0) {
 			setState((prev) => ({ ...prev, loading: true, error: null }));
 			try {
 				const response = await Prompts.getPromptPromptsPromptIdGet({
-					path: { prompt_id: promptId },
+					path: { prompt_id: resolvedPromptId },
 					signal: controller.signal,
 					throwOnError: true,
 				});

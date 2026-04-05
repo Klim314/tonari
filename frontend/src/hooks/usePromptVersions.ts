@@ -25,6 +25,7 @@ export function usePromptVersions(promptId: number | null, refreshToken = 0) {
 			setState(defaultState);
 			return;
 		}
+		const resolvedPromptId = promptId;
 
 		let cancelled = false;
 		const controller = new AbortController();
@@ -34,7 +35,7 @@ export function usePromptVersions(promptId: number | null, refreshToken = 0) {
 			try {
 				const response =
 					await Prompts.listPromptVersionsPromptsPromptIdVersionsGet({
-						path: { prompt_id: promptId },
+						path: { prompt_id: resolvedPromptId },
 						query: {
 							limit: 50,
 							offset: 0,

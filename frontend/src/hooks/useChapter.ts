@@ -29,6 +29,8 @@ export function useChapter(
 			setState({ ...defaultState });
 			return;
 		}
+		const resolvedWorkId = workId;
+		const resolvedChapterId = chapterId;
 		let cancelled = false;
 		const controller = new AbortController();
 
@@ -37,7 +39,10 @@ export function useChapter(
 			try {
 				const response =
 					await Works.getChapterForWorkWorksWorkIdChaptersChapterIdGet({
-						path: { work_id: workId, chapter_id: chapterId },
+						path: {
+							work_id: resolvedWorkId,
+							chapter_id: resolvedChapterId,
+						},
 						signal: controller.signal,
 						throwOnError: true,
 					});

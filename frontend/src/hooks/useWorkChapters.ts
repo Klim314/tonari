@@ -30,6 +30,7 @@ export function useWorkChapters(
 			setState({ ...defaultState });
 			return;
 		}
+		const resolvedWorkId = workId;
 		let cancelled = false;
 		const controller = new AbortController();
 
@@ -37,7 +38,7 @@ export function useWorkChapters(
 			setState((prev) => ({ ...prev, loading: true, error: null }));
 			try {
 				const response = await Works.listChaptersForWorkWorksWorkIdChaptersGet({
-					path: { work_id: workId },
+					path: { work_id: resolvedWorkId },
 					query: { limit, offset },
 					signal: controller.signal,
 					throwOnError: true,

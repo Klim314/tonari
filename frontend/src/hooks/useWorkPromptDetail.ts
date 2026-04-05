@@ -33,6 +33,7 @@ export function useWorkPromptDetail(workId?: number | null, refreshToken = 0) {
 			setState(defaultState);
 			return;
 		}
+		const resolvedWorkId = workId;
 
 		let cancelled = false;
 		const controller = new AbortController();
@@ -42,7 +43,7 @@ export function useWorkPromptDetail(workId?: number | null, refreshToken = 0) {
 			try {
 				const response = await Prompts.getWorkPromptPromptsWorksWorkIdPromptGet(
 					{
-						path: { work_id: workId },
+						path: { work_id: resolvedWorkId },
 						signal: controller.signal,
 						throwOnError: true,
 					},

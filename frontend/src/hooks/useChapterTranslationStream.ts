@@ -42,6 +42,7 @@ interface TranslationStreamHook {
 	isResetting: boolean;
 	regenerate: () => Promise<boolean>;
 	retranslateSegment: (segmentId: number, options?: StreamStartOptions) => void;
+	updateSegmentText: (segmentId: number, newText: string) => void;
 }
 
 interface ChapterTranslationStateResponse {
