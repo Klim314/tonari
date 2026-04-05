@@ -41,7 +41,6 @@ export function useScrapeStatus(workId: number, onChapterFound?: () => void) {
 		onChapterFound?.();
 	});
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: handleChapterFound is a useEffectEvent — intentionally excluded from deps
 	useEffect(() => {
 		if (workId <= 0) {
 			return;

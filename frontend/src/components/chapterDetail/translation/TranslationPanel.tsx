@@ -4,8 +4,8 @@ import {
 	Box,
 	Button,
 	Flex,
-	HStack,
 	Heading,
+	HStack,
 	Icon,
 	Separator,
 	Text,
@@ -273,6 +273,7 @@ export const TranslationPanel = memo(function TranslationPanel({
 
 			{explanationSegmentId !== null && (
 				<ExplanationPanel
+					key={explanationSegmentId}
 					segmentId={explanationSegmentId}
 					workId={workId}
 					chapterId={chapterId}

@@ -5,26 +5,26 @@ import {
 	Button,
 	Checkbox,
 	Container,
-	HStack,
 	Heading,
+	HStack,
 	Image,
 	Skeleton,
 	Stack,
 	Text,
 } from "@chakra-ui/react";
 import { type MouseEvent, useMemo, useState } from "react";
+import { apiUrl } from "../clientConfig";
 import { AddToGroupModal } from "../components/AddToGroupModal";
 import { ChapterGroupRow } from "../components/ChapterGroupRow";
 import { CreateChapterGroupModal } from "../components/CreateChapterGroupModal";
+import { Pagination } from "../components/common/Pagination";
 import { ScrapeModal } from "../components/ScrapeModal";
 import { WorkPromptSelector } from "../components/WorkPromptSelector";
-import { Pagination } from "../components/common/Pagination";
 import { useChapterSelection } from "../hooks/useChapterSelection";
 import { useWork } from "../hooks/useWork";
 import { useWorkChapters } from "../hooks/useWorkChapters";
-import { apiUrl } from "../clientConfig";
 import { getApiErrorMessage } from "../lib/api";
-import type { Chapter } from "../types/works";
+import type { Chapter, ChapterGroup } from "../types/works";
 
 const CHAPTERS_PER_PAGE = 10;
 const CHAPTER_SKELETON_KEYS = Array.from(
@@ -85,8 +85,8 @@ export function WorkDetailPage({
 	// Build list of visible chapter IDs for shift-click range selection
 	const visibleChapterIds = useMemo(() => {
 		return items
-			.filter((item: any) => item.item_type === "chapter")
-			.map((item: any) => {
+			.filter((item) => item.item_type === "chapter")
+			.map((item) => {
 				const chapter = item.data as Chapter;
 				return chapter.id;
 			});
@@ -251,9 +251,9 @@ export function WorkDetailPage({
 							<Stack>
 								{(() => {
 									let chapterIndex = 0;
-									return items.map((item: any) => {
+									return items.map((item) => {
 										if (item.item_type === "group") {
-											const group = item.data as any; // Will be typed properly once API client regenerates
+											const group = item.data as ChapterGroup;
 											return (
 												<ChapterGroupRow
 													key={`group-${group.id}`}

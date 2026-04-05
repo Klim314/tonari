@@ -54,7 +54,7 @@ export function ExplanationPanel({
 				block: "center",
 			});
 		}
-	}, [isOpen, segmentId]);
+	}, [isOpen]);
 
 	if (!isOpen) {
 		return null;
@@ -307,11 +307,6 @@ function useExplanationStream(
 			suppressNextFetchRef.current = false;
 		}
 
-		// Don't re-fetch if we're not regenerating and already have an explanation
-		if (!shouldRegenerate && explanation) {
-			return;
-		}
-
 		if (!shouldRegenerate && suppressNextFetchRef.current) {
 			suppressNextFetchRef.current = false;
 			return;
@@ -332,7 +327,9 @@ function useExplanationStream(
 					abortController = new AbortController();
 					abortControllerRef.current = abortController;
 					const response = await fetch(
-						apiUrl(`/works/${workId}/chapters/${chapterId}/segments/${segmentId}/regenerate-explanation`),
+						apiUrl(
+							`/works/${workId}/chapters/${chapterId}/segments/${segmentId}/regenerate-explanation`,
+						),
 						{
 							method: "POST",
 							signal: abortController.signal,
@@ -419,7 +416,9 @@ function useExplanationStream(
 					setActiveRequest(null);
 				} else {
 					// Use EventSource for GET request
-					const url = apiUrl(`/works/${workId}/chapters/${chapterId}/segments/${segmentId}/explain/stream`);
+					const url = apiUrl(
+						`/works/${workId}/chapters/${chapterId}/segments/${segmentId}/explain/stream`,
+					);
 					eventSource = new EventSource(url);
 					eventSourceRef.current = eventSource;
 
@@ -558,7 +557,7 @@ function useExplanationContext(
 				const toContext = (segment?: { src: string; tgt: string }) =>
 					segment ? { src: segment.src || "", tgt: segment.tgt || "" } : null;
 				setCurrentSegment(toContext(payload.segments[index]));
-			} catch (err) {
+			} catch (_err) {
 				if (!cancelled) {
 					setContextError("Failed to load segment context");
 				}
