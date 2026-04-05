@@ -1,9 +1,15 @@
 import { Box, Button, HStack, Input, Stack, Text } from "@chakra-ui/react";
-import { useEffect, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import type { PromptOut } from "../client";
-import { Prompts } from "../client";
+import { updateWorkPromptPromptsWorksWorkIdPromptPatchMutation } from "../client/@tanstack/react-query.gen";
+import { useWorkPromptDetail } from "../hooks/useWorkPromptDetail";
 import { useWorkPrompts } from "../hooks/useWorkPrompts";
 import { getApiErrorMessage } from "../lib/api";
+import {
+	invalidateWorkPromptDetail,
+	invalidateWorkPromptLists,
+} from "../lib/queryInvalidation";
 
 interface WorkPromptSelectorProps {
 	workId: number;
@@ -14,71 +20,51 @@ export function WorkPromptSelector({
 	workId,
 	onPromptSelect,
 }: WorkPromptSelectorProps) {
+	const queryClient = useQueryClient();
 	const [searchQuery, setSearchQuery] = useState("");
 	const [isOpen, setIsOpen] = useState(false);
-	const [currentPrompt, setCurrentPrompt] = useState<PromptOut | null>(null);
-	const [currentPromptLoading, setCurrentPromptLoading] = useState(true);
 	const [currentPromptError, setCurrentPromptError] = useState<string | null>(
 		null,
 	);
-	const [isUpdating, setIsUpdating] = useState(false);
+	const updatePrompt = useMutation({
+		...updateWorkPromptPromptsWorksWorkIdPromptPatchMutation(),
+	});
 
 	const {
 		data: promptsList,
 		loading: searchLoading,
 		error: searchError,
 	} = useWorkPrompts(workId, searchQuery);
-
-	// Load current prompt on mount
-	useEffect(() => {
-		async function loadCurrentPrompt() {
-			try {
-				setCurrentPromptLoading(true);
-				const response = await Prompts.getWorkPromptPromptsWorksWorkIdPromptGet(
-					{
-						path: { work_id: workId },
-						throwOnError: true,
-					},
-				);
-				setCurrentPrompt(response.data);
-				setCurrentPromptError(null);
-			} catch (error) {
-				const message = getApiErrorMessage(
-					error,
-					"Failed to load current prompt",
-				);
-				setCurrentPromptError(message);
-			} finally {
-				setCurrentPromptLoading(false);
-			}
-		}
-
-		loadCurrentPrompt();
-	}, [workId]);
+	const {
+		data: currentPrompt,
+		loading: currentPromptLoading,
+		error: workPromptError,
+	} = useWorkPromptDetail(workId);
 
 	async function handleSelectPrompt(prompt: PromptOut) {
-		setIsUpdating(true);
 		try {
-			const response =
-				await Prompts.updateWorkPromptPromptsWorksWorkIdPromptPatch({
-					path: { work_id: workId },
-					body: { prompt_id: prompt.id },
-					throwOnError: true,
-				});
-			setCurrentPrompt(response.data);
+			const response = await updatePrompt.mutateAsync({
+				path: { work_id: workId },
+				body: { prompt_id: prompt.id },
+			});
+			await Promise.all([
+				invalidateWorkPromptDetail(queryClient, workId),
+				invalidateWorkPromptLists(queryClient, workId),
+			]);
 			setSearchQuery("");
 			setIsOpen(false);
-			onPromptSelect?.(response.data);
+			setCurrentPromptError(null);
+			onPromptSelect?.(response);
 		} catch (error) {
 			const message = getApiErrorMessage(error, "Failed to update prompt");
 			setCurrentPromptError(message);
-		} finally {
-			setIsUpdating(false);
 		}
 	}
 
 	const displayPrompts = promptsList?.items ?? [];
+	const isUpdating = updatePrompt.isPending;
 	const isLoading = searchLoading || currentPromptLoading || isUpdating;
+	const displayCurrentPromptError = currentPromptError ?? workPromptError;
 
 	return (
 		<Stack gap={3}>
@@ -196,9 +182,9 @@ export function WorkPromptSelector({
 			</Box>
 
 			{/* Error Message */}
-			{currentPromptError && !isUpdating && (
+			{displayCurrentPromptError && !isUpdating && (
 				<Text fontSize="xs" color="red.500">
-					{currentPromptError}
+					{displayCurrentPromptError}
 				</Text>
 			)}
 		</Stack>

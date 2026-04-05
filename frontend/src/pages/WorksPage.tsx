@@ -21,16 +21,11 @@ interface WorksPageProps {
 
 export function WorksPage({ onSelectWork }: WorksPageProps) {
 	const [query, setQuery] = useState("");
-	const [refreshToken, setRefreshToken] = useState(0);
 	const [isAddModalOpen, setAddModalOpen] = useState(false);
-	const { data, loading, error } = useWorks(query, refreshToken);
+	const { data, loading, error } = useWorks(query);
 
 	const works = data?.items ?? [];
 	const skeletonKeys = ["one", "two", "three", "four", "five", "six"];
-	const handleImportSuccess = () => {
-		setRefreshToken((token) => token + 1);
-	};
-
 	return (
 		<Box py={10}>
 			<Container maxW="6xl">
@@ -105,7 +100,6 @@ export function WorksPage({ onSelectWork }: WorksPageProps) {
 			<AddWorkModal
 				isOpen={isAddModalOpen}
 				onClose={() => setAddModalOpen(false)}
-				onImported={handleImportSuccess}
 			/>
 		</Box>
 	);

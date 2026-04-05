@@ -39,13 +39,12 @@ export function ChapterDetailPage({
 		loading: workPromptLoading,
 		error: workPromptError,
 		notAssigned: workPromptNotAssigned,
-		refresh: refreshWorkPrompt,
 	} = useWorkPromptDetail(workId);
 
 	const promptOverride = usePromptOverride({
+		workId,
 		workPrompt,
 		workPromptNotAssigned,
-		onRefresh: refreshWorkPrompt,
 	});
 
 	const handleRegenerateSegments = useCallback(async () => {

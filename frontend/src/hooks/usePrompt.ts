@@ -1,70 +1,24 @@
-import { useEffect, useState } from "react";
-import { Prompts } from "../client";
-import { getApiErrorMessage } from "../lib/api";
+import {
+	getPromptPromptsPromptIdGetOptions,
+	getPromptPromptsPromptIdGetQueryKey,
+} from "../client/@tanstack/react-query.gen";
+import { useQueryState } from "../lib/queryState";
 import type { PromptDetail } from "../types/prompts";
 
-interface PromptState {
-	data: PromptDetail | null;
-	loading: boolean;
-	error: string | null;
-}
+export function usePrompt(promptId: number | null) {
+	const hasPromptId = promptId != null;
+	const { data, loading, error } = useQueryState<
+		PromptDetail,
+		PromptDetail,
+		Error,
+		ReturnType<typeof getPromptPromptsPromptIdGetQueryKey>
+	>({
+		...getPromptPromptsPromptIdGetOptions({
+			path: { prompt_id: promptId ?? 0 },
+		}),
+		enabled: hasPromptId,
+		fallbackErrorMessage: "Failed to fetch prompt",
+	});
 
-const defaultState: PromptState = {
-	data: null,
-	loading: false,
-	error: null,
-};
-
-export function usePrompt(promptId: number | null, refreshToken = 0) {
-	const [state, setState] = useState<PromptState>(defaultState);
-	const refreshKey = refreshToken;
-
-	useEffect(() => {
-		void refreshKey;
-		if (!promptId) {
-			setState(defaultState);
-			return;
-		}
-		const resolvedPromptId = promptId;
-
-		let cancelled = false;
-		const controller = new AbortController();
-
-		async function fetchPrompt() {
-			setState((prev) => ({ ...prev, loading: true, error: null }));
-			try {
-				const response = await Prompts.getPromptPromptsPromptIdGet({
-					path: { prompt_id: resolvedPromptId },
-					signal: controller.signal,
-					throwOnError: true,
-				});
-
-				if (!cancelled) {
-					setState({
-						data: response.data,
-						loading: false,
-						error: null,
-					});
-				}
-			} catch (error) {
-				if (cancelled || controller.signal.aborted) {
-					return;
-				}
-				setState({
-					data: null,
-					loading: false,
-					error: getApiErrorMessage(error, "Failed to fetch prompt"),
-				});
-			}
-		}
-
-		fetchPrompt();
-
-		return () => {
-			cancelled = true;
-			controller.abort();
-		};
-	}, [promptId, refreshKey]);
-
-	return state;
+	return { data, loading, error };
 }

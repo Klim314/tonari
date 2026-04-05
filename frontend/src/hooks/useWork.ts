@@ -1,74 +1,24 @@
-import { useEffect, useState } from "react";
-import { Works } from "../client";
-import { getApiErrorMessage } from "../lib/api";
+import {
+	getWorkWorksWorkIdGetOptions,
+	getWorkWorksWorkIdGetQueryKey,
+} from "../client/@tanstack/react-query.gen";
+import { useQueryState } from "../lib/queryState";
 import type { Work } from "../types/works";
 
-interface WorkState {
-	data: Work | null;
-	loading: boolean;
-	error: string | null;
-}
-
-const defaultState: WorkState = {
-	data: null,
-	loading: false,
-	error: null,
-};
-
-export function useWork(workId?: number | null, refreshToken = 0) {
-	// Initialize loading to true if workId is present to avoid flash of "Work not found"
-	const [state, setState] = useState<WorkState>({
-		...defaultState,
-		loading: !!workId,
+export function useWork(workId?: number | null) {
+	const hasWorkId = workId != null;
+	const { data, loading, error } = useQueryState<
+		Work,
+		Work,
+		Error,
+		ReturnType<typeof getWorkWorksWorkIdGetQueryKey>
+	>({
+		...getWorkWorksWorkIdGetOptions({
+			path: { work_id: workId ?? 0 },
+		}),
+		enabled: hasWorkId,
+		fallbackErrorMessage: "Failed to fetch work",
 	});
-	const refreshKey = refreshToken;
 
-	useEffect(() => {
-		void refreshKey;
-		if (!workId) {
-			setState({ ...defaultState });
-			return;
-		}
-		// Capture workId to ensure it's not null/undefined in the async function
-		const id = workId;
-
-		let cancelled = false;
-		const controller = new AbortController();
-
-		async function fetchWork() {
-			setState((prev) => ({ ...prev, loading: true, error: null }));
-			try {
-				const response = await Works.getWorkWorksWorkIdGet({
-					path: { work_id: id },
-					signal: controller.signal,
-					throwOnError: true,
-				});
-				if (!cancelled) {
-					setState({
-						data: response.data,
-						loading: false,
-						error: null,
-					});
-				}
-			} catch (error) {
-				if (cancelled || controller.signal.aborted) {
-					return;
-				}
-				setState({
-					data: null,
-					loading: false,
-					error: getApiErrorMessage(error, "Failed to fetch work"),
-				});
-			}
-		}
-
-		fetchWork();
-
-		return () => {
-			cancelled = true;
-			controller.abort();
-		};
-	}, [workId, refreshKey]);
-
-	return state;
+	return { data, loading, error };
 }

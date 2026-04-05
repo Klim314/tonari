@@ -20,10 +20,15 @@ import {
 	Stack,
 	Text,
 } from "@chakra-ui/react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Folder } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
-import { apiUrl } from "../clientConfig";
+import { useEffect, useState } from "react";
+import {
+	addChaptersToGroupWorksWorkIdChapterGroupsGroupIdMembersPostMutation,
+	listChapterGroupsWorksWorkIdChapterGroupsGetOptions,
+} from "../client/@tanstack/react-query.gen";
 import { getApiErrorMessage } from "../lib/api";
+import { invalidateWorkChapters } from "../lib/queryInvalidation";
 
 interface ChapterGroup {
 	id: number;
@@ -47,38 +52,33 @@ export function AddToGroupModal({
 	onClose,
 	onSuccess,
 }: AddToGroupModalProps) {
-	const [groups, setGroups] = useState<ChapterGroup[]>([]);
-	const [loading, setLoading] = useState(false);
+	const queryClient = useQueryClient();
 	const [submitting, setSubmitting] = useState<number | null>(null);
 	const [error, setError] = useState<string | null>(null);
-
-	const fetchGroups = useCallback(async () => {
-		setLoading(true);
-		setError(null);
-
-		try {
-			const response = await fetch(apiUrl(`/works/${workId}/chapter-groups`));
-			if (!response.ok) {
-				throw new Error("Failed to load groups");
-			}
-			const data = await response.json();
-			setGroups(data);
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to load groups");
-		} finally {
-			setLoading(false);
-		}
-	}, [workId]);
+	const groupQuery = useQuery({
+		...listChapterGroupsWorksWorkIdChapterGroupsGetOptions({
+			path: { work_id: workId },
+		}),
+		enabled: isOpen,
+	});
+	const addToGroup = useMutation({
+		...addChaptersToGroupWorksWorkIdChapterGroupsGroupIdMembersPostMutation(),
+		onSuccess: async () => {
+			await invalidateWorkChapters(queryClient, workId);
+		},
+	});
+	const groups = (groupQuery.data ?? []) as ChapterGroup[];
+	const loading = groupQuery.isPending || groupQuery.isFetching;
+	const groupsError = groupQuery.error
+		? getApiErrorMessage(groupQuery.error, "Failed to load groups")
+		: null;
 
 	useEffect(() => {
-		if (isOpen) {
-			fetchGroups();
-		} else {
-			setGroups([]);
+		if (!isOpen) {
 			setError(null);
 			setSubmitting(null);
 		}
-	}, [isOpen, fetchGroups]);
+	}, [isOpen]);
 
 	const handleAddToGroup = async (groupId: number) => {
 		if (selectedChapterIds.length === 0) {
@@ -90,24 +90,15 @@ export function AddToGroupModal({
 		setSubmitting(groupId);
 
 		try {
-			const response = await fetch(
-				apiUrl(`/works/${workId}/chapter-groups/${groupId}/members`),
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify({
-						chapter_ids: selectedChapterIds,
-					}),
+			await addToGroup.mutateAsync({
+				path: {
+					work_id: workId,
+					group_id: groupId,
 				},
-			);
-
-			if (!response.ok) {
-				const errorData = await response.json();
-				throw new Error(errorData.detail || "Failed to add chapters to group");
-			}
-
+				body: {
+					chapter_ids: selectedChapterIds,
+				},
+			});
 			onSuccess();
 			onClose();
 		} catch (err) {
@@ -200,11 +191,11 @@ export function AddToGroupModal({
 								</Stack>
 							)}
 
-							{error && (
+							{(error || groupsError) && (
 								<AlertRoot status="error">
 									<AlertIndicator />
 									<AlertContent>
-										<AlertDescription>{error}</AlertDescription>
+										<AlertDescription>{error ?? groupsError}</AlertDescription>
 									</AlertContent>
 								</AlertRoot>
 							)}

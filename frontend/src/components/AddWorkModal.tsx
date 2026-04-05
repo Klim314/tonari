@@ -23,15 +23,17 @@ import {
 	Text,
 	Textarea,
 } from "@chakra-ui/react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Works } from "../client";
+import { importWorkWorksImportPostMutation } from "../client/@tanstack/react-query.gen";
 import { getApiErrorMessage } from "../lib/api";
+import { invalidateWorkLists } from "../lib/queryInvalidation";
 
 interface AddWorkModalProps {
 	isOpen: boolean;
 	onClose: () => void;
-	onImported: (count: number) => void;
+	onImported?: (count: number) => void;
 }
 
 type ImportResult = {
@@ -51,10 +53,17 @@ export function AddWorkModal({
 	onClose,
 	onImported,
 }: AddWorkModalProps) {
+	const queryClient = useQueryClient();
 	const [inputValue, setInputValue] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 	const [results, setResults] = useState<ImportResult[]>([]);
 	const [formError, setFormError] = useState<string | null>(null);
+	const importWork = useMutation({
+		...importWorkWorksImportPostMutation(),
+		onSuccess: async () => {
+			await invalidateWorkLists(queryClient);
+		},
+	});
 
 	const urls = useMemo(() => parseUrls(inputValue), [inputValue]);
 	const hasUrls = urls.length > 0;
@@ -82,9 +91,8 @@ export function AddWorkModal({
 
 		for (const url of urls) {
 			try {
-				await Works.importWorkWorksImportPost({
+				await importWork.mutateAsync({
 					body: { url, force: false },
-					throwOnError: true,
 				});
 				newResults.push({ url, status: "success" });
 				successCount += 1;
@@ -97,7 +105,7 @@ export function AddWorkModal({
 		setResults(newResults);
 		setSubmitting(false);
 		if (successCount > 0) {
-			onImported(successCount);
+			onImported?.(successCount);
 		}
 	};
 

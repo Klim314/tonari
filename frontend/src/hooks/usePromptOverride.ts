@@ -1,12 +1,18 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Prompts } from "../client";
+import { appendPromptVersionPromptsPromptIdVersionsPostMutation } from "../client/@tanstack/react-query.gen";
 import { getApiErrorMessage } from "../lib/api";
+import {
+	invalidatePromptDetail,
+	invalidatePromptVersions,
+	invalidateWorkPromptDetail,
+} from "../lib/queryInvalidation";
 import type { PromptDetail } from "../types/prompts";
 
 interface UsePromptOverrideOptions {
+	workId?: number | null;
 	workPrompt: PromptDetail | null;
 	workPromptNotAssigned: boolean;
-	onRefresh?: () => void;
 }
 
 interface PromptDraft {
@@ -33,15 +39,19 @@ export interface PromptOverrideController {
 const emptyDraft: PromptDraft = { model: "", template: "" };
 
 export function usePromptOverride({
+	workId,
 	workPrompt,
 	workPromptNotAssigned,
-	onRefresh,
 }: UsePromptOverrideOptions): PromptOverrideController {
+	const queryClient = useQueryClient();
 	const [draft, setDraft] = useState<PromptDraft>(emptyDraft);
 	const [baseline, setBaseline] = useState<PromptDraft>(emptyDraft);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const promptPristineRef = useRef(true);
+	const appendPromptVersion = useMutation({
+		...appendPromptVersionPromptsPromptIdVersionsPostMutation(),
+	});
 
 	useEffect(() => {
 		const latestModel = workPrompt?.latest_version?.model ?? "";
@@ -102,14 +112,17 @@ export function usePromptOverride({
 		setSaving(true);
 		setError(null);
 		try {
-			await Prompts.appendPromptVersionPromptsPromptIdVersionsPost({
+			await appendPromptVersion.mutateAsync({
 				path: { prompt_id: workPrompt.id },
 				body: { model: draft.model, template: draft.template },
-				throwOnError: true,
 			});
+			await Promise.all([
+				invalidatePromptDetail(queryClient, workPrompt.id),
+				invalidatePromptVersions(queryClient, workPrompt.id),
+				...(workId ? [invalidateWorkPromptDetail(queryClient, workId)] : []),
+			]);
 			setBaseline(draft);
 			promptPristineRef.current = true;
-			onRefresh?.();
 		} catch (err) {
 			setError(
 				getApiErrorMessage(
@@ -120,7 +133,7 @@ export function usePromptOverride({
 		} finally {
 			setSaving(false);
 		}
-	}, [canSave, draft, onRefresh, workPrompt?.id]);
+	}, [appendPromptVersion, canSave, draft, queryClient, workId, workPrompt]);
 
 	const promptName = workPrompt?.name ?? undefined;
 	const lastSavedAt = workPrompt?.latest_version?.created_at

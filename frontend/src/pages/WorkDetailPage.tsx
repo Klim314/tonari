@@ -12,8 +12,9 @@ import {
 	Stack,
 	Text,
 } from "@chakra-ui/react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type MouseEvent, useMemo, useState } from "react";
-import { apiUrl } from "../clientConfig";
+import { deleteChapterGroupWorksWorkIdChapterGroupsGroupIdDeleteMutation } from "../client/@tanstack/react-query.gen";
 import { AddToGroupModal } from "../components/AddToGroupModal";
 import { ChapterGroupRow } from "../components/ChapterGroupRow";
 import { CreateChapterGroupModal } from "../components/CreateChapterGroupModal";
@@ -24,6 +25,7 @@ import { useChapterSelection } from "../hooks/useChapterSelection";
 import { useWork } from "../hooks/useWork";
 import { useWorkChapters } from "../hooks/useWorkChapters";
 import { getApiErrorMessage } from "../lib/api";
+import { invalidateWorkChapters } from "../lib/queryInvalidation";
 import type { Chapter, ChapterGroup } from "../types/works";
 
 const CHAPTERS_PER_PAGE = 10;
@@ -44,12 +46,18 @@ export function WorkDetailPage({
 	onNavigateToChapter,
 }: WorkDetailPageProps) {
 	const [chapterPage, setChapterPage] = useState(0);
-	const [chaptersRefreshToken, setChaptersRefreshToken] = useState(0);
 	const [manageMode, setManageMode] = useState(false);
 	const [showCreateModal, setShowCreateModal] = useState(false);
 	const [showAddToGroupModal, setShowAddToGroupModal] = useState(false);
 	const [showScrapeModal, setShowScrapeModal] = useState(false);
 	const chapterSelection = useChapterSelection();
+	const queryClient = useQueryClient();
+	const deleteGroup = useMutation({
+		...deleteChapterGroupWorksWorkIdChapterGroupsGroupIdDeleteMutation(),
+		onSuccess: async () => {
+			await invalidateWorkChapters(queryClient, workId);
+		},
+	});
 
 	const {
 		data: work,
@@ -64,7 +72,6 @@ export function WorkDetailPage({
 		workId,
 		CHAPTERS_PER_PAGE,
 		chapterPage * CHAPTERS_PER_PAGE,
-		chaptersRefreshToken,
 	);
 
 	const meta = (work?.source_meta ?? {}) as Record<string, unknown>;
@@ -103,14 +110,9 @@ export function WorkDetailPage({
 	const handleScrapeSuccess = () => {
 		// Scrape requested successfully
 		setChapterPage(0);
-		// We don't need to force refresh here immediately as the SSE will trigger updates
-		// But refreshing once is good to catch the first empty state if any
-		setChaptersRefreshToken((token) => token + 1);
 	};
 
 	const handleGroupCreated = () => {
-		// Refresh chapters list to show new group
-		setChaptersRefreshToken((prev) => prev + 1);
 		chapterSelection.clearSelection();
 		setManageMode(false);
 	};
@@ -121,19 +123,12 @@ export function WorkDetailPage({
 		}
 
 		try {
-			const response = await fetch(
-				apiUrl(`/works/${workId}/chapter-groups/${groupId}`),
-				{
-					method: "DELETE",
+			await deleteGroup.mutateAsync({
+				path: {
+					work_id: workId,
+					group_id: groupId,
 				},
-			);
-
-			if (!response.ok) {
-				throw new Error("Failed to delete group");
-			}
-
-			// Refresh chapters list
-			setChaptersRefreshToken((prev) => prev + 1);
+			});
 		} catch (error) {
 			alert(getApiErrorMessage(error, "Failed to delete group"));
 		}

@@ -19,9 +19,11 @@ import {
 	Input,
 	Stack,
 } from "@chakra-ui/react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { apiUrl } from "../clientConfig";
+import { createChapterGroupWorksWorkIdChapterGroupsPostMutation } from "../client/@tanstack/react-query.gen";
 import { getApiErrorMessage } from "../lib/api";
+import { invalidateWorkChapters } from "../lib/queryInvalidation";
 
 interface CreateChapterGroupModalProps {
 	workId: number;
@@ -38,10 +40,17 @@ export function CreateChapterGroupModal({
 	onClose,
 	onSuccess,
 }: CreateChapterGroupModalProps) {
+	const queryClient = useQueryClient();
 	const [groupName, setGroupName] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [validationError, setValidationError] = useState<string | null>(null);
+	const createGroup = useMutation({
+		...createChapterGroupWorksWorkIdChapterGroupsPostMutation(),
+		onSuccess: async () => {
+			await invalidateWorkChapters(queryClient, workId);
+		},
+	});
 
 	// Reset form when modal opens/closes
 	useEffect(() => {
@@ -82,24 +91,13 @@ export function CreateChapterGroupModal({
 		setSubmitting(true);
 
 		try {
-			// Using fetch directly since the API client might not be regenerated yet
-			const response = await fetch(apiUrl(`/works/${workId}/chapter-groups`), {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
+			await createGroup.mutateAsync({
+				path: { work_id: workId },
+				body: {
 					name: trimmedName,
 					chapter_ids: selectedChapterIds,
-				}),
+				},
 			});
-
-			if (!response.ok) {
-				const errorData = await response.json();
-				throw new Error(errorData.detail || "Failed to create group");
-			}
-
-			// Success!
 			onSuccess();
 			onClose();
 		} catch (err) {

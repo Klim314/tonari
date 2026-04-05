@@ -1,75 +1,28 @@
-import { useEffect, useState } from "react";
-import { Prompts } from "../client";
-import { getApiErrorMessage } from "../lib/api";
+import {
+	listPromptVersionsPromptsPromptIdVersionsGetOptions,
+	listPromptVersionsPromptsPromptIdVersionsGetQueryKey,
+} from "../client/@tanstack/react-query.gen";
+import { useQueryState } from "../lib/queryState";
 import type { PaginatedPromptVersionsResponse } from "../types/prompts";
 
-interface PromptVersionsState {
-	data: PaginatedPromptVersionsResponse | null;
-	loading: boolean;
-	error: string | null;
-}
+export function usePromptVersions(promptId: number | null) {
+	const hasPromptId = promptId != null;
+	const { data, loading, error } = useQueryState<
+		PaginatedPromptVersionsResponse,
+		PaginatedPromptVersionsResponse,
+		Error,
+		ReturnType<typeof listPromptVersionsPromptsPromptIdVersionsGetQueryKey>
+	>({
+		...listPromptVersionsPromptsPromptIdVersionsGetOptions({
+			path: { prompt_id: promptId ?? 0 },
+			query: {
+				limit: 50,
+				offset: 0,
+			},
+		}),
+		enabled: hasPromptId,
+		fallbackErrorMessage: "Failed to fetch prompt versions",
+	});
 
-const defaultState: PromptVersionsState = {
-	data: null,
-	loading: false,
-	error: null,
-};
-
-export function usePromptVersions(promptId: number | null, refreshToken = 0) {
-	const [state, setState] = useState<PromptVersionsState>(defaultState);
-	const refreshKey = refreshToken;
-
-	useEffect(() => {
-		void refreshKey;
-		if (!promptId) {
-			setState(defaultState);
-			return;
-		}
-		const resolvedPromptId = promptId;
-
-		let cancelled = false;
-		const controller = new AbortController();
-
-		async function fetchVersions() {
-			setState((prev) => ({ ...prev, loading: true, error: null }));
-			try {
-				const response =
-					await Prompts.listPromptVersionsPromptsPromptIdVersionsGet({
-						path: { prompt_id: resolvedPromptId },
-						query: {
-							limit: 50,
-							offset: 0,
-						},
-						signal: controller.signal,
-						throwOnError: true,
-					});
-
-				if (!cancelled) {
-					setState({
-						data: response.data,
-						loading: false,
-						error: null,
-					});
-				}
-			} catch (error) {
-				if (cancelled || controller.signal.aborted) {
-					return;
-				}
-				setState({
-					data: null,
-					loading: false,
-					error: getApiErrorMessage(error, "Failed to fetch prompt versions"),
-				});
-			}
-		}
-
-		fetchVersions();
-
-		return () => {
-			cancelled = true;
-			controller.abort();
-		};
-	}, [promptId, refreshKey]);
-
-	return state;
+	return { data, loading, error };
 }

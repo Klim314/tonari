@@ -10,11 +10,19 @@ import {
 	Switch,
 	Text,
 } from "@chakra-ui/react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Works } from "../client";
-import { apiUrl } from "../clientConfig";
+import {
+	cancelChapterScrapeWorksWorkIdScrapeCancelPostMutation,
+	requestChapterScrapeWorksWorkIdScrapeChaptersPostMutation,
+} from "../client/@tanstack/react-query.gen";
 import { type ScrapeStatus, useScrapeStatus } from "../hooks/useScrapeStatus";
 import { getApiErrorMessage } from "../lib/api";
+import {
+	invalidateWorkChapters,
+	invalidateWorkDetail,
+} from "../lib/queryInvalidation";
 import type { Chapter } from "../types/works";
 
 interface ScrapeModalProps {
@@ -41,6 +49,7 @@ export function ScrapeModal({
 	onClose,
 	onSuccess,
 }: ScrapeModalProps) {
+	const queryClient = useQueryClient();
 	const [start, setStart] = useState("");
 	const [end, setEnd] = useState("");
 	const [force, setForce] = useState(false);
@@ -54,6 +63,12 @@ export function ScrapeModal({
 	const logIdRef = useRef(0);
 	const addLog = (msg: string) =>
 		setLogs((prev) => [{ id: logIdRef.current++, msg }, ...prev].slice(0, 5));
+	const queueScrape = useMutation({
+		...requestChapterScrapeWorksWorkIdScrapeChaptersPostMutation(),
+	});
+	const cancelScrape = useMutation({
+		...cancelChapterScrapeWorksWorkIdScrapeCancelPostMutation(),
+	});
 
 	// Hook handles the SSE connection
 	const scrapeStatus = useScrapeStatus(
@@ -149,6 +164,20 @@ export function ScrapeModal({
 		}
 	}, [scrapeStatus.status, isOpen, isTrackingScrape]);
 
+	useEffect(() => {
+		if (
+			!isOpen ||
+			(scrapeStatus.status !== "completed" && scrapeStatus.status !== "partial")
+		) {
+			return;
+		}
+
+		void Promise.all([
+			invalidateWorkChapters(queryClient, workId),
+			invalidateWorkDetail(queryClient, workId),
+		]);
+	}, [isOpen, queryClient, scrapeStatus.status, workId]);
+
 	const handleQueueScrape = async () => {
 		const startValue = Number.parseFloat(start);
 		const endValue = Number.parseFloat(end);
@@ -160,14 +189,13 @@ export function ScrapeModal({
 
 		setSubmitError(null);
 		try {
-			await Works.requestChapterScrapeWorksWorkIdScrapeChaptersPost({
+			await queueScrape.mutateAsync({
 				path: { work_id: workId },
 				body: {
 					start: startValue,
 					end: endValue,
 					force,
 				},
-				throwOnError: true,
 			});
 			setIsTrackingScrape(true);
 			setModalState("scraping");
@@ -179,9 +207,10 @@ export function ScrapeModal({
 	};
 
 	const handleCancel = async () => {
-		// Call backend cancel
 		try {
-			await fetch(apiUrl(`/works/${workId}/scrape-cancel`), { method: "POST" });
+			await cancelScrape.mutateAsync({
+				path: { work_id: workId },
+			});
 		} catch (e) {
 			console.error("Failed to cancel scrape", e);
 		}

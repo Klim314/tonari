@@ -11,26 +11,34 @@ import {
 	useDisclosure,
 	VStack,
 } from "@chakra-ui/react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
-import { Prompts } from "../client";
+import { createPromptPromptsPostMutation } from "../client/@tanstack/react-query.gen";
 import { useBrowserLocation } from "../hooks/useBrowserLocation";
 import { usePromptEditor } from "../hooks/usePromptEditor";
 import { usePrompts } from "../hooks/usePrompts";
+import { invalidatePromptLists } from "../lib/queryInvalidation";
 import { PromptEditor } from "./PromptEditor";
 import { UnsavedChangesDialog } from "./PromptEditor/UnsavedChangesDialog";
 
 export function PromptsLandingPane() {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [selectedPromptId, setSelectedPromptId] = useState<number | null>(null);
-	const [refreshToken, setRefreshToken] = useState(0);
 	const { open: isDialogOpen, onOpen, onClose } = useDisclosure();
 	const [pendingPromptId, setPendingPromptId] = useState<number | null>(null);
 	const [isEditorDirty, setIsEditorDirty] = useState(false);
 	const [isEditorSaving, setIsEditorSaving] = useState(false);
 	const { registerEditor, saveChanges, discardChanges } = usePromptEditor();
 	const { navigate } = useBrowserLocation();
+	const queryClient = useQueryClient();
+	const createPrompt = useMutation({
+		...createPromptPromptsPostMutation(),
+		onSuccess: async () => {
+			await invalidatePromptLists(queryClient);
+		},
+	});
 
-	const promptsState = usePrompts(searchQuery, refreshToken);
+	const promptsState = usePrompts(searchQuery);
 
 	const handleSelectPrompt = useCallback(
 		(promptId: number) => {
@@ -49,17 +57,15 @@ export function PromptsLandingPane() {
 
 	const handleCreateNewPrompt = async () => {
 		try {
-			const response = await Prompts.createPromptPromptsPost({
+			const response = await createPrompt.mutateAsync({
 				body: {
 					name: "Untitled Prompt",
 					description: null,
 				},
-				throwOnError: true,
 			});
 
-			const promptId = response.data.id;
+			const promptId = response.id;
 			setSelectedPromptId(promptId);
-			setRefreshToken((prev) => prev + 1);
 		} catch (error) {
 			console.error("Failed to create prompt:", error);
 		}
@@ -83,14 +89,11 @@ export function PromptsLandingPane() {
 		onClose();
 	}, [onClose, pendingPromptId, saveChanges]);
 
-	const handlePromptSaved = useCallback(() => {
-		setRefreshToken((prev) => prev + 1);
-	}, []);
+	const handlePromptSaved = useCallback(() => {}, []);
 
 	const handlePromptDeleted = useCallback(() => {
 		setSelectedPromptId(null);
 		setIsEditorDirty(false);
-		setRefreshToken((prev) => prev + 1);
 	}, []);
 
 	return (

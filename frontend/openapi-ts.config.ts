@@ -16,5 +16,11 @@ export default defineConfig({
 			name: "@hey-api/client-axios",
 			runtimeConfigPath: "../clientConfig.ts",
 		},
+		{
+			name: "@tanstack/react-query",
+			queryOptions: true,
+			queryKeys: true,
+			mutationOptions: true,
+		},
 	],
 });

@@ -21,7 +21,7 @@ interface LandingWorksPaneProps {
 
 export function LandingWorksPane({ onSelectWork }: LandingWorksPaneProps) {
 	const [query, setQuery] = useState("");
-	const { data, loading, error } = useWorks(query, 0);
+	const { data, loading, error } = useWorks(query);
 
 	const works = data?.items ?? [];
 

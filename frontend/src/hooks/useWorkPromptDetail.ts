@@ -1,92 +1,54 @@
+import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
-import { useCallback, useEffect, useState } from "react";
 import { Prompts } from "../client";
+import { getWorkPromptPromptsWorksWorkIdPromptGetQueryKey } from "../client/@tanstack/react-query.gen";
 import { getApiErrorMessage } from "../lib/api";
 import type { PromptDetail } from "../types/prompts";
 
-interface WorkPromptState {
-	data: PromptDetail | null;
-	loading: boolean;
-	error: string | null;
-	notAssigned: boolean;
-}
+export function useWorkPromptDetail(workId?: number | null) {
+	const query = useQuery<PromptDetail | null>({
+		queryKey: workId
+			? getWorkPromptPromptsWorksWorkIdPromptGetQueryKey({
+					path: { work_id: workId },
+				})
+			: (["work-prompt", "empty", workId] as const),
+		enabled: Boolean(workId),
+		queryFn: async ({ signal }) => {
+			if (!workId) {
+				return null;
+			}
 
-const defaultState: WorkPromptState = {
-	data: null,
-	loading: false,
-	error: null,
-	notAssigned: false,
-};
-
-export function useWorkPromptDetail(workId?: number | null, refreshToken = 0) {
-	const [state, setState] = useState<WorkPromptState>(defaultState);
-	const [localRefresh, setLocalRefresh] = useState(0);
-	const refreshKey = `${refreshToken}:${localRefresh}`;
-
-	const refresh = useCallback(() => {
-		setLocalRefresh((value) => value + 1);
-	}, []);
-
-	useEffect(() => {
-		void refreshKey;
-		if (!workId) {
-			setState(defaultState);
-			return;
-		}
-		const resolvedWorkId = workId;
-
-		let cancelled = false;
-		const controller = new AbortController();
-
-		async function fetchWorkPrompt() {
-			setState((prev) => ({ ...prev, loading: true, error: null }));
 			try {
 				const response = await Prompts.getWorkPromptPromptsWorksWorkIdPromptGet(
 					{
-						path: { work_id: resolvedWorkId },
-						signal: controller.signal,
+						path: { work_id: workId },
+						signal,
 						throwOnError: true,
 					},
 				);
-				if (cancelled) return;
-				setState({
-					data: response.data,
-					loading: false,
-					error: null,
-					notAssigned: false,
-				});
-			} catch (error) {
-				if (cancelled || controller.signal.aborted) {
-					return;
+				return response.data;
+			} catch (queryError) {
+				if (
+					axios.isAxiosError(queryError) &&
+					queryError.response?.status === 404
+				) {
+					return null;
 				}
-				if (axios.isAxiosError(error) && error.response?.status === 404) {
-					setState({
-						data: null,
-						loading: false,
-						error: null,
-						notAssigned: true,
-					});
-					return;
-				}
-				setState({
-					data: null,
-					loading: false,
-					error: getApiErrorMessage(
-						error,
-						"Failed to load the prompt assigned to this work.",
-					),
-					notAssigned: false,
-				});
+				throw queryError;
 			}
-		}
+		},
+	});
 
-		fetchWorkPrompt();
-
-		return () => {
-			cancelled = true;
-			controller.abort();
-		};
-	}, [refreshKey, workId]);
-
-	return { ...state, refresh };
+	return {
+		data: query.data ?? null,
+		loading: query.isPending || query.isFetching,
+		error: query.error
+			? getApiErrorMessage(
+					query.error,
+					"Failed to load the prompt assigned to this work.",
+				)
+			: null,
+		notAssigned:
+			!(query.isPending || query.isFetching) && !query.error && !query.data,
+	};
 }

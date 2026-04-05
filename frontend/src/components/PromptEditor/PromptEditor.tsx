@@ -9,13 +9,24 @@ import {
 	useDisclosure,
 	VStack,
 } from "@chakra-ui/react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { ChevronLeft } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { Prompts } from "../../client";
+import {
+	appendPromptVersionPromptsPromptIdVersionsPostMutation,
+	deletePromptPromptsPromptIdDeleteMutation,
+	updatePromptPromptsPromptIdPatchMutation,
+} from "../../client/@tanstack/react-query.gen";
 import { usePrompt } from "../../hooks/usePrompt";
 import { usePromptVersions } from "../../hooks/usePromptVersions";
 import { getApiErrorMessage } from "../../lib/api";
+import {
+	invalidatePromptDetail,
+	invalidatePromptLists,
+	invalidatePromptVersions,
+	removePromptQueries,
+} from "../../lib/queryInvalidation";
 import { DeletePromptDialog } from "./DeletePromptDialog";
 import { MetadataEditor } from "./MetadataEditor";
 import { TemplateEditor } from "./TemplateEditor";
@@ -84,13 +95,21 @@ export function PromptEditor({
 	);
 
 	const resolvedPromptId = promptId;
-	const [refreshToken, setRefreshToken] = useState(0);
-
-	const promptState = usePrompt(resolvedPromptId, refreshToken);
-	const versionsState = usePromptVersions(resolvedPromptId, refreshToken);
+	const queryClient = useQueryClient();
+	const promptState = usePrompt(resolvedPromptId);
+	const versionsState = usePromptVersions(resolvedPromptId);
 	const latestVersionId = promptState.data?.latest_version?.id ?? null;
 	const [isDeleting, setIsDeleting] = useState(false);
 	const [deleteError, setDeleteError] = useState<string | null>(null);
+	const updatePrompt = useMutation({
+		...updatePromptPromptsPromptIdPatchMutation(),
+	});
+	const appendPromptVersion = useMutation({
+		...appendPromptVersionPromptsPromptIdVersionsPostMutation(),
+	});
+	const deletePrompt = useMutation({
+		...deletePromptPromptsPromptIdDeleteMutation(),
+	});
 
 	const [editorState, setEditorState] = useState<PromptEditorState>({
 		promptId: resolvedPromptId || 0,
@@ -186,25 +205,29 @@ export function PromptEditor({
 
 		try {
 			// First, update metadata (name, description)
-			await Prompts.updatePromptPromptsPromptIdPatch({
+			await updatePrompt.mutateAsync({
 				path: { prompt_id: resolvedPromptId },
 				body: {
 					name: editorState.draft.name,
 					description: editorState.draft.description || null,
 				},
-				throwOnError: true,
 			});
 
 			// Then, create or update version
 			// TODO: Backend will handle 5-min window logic
-			await Prompts.appendPromptVersionPromptsPromptIdVersionsPost({
+			await appendPromptVersion.mutateAsync({
 				path: { prompt_id: resolvedPromptId },
 				body: {
 					model: editorState.draft.model,
 					template: editorState.draft.template,
 				},
-				throwOnError: true,
 			});
+
+			await Promise.all([
+				invalidatePromptLists(queryClient),
+				invalidatePromptDetail(queryClient, resolvedPromptId),
+				invalidatePromptVersions(queryClient, resolvedPromptId),
+			]);
 
 			setEditorState((prev) => ({
 				...prev,
@@ -214,7 +237,6 @@ export function PromptEditor({
 				selectedVersionId: null,
 			}));
 
-			setRefreshToken((prev) => prev + 1);
 			onPromptSaved?.();
 		} catch (error) {
 			console.error("Failed to save changes:", error);
@@ -250,8 +272,11 @@ export function PromptEditor({
 		editorState.draft.template,
 		editorState.isDirty,
 		editorState.isSaving,
+		appendPromptVersion,
 		onPromptSaved,
+		queryClient,
 		resolvedPromptId,
+		updatePrompt,
 	]);
 
 	const handleDiscardChanges = useCallback(() => {
@@ -318,10 +343,11 @@ export function PromptEditor({
 		setIsDeleting(true);
 		setDeleteError(null);
 		try {
-			await Prompts.deletePromptPromptsPromptIdDelete({
+			await deletePrompt.mutateAsync({
 				path: { prompt_id: resolvedPromptId },
-				throwOnError: true,
 			});
+			removePromptQueries(queryClient, resolvedPromptId);
+			await invalidatePromptLists(queryClient);
 			setEditorState({
 				promptId: 0,
 				draft: { ...emptyDraft },
@@ -344,8 +370,10 @@ export function PromptEditor({
 		handleCloseDeleteDialog,
 		isDeleting,
 		onPromptDeleted,
+		queryClient,
 		promptState.loading,
 		resolvedPromptId,
+		deletePrompt,
 	]);
 
 	const loading = promptState.loading || versionsState.loading;
