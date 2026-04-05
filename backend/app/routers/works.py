@@ -288,7 +288,16 @@ async def stream_scrape_status(work_id: int, request: Request):
             if job:
                 yield _sse_event(
                     "job-status",
-                    {"status": job.status, "progress": job.progress, "total": job.total},
+                    {
+                        "status": job.status,
+                        "progress": job.progress,
+                        "total": job.total,
+                        "created": job.created_count,
+                        "updated": job.updated_count,
+                        "skipped": job.skipped_count,
+                        "failed": job.failed_count,
+                        "errors": job.error_details or [],
+                    },
                 )
             else:
                 yield _sse_event("job-status", {"status": "idle"})

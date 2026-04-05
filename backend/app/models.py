@@ -68,6 +68,11 @@ class ScrapeJob(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+    failed_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    created_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    updated_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    skipped_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    error_details: Mapped[list | None] = mapped_column(JSON, default=None, nullable=True)
 
 
 class ChapterTranslation(Base):

@@ -92,6 +92,11 @@ class ScrapeJobOut(BaseModel):
     total: int
     created_at: datetime
     updated_at: datetime
+    failed_count: int = 0
+    created_count: int = 0
+    updated_count: int = 0
+    skipped_count: int = 0
+    error_details: list[ChapterScrapeErrorItem] | None = None
 
     class Config:
         from_attributes = True

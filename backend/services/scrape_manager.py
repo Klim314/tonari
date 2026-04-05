@@ -127,7 +127,10 @@ class ScrapeManager:
 
                 scraper = scraper_registry.resolve_by_source(work.source)
 
-                completed_count = 0
+                created_count = 0
+                updated_count = 0
+                skipped_count = 0
+                chapter_errors: list[dict] = []
 
                 for i, sort_key in enumerate(keys_to_scrape):
                     # Check for cancellation/freshness
@@ -183,6 +186,9 @@ class ScrapeManager:
                                     "chapter-found",
                                     {"idx": float(sort_key), "title": title, "status": "updated"},
                                 )
+                                updated_count += 1
+                            else:
+                                skipped_count += 1
                         else:
                             # Create new
                             from app.models import Chapter
@@ -201,14 +207,18 @@ class ScrapeManager:
                                 "chapter-found",
                                 {"idx": float(sort_key), "title": title, "status": "created"},
                             )
+                            created_count += 1
 
                         db.commit()
-                        completed_count += 1
 
                     except Exception as e:
                         logger.error(f"Error scraping chapter {sort_key}: {e}")
-                        # We continue to next chapter
-                        pass
+                        chapter_errors.append({"chapter": float(sort_key), "reason": str(e)})
+                        await self._broadcast(
+                            job.work_id,
+                            "chapter-error",
+                            {"chapter": float(sort_key), "reason": str(e)},
+                        )
                     finally:
                         job.updated_at = datetime.now(UTC)
                         job.progress = i + 1
@@ -223,11 +233,35 @@ class ScrapeManager:
                             },
                         )
 
-                # Done
-                job.status = "completed"
+                # Determine terminal status
+                has_successes = (created_count + updated_count + skipped_count) > 0
+                if chapter_errors:
+                    terminal_status = "partial" if has_successes else "failed"
+                else:
+                    terminal_status = "completed"
+
+                job.status = terminal_status
                 job.progress = job.total
+                job.created_count = created_count
+                job.updated_count = updated_count
+                job.skipped_count = skipped_count
+                job.failed_count = len(chapter_errors)
+                job.error_details = chapter_errors if chapter_errors else None
                 db.commit()
-                await self._broadcast(job.work_id, "job-status", {"status": "completed"})
+                await self._broadcast(
+                    job.work_id,
+                    "job-status",
+                    {
+                        "status": terminal_status,
+                        "progress": job.total,
+                        "total": job.total,
+                        "created": created_count,
+                        "updated": updated_count,
+                        "skipped": skipped_count,
+                        "failed": len(chapter_errors),
+                        "errors": chapter_errors,
+                    },
+                )
 
             except Exception as e:
                 logger.error(f"Job {job_id} failed: {e}")

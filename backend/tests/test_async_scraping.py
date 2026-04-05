@@ -3,10 +3,11 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
-from app.models import ScrapeJob, Work
+from app.models import Chapter, ScrapeJob, Work
 from services.scrape_manager import ScrapeManager
-from tests.test_chapters_service import _attach_fake_scraper
+from tests.test_chapters_service import FakeScraper, _attach_fake_scraper
 
 
 def test_create_scrape_job(db_session, monkeypatch):
@@ -121,6 +122,170 @@ def test_api_concurrency_prevention(client, db_session, monkeypatch):
 
     assert resp.status_code == 409
     assert f"job {existing_job.id}" in resp.json()["detail"]
+
+
+def test_run_scrape_job_tracks_counters_on_clean_run(db_session, monkeypatch):
+    _attach_fake_scraper(monkeypatch)
+    work = Work(title="Counter Work", source="fake", source_id="job-counters")
+    db_session.add(work)
+    db_session.commit()
+
+    manager = ScrapeManager(db_session)
+    job = manager.create_job(work.id, Decimal("1"), Decimal("5"))
+
+    asyncio.run(manager.run_scrape_job(job.id, force=False))
+
+    db_session.refresh(job)
+    assert job.status == "completed"
+    assert job.created_count == 5
+    assert job.updated_count == 0
+    assert job.skipped_count == 0
+    assert job.failed_count == 0
+    assert job.error_details is None
+
+
+def test_run_scrape_job_marks_partial_when_some_chapters_fail(db_session, monkeypatch):
+    class PartialFakeScraper(FakeScraper):
+        def scrape_chapter(self, url: str) -> tuple[str, str]:
+            if url.endswith("/3.0000"):
+                raise ValueError("simulated scrape error for ch 3")
+            return super().scrape_chapter(url)
+
+    monkeypatch.setattr("app.scrapers.scraper_registry._scrapers", [PartialFakeScraper()])
+
+    work = Work(title="Partial Work", source="fake", source_id="job-partial")
+    db_session.add(work)
+    db_session.commit()
+
+    manager = ScrapeManager(db_session)
+    job = manager.create_job(work.id, Decimal("1"), Decimal("5"))
+
+    asyncio.run(manager.run_scrape_job(job.id, force=False))
+
+    db_session.refresh(job)
+    assert job.status == "partial"
+    assert job.failed_count == 1
+    assert job.created_count == 4
+    assert job.error_details is not None
+    assert len(job.error_details) == 1
+    assert job.error_details[0]["chapter"] == 3.0
+    assert "simulated scrape error" in job.error_details[0]["reason"]
+
+
+def test_run_scrape_job_marks_failed_when_all_chapters_fail(db_session, monkeypatch):
+    class AlwaysFailScraper(FakeScraper):
+        def scrape_chapter(self, url: str) -> tuple[str, str]:
+            raise RuntimeError("always fails")
+
+    monkeypatch.setattr("app.scrapers.scraper_registry._scrapers", [AlwaysFailScraper()])
+
+    work = Work(title="All Fail Work", source="fake", source_id="job-allfail")
+    db_session.add(work)
+    db_session.commit()
+
+    manager = ScrapeManager(db_session)
+    job = manager.create_job(work.id, Decimal("1"), Decimal("3"))
+
+    asyncio.run(manager.run_scrape_job(job.id, force=False))
+
+    db_session.refresh(job)
+    assert job.status == "failed"
+    assert job.failed_count == 3
+    assert job.created_count == 0
+    assert job.error_details is not None
+    assert len(job.error_details) == 3
+
+
+def test_run_scrape_job_tracks_updated_and_skipped(db_session, monkeypatch):
+    _attach_fake_scraper(monkeypatch)
+    work = Work(title="Update Skip Work", source="fake", source_id="job-upskip")
+    db_session.add(work)
+    db_session.commit()
+
+    from services.chapters import ChaptersService
+
+    chapters_service = ChaptersService(db_session)
+
+    # Seed ch 1 with correct hash (will be skipped) and ch 2 with wrong hash (will be updated)
+    fake_title_1, fake_text_1 = "Chapter 1", "Body 1"
+    fake_title_2, fake_text_2 = "Chapter 2", "Body 2"
+    correct_hash = chapters_service._hash_text(fake_text_1)
+    stale_hash = "deadbeef" * 8  # wrong hash → triggers update
+
+    ch1 = Chapter(
+        work_id=work.id,
+        idx=1,
+        sort_key=Decimal("1.0000"),
+        title=fake_title_1,
+        normalized_text=fake_text_1,
+        text_hash=correct_hash,
+    )
+    ch2 = Chapter(
+        work_id=work.id,
+        idx=2,
+        sort_key=Decimal("2.0000"),
+        title=fake_title_2,
+        normalized_text=fake_text_2,
+        text_hash=stale_hash,
+    )
+    db_session.add_all([ch1, ch2])
+    db_session.commit()
+
+    manager = ScrapeManager(db_session)
+    # Scrape range 1–3: ch1 skipped, ch2 updated, ch3 created
+    job = manager.create_job(work.id, Decimal("1"), Decimal("3"))
+
+    asyncio.run(manager.run_scrape_job(job.id, force=False))
+
+    db_session.refresh(job)
+    assert job.status == "completed"
+    assert job.created_count == 1
+    assert job.updated_count == 1
+    assert job.skipped_count == 1
+    assert job.failed_count == 0
+
+
+def test_run_scrape_job_terminal_broadcast_includes_errors(db_session, monkeypatch):
+    class PartialFakeScraper(FakeScraper):
+        def scrape_chapter(self, url: str) -> tuple[str, str]:
+            if url.endswith("/2.0000"):
+                raise ValueError("broadcast test error")
+            return super().scrape_chapter(url)
+
+    monkeypatch.setattr("app.scrapers.scraper_registry._scrapers", [PartialFakeScraper()])
+
+    work = Work(title="Broadcast Work", source="fake", source_id="job-broadcast")
+    db_session.add(work)
+    db_session.commit()
+
+    broadcast_calls: list[tuple[int, str, dict]] = []
+
+    async def capture_broadcast(work_id, event_type, data):
+        broadcast_calls.append((work_id, event_type, data))
+
+    manager = ScrapeManager(db_session)
+    job = manager.create_job(work.id, Decimal("1"), Decimal("3"))
+
+    with patch.object(manager, "_broadcast", side_effect=capture_broadcast):
+        asyncio.run(manager.run_scrape_job(job.id, force=False))
+
+    db_session.refresh(job)
+
+    # Find the terminal job-status broadcast
+    terminal = next(
+        (
+            d
+            for (_, evt, d) in broadcast_calls
+            if evt == "job-status"
+            and d["status"] in ("partial", "failed", "completed")
+            and "errors" in d
+        ),
+        None,
+    )
+    assert terminal is not None, "Expected a terminal job-status broadcast with errors key"
+    assert terminal["status"] == "partial"
+    assert len(terminal["errors"]) == 1
+    assert terminal["errors"][0]["chapter"] == 2.0
 
 
 def test_run_scrape_job_marks_job_failed_when_work_has_no_source(db_session, monkeypatch):
