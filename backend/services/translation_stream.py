@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import Chapter, ChapterTranslation, TranslationSegment
-from app.translation_service import hash_text, newline_segment_slices
+from app.segment_utils import hash_text, newline_segment_slices
 
 
 class TranslationStreamService:
