@@ -69,7 +69,7 @@ Each finding includes:
 
 - ID: `A-002`
 - Priority: `Now`
-- Status: `planned`
+- Status: `done`
 - Area: `backend / translation architecture consistency`
 - Files:
   - `backend/app/routers/works.py`
@@ -89,7 +89,7 @@ Each finding includes:
 
 - ID: `A-003`
 - Priority: `Now`
-- Status: `planned`
+- Status: `done`
 - Area: `frontend / server-state architecture`
 - Files:
   - `frontend/src/client/`
