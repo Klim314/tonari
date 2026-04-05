@@ -6,15 +6,16 @@ import { getApiErrorMessage } from "../lib/api";
 import type { PromptDetail } from "../types/prompts";
 
 export function useWorkPromptDetail(workId?: number | null) {
+	const hasWorkId = workId != null;
 	const query = useQuery<PromptDetail | null>({
-		queryKey: workId
+		queryKey: hasWorkId
 			? getWorkPromptPromptsWorksWorkIdPromptGetQueryKey({
 					path: { work_id: workId },
 				})
 			: (["work-prompt", "empty", workId] as const),
-		enabled: Boolean(workId),
+		enabled: hasWorkId,
 		queryFn: async ({ signal }) => {
-			if (!workId) {
+			if (!hasWorkId) {
 				return null;
 			}
 
@@ -41,14 +42,13 @@ export function useWorkPromptDetail(workId?: number | null) {
 
 	return {
 		data: query.data ?? null,
-		loading: query.isPending || query.isFetching,
+		loading: query.isLoading,
 		error: query.error
 			? getApiErrorMessage(
 					query.error,
 					"Failed to load the prompt assigned to this work.",
 				)
 			: null,
-		notAssigned:
-			!(query.isPending || query.isFetching) && !query.error && !query.data,
+		notAssigned: hasWorkId && !query.isLoading && !query.error && !query.data,
 	};
 }

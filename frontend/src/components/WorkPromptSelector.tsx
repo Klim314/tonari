@@ -2,7 +2,10 @@ import { Box, Button, HStack, Input, Stack, Text } from "@chakra-ui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { PromptOut } from "../client";
-import { updateWorkPromptPromptsWorksWorkIdPromptPatchMutation } from "../client/@tanstack/react-query.gen";
+import {
+	getWorkPromptPromptsWorksWorkIdPromptGetQueryKey,
+	updateWorkPromptPromptsWorksWorkIdPromptPatchMutation,
+} from "../client/@tanstack/react-query.gen";
 import { useWorkPromptDetail } from "../hooks/useWorkPromptDetail";
 import { useWorkPrompts } from "../hooks/useWorkPrompts";
 import { getApiErrorMessage } from "../lib/api";
@@ -47,6 +50,12 @@ export function WorkPromptSelector({
 				path: { work_id: workId },
 				body: { prompt_id: prompt.id },
 			});
+			queryClient.setQueryData(
+				getWorkPromptPromptsWorksWorkIdPromptGetQueryKey({
+					path: { work_id: workId },
+				}),
+				response,
+			);
 			await Promise.all([
 				invalidateWorkPromptDetail(queryClient, workId),
 				invalidateWorkPromptLists(queryClient, workId),

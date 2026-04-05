@@ -60,9 +60,6 @@ export function AddWorkModal({
 	const [formError, setFormError] = useState<string | null>(null);
 	const importWork = useMutation({
 		...importWorkWorksImportPostMutation(),
-		onSuccess: async () => {
-			await invalidateWorkLists(queryClient);
-		},
 	});
 
 	const urls = useMemo(() => parseUrls(inputValue), [inputValue]);
@@ -100,6 +97,10 @@ export function AddWorkModal({
 				const message = getApiErrorMessage(error, "Failed to import work.");
 				newResults.push({ url, status: "error", message });
 			}
+		}
+
+		if (successCount > 0) {
+			await invalidateWorkLists(queryClient);
 		}
 
 		setResults(newResults);
