@@ -1,7 +1,11 @@
 import os
 from collections.abc import Generator
 
-os.environ.setdefault("DATABASE_URL", "sqlite+pysqlite:///:memory:")
+# Force in-memory SQLite for all tests — never run against the real database.
+# Using os.environ directly (not setdefault) so this cannot be overridden by
+# the container's DATABASE_URL env var, which would cause drop_all to wipe
+# live Postgres data.
+os.environ["DATABASE_URL"] = "sqlite+pysqlite:///:memory:"
 
 import pytest
 from fastapi.testclient import TestClient
