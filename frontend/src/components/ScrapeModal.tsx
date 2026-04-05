@@ -10,7 +10,7 @@ import {
 	Switch,
 	Text,
 } from "@chakra-ui/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Works } from "../client";
 import { apiUrl } from "../clientConfig";
 import { type ScrapeStatus, useScrapeStatus } from "../hooks/useScrapeStatus";
@@ -24,12 +24,13 @@ interface ScrapeModalProps {
 	onSuccess: () => void;
 }
 
-type ModalState = "input" | "scraping" | "completed";
+type ModalState = "input" | "scraping" | "completed" | "partial";
 
 const STATUS_LABELS: Record<ScrapeStatus, string> = {
 	pending: "Pending",
 	running: "Running",
 	completed: "Completed",
+	partial: "Partial",
 	failed: "Failed",
 	idle: "Idle",
 };
@@ -49,8 +50,10 @@ export function ScrapeModal({
 	const [isTrackingScrape, setIsTrackingScrape] = useState(false);
 
 	// Log of recent activities (optional, but nice)
-	const [logs, setLogs] = useState<string[]>([]);
-	const addLog = (msg: string) => setLogs((prev) => [msg, ...prev].slice(0, 5));
+	const [logs, setLogs] = useState<{ id: number; msg: string }[]>([]);
+	const logIdRef = useRef(0);
+	const addLog = (msg: string) =>
+		setLogs((prev) => [{ id: logIdRef.current++, msg }, ...prev].slice(0, 5));
 
 	// Hook handles the SSE connection
 	const scrapeStatus = useScrapeStatus(
@@ -58,7 +61,7 @@ export function ScrapeModal({
 		isOpen ? workId : -1,
 		() => {
 			setChaptersFound((prev) => prev + 1);
-			addLog(`Chapter found.`);
+			addLog("Chapter found.");
 		},
 	);
 
@@ -141,6 +144,8 @@ export function ScrapeModal({
 			setModalState("scraping");
 		} else if (scrapeStatus.status === "completed" && isTrackingScrape) {
 			setModalState("completed");
+		} else if (scrapeStatus.status === "partial" && isTrackingScrape) {
+			setModalState("partial");
 		}
 	}, [scrapeStatus.status, isOpen, isTrackingScrape]);
 
@@ -187,14 +192,15 @@ export function ScrapeModal({
 		if (modalState === "scraping") {
 			handleCancel();
 		} else {
-			if (modalState === "completed") {
-				onSuccess(); // Refresh list only on success/completion
+			if (modalState === "completed" || modalState === "partial") {
+				onSuccess(); // Refresh list on completion or partial success
 			}
 			onClose();
 		}
 	};
 
 	const statusLabel = STATUS_LABELS[scrapeStatus.status];
+	const isTerminal = modalState === "completed" || modalState === "partial";
 
 	return (
 		<Dialog.Root
@@ -214,7 +220,9 @@ export function ScrapeModal({
 								? "Scrape Chapters"
 								: modalState === "scraping"
 									? "Scraping in Progress"
-									: "Scrape Complete"}
+									: modalState === "partial"
+										? "Scrape Partially Complete"
+										: "Scrape Complete"}
 						</Dialog.Title>
 					</Dialog.Header>
 
@@ -263,7 +271,7 @@ export function ScrapeModal({
 							</Stack>
 						)}
 
-						{(modalState === "scraping" || modalState === "completed") && (
+						{(modalState === "scraping" || isTerminal) && (
 							<Stack gap={6} py={4}>
 								<Box>
 									<Text mb={2} fontSize="sm" fontWeight="medium">
@@ -276,7 +284,11 @@ export function ScrapeModal({
 												: undefined
 										}
 										colorPalette={
-											scrapeStatus.status === "failed" ? "red" : "teal"
+											modalState === "partial"
+												? "orange"
+												: scrapeStatus.status === "failed"
+													? "red"
+													: "teal"
 										}
 									>
 										<Progress.Track>
@@ -311,6 +323,34 @@ export function ScrapeModal({
 									</Alert.Root>
 								)}
 
+								{scrapeStatus.chapterErrors.length > 0 && (
+									<Box>
+										<Text
+											fontSize="sm"
+											fontWeight="medium"
+											mb={2}
+											color="red.600"
+										>
+											Failed chapters ({scrapeStatus.chapterErrors.length})
+										</Text>
+										<Box
+											bg="red.50"
+											p={2}
+											borderRadius="md"
+											fontSize="xs"
+											color="red.700"
+											maxH="120px"
+											overflowY="auto"
+										>
+											{scrapeStatus.chapterErrors.map((err) => (
+												<Text key={`${err.chapter}-${err.reason}`}>
+													Ch. {err.chapter}: {err.reason}
+												</Text>
+											))}
+										</Box>
+									</Box>
+								)}
+
 								{/* Simple Log View */}
 								{logs.length > 0 && (
 									<Box
@@ -322,8 +362,8 @@ export function ScrapeModal({
 										maxH="100px"
 										overflowY="auto"
 									>
-										{logs.map((log, i) => (
-											<Text key={i}>{log}</Text>
+										{logs.map((log) => (
+											<Text key={log.id}>{log.msg}</Text>
 										))}
 									</Box>
 								)}
@@ -355,6 +395,12 @@ export function ScrapeModal({
 
 						{modalState === "completed" && (
 							<Button colorPalette="teal" onClick={handleClose}>
+								Close & Refresh
+							</Button>
+						)}
+
+						{modalState === "partial" && (
+							<Button colorPalette="orange" onClick={handleClose}>
 								Close & Refresh
 							</Button>
 						)}

@@ -5,14 +5,25 @@ export type ScrapeStatus =
 	| "pending"
 	| "running"
 	| "completed"
+	| "partial"
 	| "failed"
 	| "idle";
+
+export interface ChapterError {
+	chapter: number;
+	reason: string;
+}
 
 interface ScrapeState {
 	status: ScrapeStatus;
 	progress: number;
 	total: number;
 	error?: string;
+	chapterErrors: ChapterError[];
+	created: number;
+	updated: number;
+	skipped: number;
+	failed: number;
 }
 
 export function useScrapeStatus(workId: number, onChapterFound?: () => void) {
@@ -20,11 +31,17 @@ export function useScrapeStatus(workId: number, onChapterFound?: () => void) {
 		status: "idle",
 		progress: 0,
 		total: 0,
+		chapterErrors: [],
+		created: 0,
+		updated: 0,
+		skipped: 0,
+		failed: 0,
 	});
 	const handleChapterFound = useEffectEvent(() => {
 		onChapterFound?.();
 	});
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: handleChapterFound is a useEffectEvent — intentionally excluded from deps
 	useEffect(() => {
 		if (workId <= 0) {
 			return;
@@ -42,9 +59,27 @@ export function useScrapeStatus(workId: number, onChapterFound?: () => void) {
 					progress: data.progress ?? prev.progress,
 					total: data.total ?? prev.total,
 					error: data.error,
+					chapterErrors: data.errors ?? prev.chapterErrors,
+					created: data.created ?? prev.created,
+					updated: data.updated ?? prev.updated,
+					skipped: data.skipped ?? prev.skipped,
+					failed: data.failed ?? prev.failed,
 				}));
 			} catch (e) {
 				console.error("Failed to parse job-status", e);
+			}
+		});
+
+		eventSource.addEventListener("chapter-error", (event) => {
+			try {
+				const data = JSON.parse(event.data) as ChapterError;
+				setScrapeState((prev) => ({
+					...prev,
+					chapterErrors: [...prev.chapterErrors, data],
+					failed: prev.failed + 1,
+				}));
+			} catch (e) {
+				console.error("Failed to parse chapter-error", e);
 			}
 		});
 
@@ -53,8 +88,7 @@ export function useScrapeStatus(workId: number, onChapterFound?: () => void) {
 		});
 
 		eventSource.onerror = () => {
-			// If connection fails, we might want to retry or just log
-			// EventSource auto-retries by default usually
+			// EventSource auto-retries by default
 		};
 
 		return () => {
