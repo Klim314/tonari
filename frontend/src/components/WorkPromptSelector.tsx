@@ -1,7 +1,7 @@
 import { Box, Button, HStack, Input, Stack, Text } from "@chakra-ui/react";
 import { useEffect, useState } from "react";
-import { Prompts } from "../client";
 import type { PromptOut } from "../client";
+import { Prompts } from "../client";
 import { useWorkPrompts } from "../hooks/useWorkPrompts";
 import { getApiErrorMessage } from "../lib/api";
 

@@ -11,8 +11,8 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 import type { ReactNode } from "react";
 import type { ChapterDetail, Work } from "../../types/works";
 import { ChapterHeaderCard } from "./ChapterHeaderCard";
-import { TranslationPanel } from "./translation/TranslationPanel";
 import type { TranslationPanelProps } from "./translation/TranslationPanel";
+import { TranslationPanel } from "./translation/TranslationPanel";
 import type { PromptMeta } from "./types";
 
 interface ChapterNavigationProps {

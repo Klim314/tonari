@@ -30,13 +30,13 @@ dev-down:
     docker compose stop frontend api-dev db
 
 lint-web:
-    npm --prefix frontend run lint
+    docker compose run --rm --no-deps frontend npm run lint
 
 format-web:
-    npm --prefix frontend run format
+    docker compose run --rm --no-deps frontend npm run format
 
 typecheck:
-    npm --prefix frontend run typecheck
+    docker compose run --rm --no-deps frontend npm run typecheck
 
 generate-api:
     curl -fsSLo frontend/openapi.json http://localhost:8087/openapi.json && npm --prefix frontend run generate:api

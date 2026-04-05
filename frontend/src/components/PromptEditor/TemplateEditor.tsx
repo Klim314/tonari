@@ -1,5 +1,12 @@
-import { Box, Stack, Text, Textarea, VStack } from "@chakra-ui/react";
-import { FieldLabel, FieldRoot } from "@chakra-ui/react";
+import {
+	Box,
+	FieldLabel,
+	FieldRoot,
+	Stack,
+	Text,
+	Textarea,
+	VStack,
+} from "@chakra-ui/react";
 import type { PromptVersionOut } from "../../client";
 import { useModels } from "../../hooks/useModels";
 import { ModelAutocomplete } from "./ModelAutocomplete";

@@ -1,4 +1,5 @@
 import {
+	Button,
 	DialogBackdrop,
 	DialogBody,
 	DialogCloseTrigger,
@@ -8,8 +9,9 @@ import {
 	DialogPositioner,
 	DialogRoot,
 	DialogTitle,
+	Text,
+	VStack,
 } from "@chakra-ui/react";
-import { Button, Text, VStack } from "@chakra-ui/react";
 
 interface UnsavedChangesDialogProps {
 	isOpen: boolean;

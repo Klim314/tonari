@@ -330,7 +330,7 @@ export function useChapterTranslationStream({
 				const payload = response.data as ChapterTranslationStateResponse;
 				applyPayload(payload);
 				setError(null);
-			} catch (err) {
+			} catch (_err) {
 				if (!cancelled) {
 					setSegmentsMap({});
 					setError("Failed to load saved translation");
@@ -360,7 +360,7 @@ export function useChapterTranslationStream({
 			const payload = response.data as ChapterTranslationStateResponse;
 			applyPayload(payload);
 			return true;
-		} catch (err) {
+		} catch (_err) {
 			setError("Failed to reset translation");
 			return false;
 		} finally {

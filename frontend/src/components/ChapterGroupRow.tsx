@@ -33,9 +33,9 @@ interface ChapterGroupDetail {
 	name: string;
 	created_at: string;
 	updated_at: string;
-	member_count: number;
+	member_count?: number;
 	min_sort_key: number;
-	item_type: "group";
+	item_type?: string;
 	is_fully_translated?: boolean;
 	members?: ChapterGroupMember[];
 }
@@ -124,7 +124,7 @@ export function ChapterGroupRow({
 										</Badge>
 									)}
 									<Text fontSize="sm" color="gray.400">
-										({group.member_count}{" "}
+										({group.member_count ?? 0}{" "}
 										{group.member_count === 1 ? "chapter" : "chapters"})
 									</Text>
 								</HStack>

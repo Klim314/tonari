@@ -1,6 +1,6 @@
 import type {
-	PaginatedPromptVersionsOut,
 	PaginatedPromptsOut,
+	PaginatedPromptVersionsOut,
 	PromptDetailOut,
 	PromptOut,
 	PromptVersionOut,

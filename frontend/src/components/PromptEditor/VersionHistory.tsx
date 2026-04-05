@@ -1,4 +1,4 @@
-import { Badge, Button, HStack, Heading, Text, VStack } from "@chakra-ui/react";
+import { Badge, Button, Heading, HStack, Text, VStack } from "@chakra-ui/react";
 import type { PromptVersionOut } from "../../client";
 
 interface VersionHistoryProps {

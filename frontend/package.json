@@ -14,7 +14,9 @@
 		"prepare": "cd .. && husky"
 	},
 	"lint-staged": {
-		"*.{ts,tsx}": ["biome check --no-errors-on-unmatched"]
+		"*.{ts,tsx}": [
+			"biome check --no-errors-on-unmatched"
+		]
 	},
 	"dependencies": {
 		"@chakra-ui/react": "^3.29.0",
@@ -28,7 +30,7 @@
 		"react-router-dom": "^7.9.5"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "1.9.4",
+		"@biomejs/biome": "^2.4.10",
 		"@hey-api/openapi-ts": "0.87.1",
 		"@types/node": "^24.6.0",
 		"@types/react": "^19.1.16",

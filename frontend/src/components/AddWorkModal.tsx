@@ -163,12 +163,8 @@ export function AddWorkModal({
 										Import results
 									</Text>
 									<Stack gap={2}>
-										{results.map((result, index) => (
-											<HStack
-												key={`${result.url}-${index}`}
-												gap={3}
-												align="flex-start"
-											>
+										{results.map((result) => (
+											<HStack key={result.url} gap={3} align="flex-start">
 												<Icon
 													as={
 														result.status === "success"

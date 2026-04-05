@@ -1,4 +1,4 @@
-import { Combobox, Portal, createListCollection } from "@chakra-ui/react";
+import { Combobox, createListCollection, Portal } from "@chakra-ui/react";
 import { useMemo } from "react";
 
 interface ModelAutocompleteProps {

@@ -2,16 +2,16 @@ import {
 	Box,
 	Button,
 	Container,
-	HStack,
 	Heading,
+	HStack,
 	Input,
 	Skeleton,
 	Stack,
 	Text,
-	VStack,
 	useDisclosure,
+	VStack,
 } from "@chakra-ui/react";
-import React, { useCallback, useState } from "react";
+import { useCallback, useState } from "react";
 import { Prompts } from "../client";
 import { useBrowserLocation } from "../hooks/useBrowserLocation";
 import { usePromptEditor } from "../hooks/usePromptEditor";
