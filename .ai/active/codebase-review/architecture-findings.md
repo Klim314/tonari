@@ -39,7 +39,7 @@ Each finding includes:
 
 - ID: `A-001`
 - Priority: `Now`
-- Status: `planned`
+- Status: `done`
 - Area: `backend / translation workflow boundary`
 - Files:
   - `backend/app/routers/works.py`

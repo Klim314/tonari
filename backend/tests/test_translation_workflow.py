@@ -440,20 +440,11 @@ class TestRetranslateSegment:
 
         assert captured_current_translation == "original translation"
 
-    def test_retranslate_segment_not_found(self, db_session):
-        """Missing segment raises SegmentNotFoundError."""
+    def test_preflight_segment_check_not_found(self, db_session):
+        """Missing segment raises SegmentNotFoundError from preflight check."""
         work = _make_work(db_session)
         chapter = _make_chapter(db_session, work, "text")
         workflow = TranslationWorkflow(db_session)
 
         with pytest.raises(SegmentNotFoundError):
-            _run(
-                workflow.retranslate_segment(
-                    chapter,
-                    segment_id=99999,
-                    work_id=work.id,
-                    prompt_override=None,
-                    instruction=None,
-                    is_disconnected=AsyncMock(return_value=False),
-                )
-            )
+            workflow.preflight_segment_check(chapter, segment_id=99999)

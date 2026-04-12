@@ -227,9 +227,6 @@ class TranslationWorkflow:
         stmt = select(TranslationSegment).where(TranslationSegment.id == segment_id)
         segment = self.db.execute(stmt).scalars().first()
 
-        if segment is None or segment.chapter_translation_id != translation.id:
-            raise SegmentNotFoundError(f"segment {segment_id} not found")
-
         # Capture current translation before reset (for guided retranslation)
         current_tgt = segment.tgt if instruction else None
 

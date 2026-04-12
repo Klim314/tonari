@@ -761,8 +761,6 @@ async def explain_segment(
                 db.close()
 
         return EventSourceResponse(event_generator())
-    except HTTPException:
-        raise
     except Exception:
         db.close()
         raise
@@ -814,8 +812,6 @@ async def regenerate_explanation(
                 db.close()
 
         return EventSourceResponse(event_generator())
-    except HTTPException:
-        raise
     except Exception:
         db.close()
         raise

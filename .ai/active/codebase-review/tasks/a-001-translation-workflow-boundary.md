@@ -4,7 +4,7 @@
 
 - Finding: `A-001`
 - Source: `architecture-findings.md`
-- Status: `planned`
+- Status: `completed`
 - Owner: `backend`
 - Last updated: `2026-04-05`
 

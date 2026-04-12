@@ -83,12 +83,6 @@ class ExplanationWorkflow:
         translation = self._translation_service.get_or_create_translation(chapter.id)
         segment = self._explanation_service.get_segment(segment_id)
 
-        if segment is None or segment.chapter_translation_id != translation.id:
-            raise SegmentNotFoundError(f"segment {segment_id} not found")
-
-        if not self._explanation_service.is_segment_translated(segment):
-            raise SegmentNotTranslatedError(f"segment {segment_id} is not translated")
-
         if force:
             self._explanation_service.clear_explanation(segment_id)
             # Refresh segment to reflect cleared explanation

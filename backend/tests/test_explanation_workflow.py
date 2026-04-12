@@ -214,41 +214,6 @@ class TestExplainSegmentForce:
 
 
 class TestExplainSegmentErrorPaths:
-    def test_not_found_raises(self, db_session):
-        work = _make_work(db_session)
-        chapter = _make_chapter(db_session, work)
-        workflow = ExplanationWorkflow(db_session)
-
-        with pytest.raises(SegmentNotFoundError):
-            _run(
-                workflow.explain_segment(
-                    chapter,
-                    segment_id=99999,
-                    force=False,
-                    is_disconnected=AsyncMock(return_value=False),
-                )
-            )
-
-    def test_not_translated_raises(self, db_session):
-        work = _make_work(db_session)
-        chapter = _make_chapter(db_session, work)
-        workflow = ExplanationWorkflow(db_session)
-
-        svc = TranslationStreamService(db_session)
-        translation = svc.get_or_create_translation(chapter.id)
-        segments = svc.ensure_segments(translation, chapter.normalized_text)
-        untranslated = next(s for s in segments if svc.needs_translation(s))
-
-        with pytest.raises(SegmentNotTranslatedError):
-            _run(
-                workflow.explain_segment(
-                    chapter,
-                    untranslated.id,
-                    force=False,
-                    is_disconnected=AsyncMock(return_value=False),
-                )
-            )
-
     def test_cancellation_propagates(self, db_session):
         """CancelledError propagates; explanation is NOT saved."""
         work = _make_work(db_session)
