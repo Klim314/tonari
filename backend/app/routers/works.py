@@ -29,11 +29,13 @@ from app.schemas import (
     ChaptersWithGroupsResponse,
     ChapterTranslationStateOut,
     PaginatedWorksOut,
+    SentenceSpanOut,
     TranslationSegmentOut,
     WorkImportRequest,
     WorkOut,
 )
 from app.scrapers.exceptions import ScraperError, ScraperNotFoundError
+from app.utils.sentence_splitter import get_sentence_splitter
 from services.chapter_groups import ChapterGroupsService
 from services.chapters import ChaptersService
 from services.exceptions import (
@@ -517,17 +519,29 @@ def _sse_event(event: str, payload: dict) -> dict:
 
 def _build_translation_state(chapter, translation, segments) -> ChapterTranslationStateOut:
     chapter_text = chapter.normalized_text
+    splitter = get_sentence_splitter()
     payload_segments = []
     for segment in segments:
+        src = chapter_text[segment.start : segment.end]
+        raw_spans = splitter.split(src) if src.strip() else []
+        sentences = [
+            SentenceSpanOut(
+                span_start=span.span_start,
+                span_end=span.span_end,
+                text=span.text,
+            )
+            for span in raw_spans
+        ]
         payload_segments.append(
             TranslationSegmentOut(
                 id=segment.id,
                 start=segment.start,
                 end=segment.end,
                 order_index=segment.order_index,
-                src=chapter_text[segment.start : segment.end],
+                src=src,
                 tgt=segment.tgt or "",
                 flags=segment.flags or [],
+                sentences=sentences,
             )
         )
 

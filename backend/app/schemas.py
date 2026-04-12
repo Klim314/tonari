@@ -121,6 +121,12 @@ class ChapterScrapeResponse(BaseModel):
     errors: list[ChapterScrapeErrorItem] = Field(default_factory=list)
 
 
+class SentenceSpanOut(BaseModel):
+    span_start: int
+    span_end: int
+    text: str
+
+
 class TranslationSegmentOut(BaseModel):
     id: int
     start: int
@@ -129,6 +135,7 @@ class TranslationSegmentOut(BaseModel):
     src: str
     tgt: str
     flags: list[str] = Field(default_factory=list)
+    sentences: list[SentenceSpanOut] = Field(default_factory=list)
 
 
 class ChapterTranslationOut(BaseModel):

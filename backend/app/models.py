@@ -18,6 +18,39 @@ from sqlalchemy.types import JSON
 from app.db import Base
 
 
+class TranslationExplanation(Base):
+    __tablename__ = "translation_explanations"
+    __table_args__ = (
+        UniqueConstraint(
+            "anchor_segment_id", "span_start", "span_end", "density",
+            name="uq_explanation_segment_span_density",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    analysis_unit_type: Mapped[str] = mapped_column(String(32))  # 'sentence' or 'segment'
+    anchor_segment_id: Mapped[int] = mapped_column(
+        ForeignKey("translation_segments.id", ondelete="CASCADE"), index=True
+    )
+    chapter_translation_id: Mapped[int] = mapped_column(
+        ForeignKey("chapter_translations.id", ondelete="CASCADE"), index=True
+    )
+    # Sentence-relative span within the anchor segment source text.
+    # NULL for segment-level explanations; set for sentence-level explanations.
+    span_start: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    span_end: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    density: Mapped[str] = mapped_column(String(16))  # 'sparse' or 'dense'
+    status: Mapped[str] = mapped_column(String(32), default="pending")
+    schema_version: Mapped[int] = mapped_column(Integer, default=1)
+    payload_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    generator_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+    invalidated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class Work(Base):
     __tablename__ = "works"
     __table_args__ = (UniqueConstraint("source", "source_id", name="uq_work_source_id"),)
