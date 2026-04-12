@@ -4,8 +4,8 @@ set shell := ["bash", "-lc"]
 default:
     @just --list
 
-test:
-    docker compose exec -e DATABASE_URL=sqlite+pysqlite:///:memory: api-dev pytest
+test *args:
+    docker compose exec -e DATABASE_URL=sqlite+pysqlite:///:memory: api-dev pytest {{args}}
 
 lint:
     docker compose exec api-dev ruff check .
