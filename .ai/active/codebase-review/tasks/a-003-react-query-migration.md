@@ -4,9 +4,9 @@
 
 - Finding: `A-003`
 - Source: `architecture-findings.md`
-- Status: `planned`
+- Status: `in progress`
 - Owner: `frontend`
-- Last updated: `2026-04-05`
+- Last updated: `2026-04-12`
 
 ## Goal
 
@@ -85,196 +85,115 @@ Do not rewrite every page to direct `useQuery` usage in one pass. First move exi
 
 ## Phases
 
-### Phase 1 — Infrastructure
+### Phase 1 — Infrastructure ✓ Done
 
-- add `@tanstack/react-query`
-- create `QueryClient` setup in `frontend/src/lib/queryClient.ts`
-- wrap app root in `QueryClientProvider`
-- choose conservative defaults:
-  - `retry: false` for most queries initially
+- `@tanstack/react-query` added
+- `QueryClient` set up in `frontend/src/lib/queryClient.ts` with conservative defaults:
+  - `retry: false`
   - `refetchOnWindowFocus: false`
-  - moderate `staleTime`
-  - use placeholder/previous-data behavior for paginated lists where needed
+  - `staleTime: 30_000`
+- App root wrapped in `QueryClientProvider` in `frontend/src/main.tsx`
 
-Deliverable:
+### Phase 2 — Query Modules and Keys — Partial
 
-- app boots with a shared query client and no feature behavior changes
+The generated SDK now includes a `frontend/src/client/@tanstack/react-query.gen.ts` file that
+exports per-endpoint query key factories and `queryOptions`/`infiniteQueryOptions` builders. These
+are used directly by the hooks rather than through manual domain modules.
 
-### Phase 2 — Query Modules and Keys
+Manual domain modules (`frontend/src/queries/`) were not created. The generated key factories serve
+the same function but are verbose at call sites and do not express domain-level groupings (e.g.
+"all prompts for a work") that invalidation needs.
 
-Create domain query modules with stable key factories.
+Remaining:
+- Create `frontend/src/queries/` domain modules that wrap the generated keys into stable, named
+  key hierarchies for use by `invalidateQueries` calls.
 
-Initial keys:
+### Phase 3 — Read Hook Migration ✓ Done
 
-- `works.all`
-- `works.list(searchQuery)`
-- `works.detail(workId)`
-- `works.chapters(workId, { limit, offset })`
-- `works.chapter(workId, chapterId)`
-- `works.chapterGroups(workId)`
-- `prompts.all`
-- `prompts.list(searchQuery)`
-- `prompts.detail(promptId)`
-- `prompts.versions(promptId)`
-- `prompts.workDetail(workId)`
-- `prompts.workList(workId, searchQuery)`
+All main read hooks now use TanStack Query via `useQueryState` in `frontend/src/lib/queryState.ts`:
 
-Requirements:
+- `useWorks` ✓
+- `useWork` ✓
+- `useWorkChapters` ✓
+- `usePrompts` ✓
+- `usePrompt` ✓
+- `usePromptVersions` ✓
+- `useWorkPromptDetail` ✓ (uses `useQuery` directly)
+- `useWorkPrompts` ✓
+- `useChapter` ✓
 
-- forward TanStack `signal` into generated-client requests
-- normalize query arg construction in one place
-- preserve current `getApiErrorMessage()` behavior at the hook boundary
+`useQueryState` preserves the `{ data, loading, error }` return shape and routes error messages
+through `getApiErrorMessage`.
 
-Deliverable:
+Refresh token dependencies have been removed from all read hooks.
 
-- domain query modules exist and can be imported without changing UI yet
+### Phase 4 — Prompt Domain Mutations — Partial
 
-### Phase 3 — Read Hook Migration
+`useMutation` is wired up at all prompt mutation sites using generated mutation helpers:
 
-Migrate current read hooks to use TanStack Query internally:
+- `PromptEditor.tsx`: `updatePrompt`, `appendPromptVersion`, `deletePrompt` ✓
+- `PromptsLandingPane.tsx`: `createPrompt` ✓
+- `WorkPromptSelector.tsx`: `updatePrompt` (work prompt assignment) ✓
+- `usePromptOverride.ts`: `appendPromptVersion` ✓
 
-- `useWorks`
-- `useWork`
-- `useWorkChapters`
-- `usePrompts`
-- `usePrompt`
-- `usePromptVersions`
-- `useWorkPromptDetail`
-- `useWorkPrompts`
-- `useChapter`
+**Gap:** `queryClient` is imported at each site but `invalidateQueries` is never called. Mutations
+complete but do not update the shared cache, so prompt list and detail views do not reflect saves
+unless manually refreshed.
 
-Notes:
+Remaining:
+- Wire `invalidateQueries` in `onSuccess` for each mutation, following the invalidation rules below:
+  - prompt create: invalidate `prompts.list(*)`
+  - prompt update: invalidate `prompts.detail(promptId)`, `prompts.list(*)`
+  - prompt append version: invalidate `prompts.detail(promptId)`, `prompts.versions(promptId)`,
+    `prompts.workDetail(workId)` if assigned
+  - prompt delete: invalidate `prompts.list(*)`, remove `prompts.detail(promptId)` and
+    `prompts.versions(promptId)`
+  - work prompt assignment: invalidate `prompts.workDetail(workId)`, `prompts.workList(workId, *)`
 
-- keep current return shapes temporarily where practical:
-  - `data`
-  - `loading`
-  - `error`
-- remove `refreshToken` dependencies from implementations first
-- remove `refreshToken` parameters from call sites after mutation invalidation lands
-- keep search debounce outside the query layer via `useDebouncedValue`
+### Phase 5 — Work and Chapter Mutation Migration — Partial
 
-Deliverable:
+`useMutation` is wired up at all work/chapter mutation sites:
 
-- repeated `useEffect` fetch hooks are eliminated without a broad page rewrite
+- `AddWorkModal.tsx`: `importWork` ✓
+- `CreateChapterGroupModal.tsx`: `createGroup` ✓
+- `AddToGroupModal.tsx`: `addToGroup` ✓
+- `WorkDetailPage.tsx`: `deleteGroup` ✓
+- `ScrapeModal.tsx`: `queueScrape`, `cancelScrape` ✓
 
-### Phase 4 — Prompt Domain Mutations
+**Same gap as Phase 4:** no `invalidateQueries` calls anywhere. Mutations complete silently without
+updating the cache.
 
-Migrate prompt-related writes first because they currently have the most explicit manual refresh coupling.
-
-Mutation targets:
-
-- prompt create
-- prompt update
-- prompt delete
-- prompt append version
-- work prompt assignment
-
-Primary current touchpoints:
-
-- `frontend/src/components/PromptEditor/PromptEditor.tsx`
-- `frontend/src/components/PromptsLandingPane.tsx`
-- `frontend/src/components/WorkPromptSelector.tsx`
-- `frontend/src/hooks/usePromptOverride.ts`
-
-Invalidation rules:
-
-- prompt create:
-  - invalidate `prompts.list(*)`
-- prompt update:
-  - invalidate `prompts.detail(promptId)`
-  - invalidate `prompts.list(*)`
-- prompt append version:
-  - invalidate `prompts.detail(promptId)`
-  - invalidate `prompts.versions(promptId)`
-  - invalidate `prompts.workDetail(workId)` if the prompt is assigned to a work in active view
-- prompt delete:
-  - invalidate `prompts.list(*)`
-  - remove or invalidate `prompts.detail(promptId)`
-  - remove or invalidate `prompts.versions(promptId)`
-- work prompt assignment:
-  - invalidate `prompts.workDetail(workId)`
-  - invalidate `prompts.workList(workId, *)`
-  - invalidate `works.detail(workId)` only if assignment metadata is surfaced there later
-
-Deliverable:
-
-- prompt save/create/delete flows stop using local refresh counters
-
-### Phase 5 — Work and Chapter Mutation Migration
-
-Migrate work/chapter mutations next.
-
-Mutation targets:
-
-- work import
-- chapter-group create
-- chapter-group delete
-- chapter-group member add
-- scrape request
-- scrape cancel where appropriate
-
-Primary current touchpoints:
-
-- `frontend/src/components/AddWorkModal.tsx`
-- `frontend/src/components/CreateChapterGroupModal.tsx`
-- `frontend/src/components/AddToGroupModal.tsx`
-- `frontend/src/pages/WorkDetailPage.tsx`
-- `frontend/src/components/ScrapeModal.tsx`
-
-Invalidation rules:
-
-- work import:
-  - invalidate `works.list(*)`
-- chapter-group create/delete/member add:
-  - invalidate `works.chapters(workId, *)`
-  - invalidate `works.chapterGroups(workId)` if introduced
-- scrape queued:
-  - optional immediate invalidate `works.chapters(workId, *)`
-- scrape completed or partial:
-  - invalidate `works.chapters(workId, *)`
-  - invalidate `works.detail(workId)` if counts/status derive from scrape results
-
-Deliverable:
-
-- work detail flows stop depending on page-local chapter refresh tokens
+Remaining:
+- Wire `invalidateQueries` in `onSuccess`:
+  - work import: invalidate `works.list(*)`
+  - chapter-group create/delete/member add: invalidate `works.chapters(workId, *)`,
+    `works.chapterGroups(workId)`
+  - scrape queued: optional invalidate `works.chapters(workId, *)`
+  - scrape completed or partial: invalidate `works.chapters(workId, *)`, `works.detail(workId)`
 
 ### Phase 6 — Streaming Integration
 
-Keep streaming hooks custom for now:
+Not started.
 
-- scrape status
-- chapter translation streams
-- explanation generation streams
-- lab streaming
-
-But integrate them with query invalidation:
+Keep streaming hooks custom but wire them to query invalidation on terminal events:
 
 - on completed/partial scrape, invalidate chapters and affected work detail
-- on translation completion/reset/regenerate, invalidate chapter/work translation-related queries
+- on translation completion/reset/regenerate, invalidate affected chapter/translation queries
 - on explanation completion, invalidate chapter detail if explanation state is queried
-
-Deliverable:
-
-- streams become first-class writers into the shared cache lifecycle
 
 ### Phase 7 — Cleanup
 
-- remove obsolete `refreshToken` state from components and pages
-- remove dead helper code for manual refetch orchestration
+Refresh token plumbing has already been removed. Remaining cleanup:
 - consolidate any remaining raw `fetch` mutation helpers behind domain modules
 - document query-key conventions for future frontend work
 
-Deliverable:
-
-- no core page depends on local refresh tokens for server-state consistency
-
 ## Suggested Implementation Order
 
-1. query client and provider
-2. query modules and key factories
-3. read-hook compatibility migration
-4. prompt mutations and invalidation
-5. work/chapter mutations and invalidation
+1. ~~query client and provider~~ ✓ done
+2. query modules and key factories — create `frontend/src/queries/` domain modules wrapping the generated keys
+3. ~~read-hook compatibility migration~~ ✓ done
+4. prompt mutations and invalidation — add `invalidateQueries` to existing `useMutation` sites
+5. work/chapter mutations and invalidation — add `invalidateQueries` to existing `useMutation` sites
 6. streaming invalidation integration
 7. cleanup and follow-up notes
 

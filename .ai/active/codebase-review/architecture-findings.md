@@ -89,7 +89,7 @@ Each finding includes:
 
 - ID: `A-003`
 - Priority: `Now`
-- Status: `done`
+- Status: `in progress`
 - Area: `frontend / server-state architecture`
 - Files:
   - `frontend/src/client/`
