@@ -1,20 +1,13 @@
 from __future__ import annotations
 
-import asyncio
-import hashlib
 import json
 import logging
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
-from sqlalchemy.orm import Session as DBSession
 from sse_starlette.sse import EventSourceResponse
 
-from agents.explanation_agent import get_explanation_agent
-from agents.translation_agent import TranslationAgent
-from app.config import settings
 from app.db import SessionLocal
 from app.models import ChapterTranslation
 from app.prompt_overrides import (
@@ -43,11 +36,31 @@ from app.schemas import (
 from app.scrapers.exceptions import ScraperError, ScraperNotFoundError
 from services.chapter_groups import ChapterGroupsService
 from services.chapters import ChaptersService
-from services.exceptions import ChapterNotFoundError, WorkNotFoundError
-from services.explanation_stream import ExplanationStreamService
-from services.prompt import PromptService
+from services.exceptions import (
+    ChapterNotFoundError,
+    SegmentNotFoundError,
+    SegmentNotTranslatedError,
+    WorkNotFoundError,
+)
+from services.explanation_workflow import (
+    ExplanationCompleteEvent,
+    ExplanationDeltaEvent,
+    ExplanationErrorEvent,
+    ExplanationEvent,
+    ExplanationWorkflow,
+)
 from services.scrape_manager import ScrapeManager
 from services.translation_stream import TranslationStreamService
+from services.translation_workflow import (
+    SegmentCompleteEvent,
+    SegmentDeltaEvent,
+    SegmentStartEvent,
+    TranslationCompleteEvent,
+    TranslationErrorEvent,
+    TranslationEvent,
+    TranslationStatusEvent,
+    TranslationWorkflow,
+)
 from services.works import WorksService
 
 router = APIRouter()
@@ -501,38 +514,6 @@ def _sse_event(event: str, payload: dict) -> dict:
     return {"event": event, "data": json.dumps(payload)}
 
 
-def _get_work_translation_agent(
-    work_id: int, db: DBSession, *, prompt_override: dict[str, Any] | None = None
-) -> TranslationAgent:
-    """Get a translation agent with the work's selected prompt, or default if none selected."""
-    prompt_service = PromptService(db)
-    prompt = prompt_service.get_prompt_for_work(work_id)
-
-    # Get the latest version if a prompt is assigned
-    system_prompt = None
-    model = settings.translation_model  # Default model
-    if prompt_override:
-        system_prompt = prompt_override.get("template") or None
-        override_model = prompt_override.get("model")
-        if isinstance(override_model, str) and override_model.strip():
-            model = override_model
-    elif prompt:
-        versions, _, _, _ = prompt_service.get_prompt_versions(prompt.id, limit=1, offset=0)
-        if versions:
-            latest_version = versions[0]
-            system_prompt = latest_version.template
-            model = latest_version.model
-
-    # Create agent with work-specific prompt/model or defaults
-    return TranslationAgent(
-        model=model,
-        api_key=settings.translation_api_key,
-        api_base=settings.translation_api_base_url,
-        chunk_chars=settings.translation_chunk_chars,
-        context_window=settings.translation_context_segments,
-        system_prompt=system_prompt,
-    )
-
 
 def _build_translation_state(chapter, translation, segments) -> ChapterTranslationStateOut:
     chapter_text = chapter.normalized_text
@@ -557,159 +538,76 @@ def _build_translation_state(chapter, translation, segments) -> ChapterTranslati
     )
 
 
-async def _translate_segments_stream(
-    db: DBSession,
-    request: Request,
-    translation_agent: TranslationAgent,
-    translation_service: TranslationStreamService,
-    translation,
-    segments_to_translate,
-    all_segments,
-    chapter_text: str,
-    work_id: int,
-    is_single_segment: bool = False,
-    instruction: str | None = None,
-    current_translation: str | None = None,
-):
-    """
-    Unified async generator for translating segments (either full chapter or single segment).
-
-    Args:
-        db: Database session
-        request: FastAPI request object
-        translation_agent: Translation agent
-        translation_service: Translation service
-        translation: ChapterTranslation object
-        segments_to_translate: List of segments that need translation
-        all_segments: All segments for context window building
-        chapter_text: Full chapter text
-        work_id: Work ID for logging
-        is_single_segment: If True, don't set translation.status to completed at the end
-        instruction: Optional user instruction to guide the retranslation
-        current_translation: The existing translation to improve upon (for guided retranslation)
-    """
-    current_segment = None
-    try:
-        # For full chapter, set status to running
-        if not is_single_segment:
-            translation.status = "running"
-            db.add(translation)
-            db.commit()
-            yield _sse_event(
+def _translation_event_to_sse(event: TranslationEvent) -> dict:
+    match event:
+        case TranslationStatusEvent():
+            return _sse_event(
                 "translation-status",
-                {"chapter_translation_id": translation.id, "status": translation.status},
+                {"chapter_translation_id": event.chapter_translation_id, "status": event.status},
             )
-
-        for current in segments_to_translate:
-            current_segment = current
-            if await request.is_disconnected():
-                raise asyncio.CancelledError
-
-            src = chapter_text[current.start : current.end]
-            logger.info(
-                "Translate segment start",
-                extra={
-                    "work_id": work_id,
-                    "chapter_translation_id": translation.id,
-                    "segment_id": current.id,
-                    "order_index": current.order_index,
-                    "segment_indices": {"start": current.start, "end": current.end},
-                    "extracted_source_preview": src[:80] + "..." if len(src) > 80 else src,
-                },
-            )
-            yield _sse_event(
+        case SegmentStartEvent():
+            return _sse_event(
                 "segment-start",
                 {
-                    "chapter_translation_id": translation.id,
-                    "segment_id": current.id,
-                    "order_index": current.order_index,
-                    "start": current.start,
-                    "end": current.end,
-                    "src": src,
+                    "chapter_translation_id": event.chapter_translation_id,
+                    "segment_id": event.segment_id,
+                    "order_index": event.order_index,
+                    "start": event.start,
+                    "end": event.end,
+                    "src": event.src,
                 },
             )
-
-            context_segments = translation_service.build_context_window(
-                all_segments,
-                current,
-                chapter_text,
-                limit=translation_agent.context_window,
+        case SegmentDeltaEvent():
+            return _sse_event(
+                "segment-delta",
+                {
+                    "chapter_translation_id": event.chapter_translation_id,
+                    "segment_id": event.segment_id,
+                    "order_index": event.order_index,
+                    "delta": event.delta,
+                },
             )
-
-            collected = ""
-            async for delta in translation_agent.stream_segment(
-                src,
-                preceding_segments=context_segments,
-                instruction=instruction,
-                current_translation=current_translation,
-            ):
-                if await request.is_disconnected():
-                    raise asyncio.CancelledError
-                if not delta:
-                    continue
-                collected += delta
-                yield _sse_event(
-                    "segment-delta",
-                    {
-                        "chapter_translation_id": translation.id,
-                        "segment_id": current.id,
-                        "order_index": current.order_index,
-                        "delta": delta,
-                    },
-                )
-
-            current.tgt = collected
-            db.add(current)
-            db.commit()
-            yield _sse_event(
+        case SegmentCompleteEvent():
+            return _sse_event(
                 "segment-complete",
                 {
-                    "chapter_translation_id": translation.id,
-                    "segment_id": current.id,
-                    "order_index": current.order_index,
-                    "text": collected,
+                    "chapter_translation_id": event.chapter_translation_id,
+                    "segment_id": event.segment_id,
+                    "order_index": event.order_index,
+                    "text": event.text,
                 },
             )
-            current_segment = None
-
-        # Only mark translation as completed if this is a full chapter translation
-        if not is_single_segment:
-            translation.status = "completed"
-            db.add(translation)
-            db.commit()
-
-        # Always emit completion event (for both full chapter and single segment)
-        yield _sse_event(
-            "translation-complete",
-            {"chapter_translation_id": translation.id, "status": translation.status},
-        )
-
-    except asyncio.CancelledError:
-        translation.status = "idle"
-        db.add(translation)
-        db.commit()
-        raise
-    except Exception as exc:  # pragma: no cover - surfaced via SSE
-        translation.status = "error"
-        db.add(translation)
-        db.commit()
-        if current_segment is not None:
-            yield _sse_event(
-                "translation-error",
-                {
-                    "chapter_translation_id": translation.id,
-                    "segment_id": current_segment.id,
-                    "order_index": current_segment.order_index,
-                    "error": str(exc),
-                },
+        case TranslationCompleteEvent():
+            return _sse_event(
+                "translation-complete",
+                {"chapter_translation_id": event.chapter_translation_id, "status": event.status},
             )
-        else:
-            yield _sse_event(
-                "translation-error",
-                {
-                    "chapter_translation_id": translation.id,
-                    "error": str(exc),
-                },
+        case TranslationErrorEvent():
+            payload: dict = {
+                "chapter_translation_id": event.chapter_translation_id,
+                "error": event.error,
+            }
+            if event.segment_id is not None:
+                payload["segment_id"] = event.segment_id
+            if event.order_index is not None:
+                payload["order_index"] = event.order_index
+            return _sse_event("translation-error", payload)
+
+
+def _explanation_event_to_sse(event: ExplanationEvent) -> dict:
+    match event:
+        case ExplanationDeltaEvent():
+            return _sse_event(
+                "explanation-delta", {"segment_id": event.segment_id, "delta": event.delta}
+            )
+        case ExplanationCompleteEvent():
+            return _sse_event(
+                "explanation-complete",
+                {"segment_id": event.segment_id, "explanation": event.explanation},
+            )
+        case ExplanationErrorEvent():
+            return _sse_event(
+                "explanation-error", {"segment_id": event.segment_id, "error": event.error}
             )
 
 
@@ -720,94 +618,39 @@ async def stream_chapter_translation(
     request: Request,
     prompt_override_token: str | None = Query(default=None),
 ):
-    db = SessionLocal()
-    works_service = WorksService(db)
-    chapters_service = ChaptersService(db)
-    translation_service = TranslationStreamService(db)
     # TODO: Gate concurrent translators per chapter translation.
     # TODO: Handle reset invalidating in-flight segments.
-
+    db = SessionLocal()
     try:
+        works_service = WorksService(db)
+        chapters_service = ChaptersService(db)
         try:
             work = works_service.get_work(work_id)
         except WorkNotFoundError:
             raise HTTPException(status_code=404, detail="work not found") from None
-
         try:
             chapter = chapters_service.get_chapter(chapter_id)
         except ChapterNotFoundError:
             raise HTTPException(status_code=404, detail="chapter not found") from None
-
         if chapter.work_id != work.id:
             raise HTTPException(status_code=404, detail="chapter not found") from None
 
-        translation = translation_service.get_or_create_translation(chapter.id)
-        segments = translation_service.ensure_segments(translation, chapter.normalized_text)
-        is_not_complete = translation_service.first_pending_segment(segments) is not None
-
-        prompt_service = PromptService(db)
-        work_prompt = prompt_service.get_prompt_for_work(work_id)
-
         prompt_override = _resolve_prompt_override(prompt_override_token, work_id, chapter_id)
-
-        translation_agent = _get_work_translation_agent(
-            work_id, db, prompt_override=prompt_override
-        )
-
-        logger.info(
-            "Starting translation run",
-            extra={
-                "work_id": work_id,
-                "chapter_id": chapter_id,
-                "chapter_translation_id": translation.id,
-                "model": translation_agent.model,
-                "chunk_chars": settings.translation_chunk_chars,
-                "context_window": settings.translation_context_segments,
-                "api_base": settings.translation_api_base_url,
-                "has_custom_prompt": work_prompt is not None,
-                "has_prompt_override": prompt_override is not None,
-            },
-        )
-
-        if not is_not_complete:
-
-            async def completed_generator():
-                try:
-                    translation.status = "completed"
-                    db.add(translation)
-                    db.commit()
-                    yield _sse_event(
-                        "translation-complete",
-                        {"chapter_translation_id": translation.id, "status": translation.status},
-                    )
-                finally:
-                    db.close()
-
-            return EventSourceResponse(completed_generator())
-
-        chapter_text = chapter.normalized_text
-        segments_to_translate = [s for s in segments if translation_service.needs_translation(s)]
+        workflow = TranslationWorkflow(db)
 
         async def event_generator():
             try:
-                async for event in _translate_segments_stream(
-                    db=db,
-                    request=request,
-                    translation_agent=translation_agent,
-                    translation_service=translation_service,
-                    translation=translation,
-                    segments_to_translate=segments_to_translate,
-                    all_segments=segments,
-                    chapter_text=chapter_text,
-                    work_id=work_id,
-                    is_single_segment=False,
+                async for event in workflow.start_or_resume(
+                    chapter,
+                    work_id,
+                    prompt_override=prompt_override,
+                    is_disconnected=request.is_disconnected,
                 ):
-                    yield event
+                    yield _translation_event_to_sse(event)
             finally:
                 db.close()
 
         return EventSourceResponse(event_generator())
-
     except Exception:
         db.close()
         raise
@@ -828,92 +671,47 @@ async def retranslate_segment(
         instruction: Optional user instruction to guide the retranslation
             (e.g., "make it more casual", "keep the honorific").
     """
-    from sqlalchemy import select
-
-    from app.models import TranslationSegment
-
     db = SessionLocal()
-    works_service = WorksService(db)
-    chapters_service = ChaptersService(db)
-    translation_service = TranslationStreamService(db)
-
     try:
+        works_service = WorksService(db)
+        chapters_service = ChaptersService(db)
         try:
             work = works_service.get_work(work_id)
         except WorkNotFoundError:
             raise HTTPException(status_code=404, detail="work not found") from None
-
         try:
             chapter = chapters_service.get_chapter(chapter_id)
         except ChapterNotFoundError:
             raise HTTPException(status_code=404, detail="chapter not found") from None
-
         if chapter.work_id != work.id:
             raise HTTPException(status_code=404, detail="chapter not found") from None
 
-        translation = translation_service.get_or_create_translation(chapter.id)
-
-        # Get the specific segment
-        stmt = select(TranslationSegment).where(TranslationSegment.id == segment_id)
-        segment = db.execute(stmt).scalars().first()
-
-        if segment is None or segment.chapter_translation_id != translation.id:
-            raise HTTPException(status_code=404, detail="segment not found") from None
-
-        # Capture current translation before reset (for guided retranslation)
-        current_tgt = segment.tgt if instruction else None
-
-        # Reset the segment for retranslation
-        translation_service.reset_segment(segment_id)
-        segment = db.execute(stmt).scalars().first()
-
         prompt_override = _resolve_prompt_override(prompt_override_token, work_id, chapter_id)
+        workflow = TranslationWorkflow(db)
 
-        translation_agent = _get_work_translation_agent(
-            work_id, db, prompt_override=prompt_override
-        )
-        chapter_text = chapter.normalized_text
-
-        logger.info(
-            "Starting segment retranslation",
-            extra={
-                "work_id": work_id,
-                "chapter_id": chapter_id,
-                "segment_id": segment_id,
-                "chapter_translation_id": translation.id,
-                "model": translation_agent.model,
-                "has_prompt_override": prompt_override is not None,
-            },
-        )
-
-        # Get all segments for context
-        all_segments = list(translation_service.get_segments_for_translation(translation.id))
+        try:
+            workflow.preflight_segment_check(chapter, segment_id)
+        except SegmentNotFoundError:
+            db.close()
+            raise HTTPException(status_code=404, detail="segment not found") from None
 
         async def event_generator():
             try:
-                async for event in _translate_segments_stream(
-                    db=db,
-                    request=request,
-                    translation_agent=translation_agent,
-                    translation_service=translation_service,
-                    translation=translation,
-                    segments_to_translate=[segment],
-                    all_segments=all_segments,
-                    chapter_text=chapter_text,
-                    work_id=work_id,
-                    is_single_segment=True,
+                async for event in workflow.retranslate_segment(
+                    chapter,
+                    segment_id,
+                    work_id,
+                    prompt_override=prompt_override,
                     instruction=instruction,
-                    current_translation=current_tgt,
+                    is_disconnected=request.is_disconnected,
                 ):
-                    yield event
+                    yield _translation_event_to_sse(event)
             finally:
                 db.close()
 
         return EventSourceResponse(event_generator())
-
     except Exception:
-        if db:
-            db.close()
+        db.close()
         raise
 
 
@@ -925,187 +723,48 @@ async def explain_segment(
     request: Request,
 ):
     """Stream explanation for a translation segment."""
-    from sqlalchemy import select
-
-    from app.models import TranslationSegment
-
     db = SessionLocal()
-    works_service = WorksService(db)
-    chapters_service = ChaptersService(db)
-    explanation_service = ExplanationStreamService(db)
-    translation_service = TranslationStreamService(db)
-
     try:
+        works_service = WorksService(db)
+        chapters_service = ChaptersService(db)
         try:
             work = works_service.get_work(work_id)
         except WorkNotFoundError:
             raise HTTPException(status_code=404, detail="work not found") from None
-
         try:
             chapter = chapters_service.get_chapter(chapter_id)
         except ChapterNotFoundError:
             raise HTTPException(status_code=404, detail="chapter not found") from None
-
         if chapter.work_id != work.id:
             raise HTTPException(status_code=404, detail="chapter not found") from None
 
-        translation = translation_service.get_or_create_translation(chapter.id)
-
-        # Get the specific segment
-        stmt = select(TranslationSegment).where(TranslationSegment.id == segment_id)
-        segment = db.execute(stmt).scalars().first()
-
-        if segment is None or segment.chapter_translation_id != translation.id:
+        workflow = ExplanationWorkflow(db)
+        try:
+            workflow.preflight_check(chapter, segment_id)
+        except SegmentNotFoundError:
+            db.close()
             raise HTTPException(status_code=404, detail="segment not found") from None
-
-        # Check if segment is translated
-        if not explanation_service.is_segment_translated(segment):
+        except SegmentNotTranslatedError:
+            db.close()
             raise HTTPException(status_code=400, detail="segment is not translated") from None
-
-        # Check if explanation already exists in cache
-        if segment.explanation:
-            logger.info(
-                "Returning cached explanation",
-                extra={"segment_id": segment_id, "work_id": work_id, "chapter_id": chapter_id},
-            )
-
-            async def cached_event_generator():
-                yield _sse_event(
-                    "explanation-delta",
-                    {"segment_id": segment_id, "delta": segment.explanation},
-                )
-                yield _sse_event(
-                    "explanation-complete",
-                    {"segment_id": segment_id, "explanation": segment.explanation},
-                )
-
-            return EventSourceResponse(cached_event_generator())
-
-        # Get the explanation agent (uses hardcoded prompt)
-        explanation_agent = get_explanation_agent()
-
-        chapter_text = chapter.normalized_text
-        all_segments = list(translation_service.get_segments_for_translation(translation.id))
-
-        # Get current segment text and translation
-        current_source = chapter_text[segment.start : segment.end]
-        current_translation = segment.tgt or ""
-
-        logger.info(
-            "Explain segment context",
-            extra={
-                "work_id": work_id,
-                "chapter_id": chapter_id,
-                "segment_id": segment_id,
-                "order_index": segment.order_index,
-                "segment_indices": {"start": segment.start, "end": segment.end},
-                "extracted_source_preview": current_source[:80] + "..."
-                if len(current_source) > 80
-                else current_source,
-                "extracted_target_preview": current_translation[:80] + "..."
-                if len(current_translation) > 80
-                else current_translation,
-            },
-        )
-
-        # Get surrounding segments for context
-        preceding_segments = explanation_service.get_preceding_segments(
-            all_segments, segment, chapter_text, limit=1
-        )
-        following_segments = explanation_service.get_following_segments(
-            all_segments, segment, chapter_text, limit=1
-        )
-
-        logger.info(
-            "Starting segment explanation",
-            extra={
-                "work_id": work_id,
-                "chapter_id": chapter_id,
-                "segment_id": segment_id,
-                "model": explanation_agent.model,
-                "order_index": segment.order_index,
-                "segment_indices": {"start": segment.start, "end": segment.end},
-                "extracted_source_preview": current_source[:50] + "..."
-                if len(current_source) > 50
-                else current_source,
-                "extracted_target_preview": current_translation[:50] + "..."
-                if len(current_translation) > 50
-                else current_translation,
-            },
-        )
 
         async def event_generator():
             try:
-                collected = ""
-                try:
-                    async for delta in explanation_agent.stream_explanation(
-                        current_source,
-                        current_translation,
-                        preceding_segments=preceding_segments,
-                        following_segments=following_segments,
-                    ):
-                        if await request.is_disconnected():
-                            raise asyncio.CancelledError
-                        if not delta:
-                            continue
-                        collected += delta
-                        yield _sse_event(
-                            "explanation-delta",
-                            {
-                                "segment_id": segment_id,
-                                "delta": delta,
-                            },
-                        )
-
-                    # Save the explanation to the database
-                    logger.info(
-                        "Saving segment explanation",
-                        extra={
-                            "work_id": work_id,
-                            "chapter_id": chapter_id,
-                            "segment_id": segment_id,
-                            "order_index": segment.order_index,
-                            "source_preview": current_source[:80]
-                            + ("..." if len(current_source) > 80 else ""),
-                            "translation_preview": current_translation[:80]
-                            + ("..." if len(current_translation) > 80 else ""),
-                            "explanation_preview": collected[:120]
-                            + ("..." if len(collected) > 120 else ""),
-                            "explanation_sha256": hashlib.sha256(
-                                collected.encode("utf-8")
-                            ).hexdigest()
-                            if collected
-                            else None,
-                        },
-                    )
-                    explanation_service.save_explanation(segment_id, collected)
-
-                    yield _sse_event(
-                        "explanation-complete",
-                        {
-                            "segment_id": segment_id,
-                            "explanation": collected,
-                        },
-                    )
-                except asyncio.CancelledError:
-                    raise
-                except Exception as exc:  # pragma: no cover
-                    logger.exception("Explanation generation failed")
-                    yield _sse_event(
-                        "explanation-error",
-                        {
-                            "segment_id": segment_id,
-                            "error": str(exc),
-                        },
-                    )
+                async for event in workflow.explain_segment(
+                    chapter,
+                    segment_id,
+                    force=False,
+                    is_disconnected=request.is_disconnected,
+                ):
+                    yield _explanation_event_to_sse(event)
             finally:
                 db.close()
 
         return EventSourceResponse(event_generator())
-
+    except HTTPException:
+        raise
     except Exception:
-        if db:
-            db.close()
+        db.close()
         raise
 
 
@@ -1117,165 +776,46 @@ async def regenerate_explanation(
     request: Request,
 ):
     """Clear and regenerate explanation for a translation segment."""
-    from sqlalchemy import select
-
-    from app.models import TranslationSegment
-
     db = SessionLocal()
-    works_service = WorksService(db)
-    chapters_service = ChaptersService(db)
-    explanation_service = ExplanationStreamService(db)
-    translation_service = TranslationStreamService(db)
-
     try:
+        works_service = WorksService(db)
+        chapters_service = ChaptersService(db)
         try:
             work = works_service.get_work(work_id)
         except WorkNotFoundError:
             raise HTTPException(status_code=404, detail="work not found") from None
-
         try:
             chapter = chapters_service.get_chapter(chapter_id)
         except ChapterNotFoundError:
             raise HTTPException(status_code=404, detail="chapter not found") from None
-
         if chapter.work_id != work.id:
             raise HTTPException(status_code=404, detail="chapter not found") from None
 
-        translation = translation_service.get_or_create_translation(chapter.id)
-
-        # Get the specific segment
-        stmt = select(TranslationSegment).where(TranslationSegment.id == segment_id)
-        segment = db.execute(stmt).scalars().first()
-
-        if segment is None or segment.chapter_translation_id != translation.id:
+        workflow = ExplanationWorkflow(db)
+        try:
+            workflow.preflight_check(chapter, segment_id)
+        except SegmentNotFoundError:
+            db.close()
             raise HTTPException(status_code=404, detail="segment not found") from None
-
-        # Check if segment is translated
-        if not explanation_service.is_segment_translated(segment):
+        except SegmentNotTranslatedError:
+            db.close()
             raise HTTPException(status_code=400, detail="segment is not translated") from None
-
-        # Clear the existing explanation
-        explanation_service.clear_explanation(segment_id)
-
-        # Refresh segment to get cleared explanation
-        segment = db.execute(stmt).scalars().first()
-
-        # Get the explanation agent (uses hardcoded prompt)
-        explanation_agent = get_explanation_agent()
-
-        chapter_text = chapter.normalized_text
-        all_segments = list(translation_service.get_segments_for_translation(translation.id))
-
-        # Get current segment text and translation
-        current_source = chapter_text[segment.start : segment.end]
-        current_translation = segment.tgt or ""
-
-        logger.info(
-            "Regenerate explanation context",
-            extra={
-                "work_id": work_id,
-                "chapter_id": chapter_id,
-                "segment_id": segment_id,
-                "order_index": segment.order_index,
-                "segment_indices": {"start": segment.start, "end": segment.end},
-                "extracted_source_preview": current_source[:80] + "..."
-                if len(current_source) > 80
-                else current_source,
-                "extracted_target_preview": current_translation[:80] + "..."
-                if len(current_translation) > 80
-                else current_translation,
-            },
-        )
-
-        # Get surrounding segments for context
-        preceding_segments = explanation_service.get_preceding_segments(
-            all_segments, segment, chapter_text, limit=1
-        )
-        following_segments = explanation_service.get_following_segments(
-            all_segments, segment, chapter_text, limit=1
-        )
-
-        logger.info(
-            "Regenerating segment explanation",
-            extra={
-                "work_id": work_id,
-                "chapter_id": chapter_id,
-                "segment_id": segment_id,
-                "model": explanation_agent.model,
-                "order_index": segment.order_index,
-            },
-        )
 
         async def event_generator():
             try:
-                collected = ""
-                try:
-                    async for delta in explanation_agent.stream_explanation(
-                        current_source,
-                        current_translation,
-                        preceding_segments=preceding_segments,
-                        following_segments=following_segments,
-                    ):
-                        if await request.is_disconnected():
-                            raise asyncio.CancelledError
-                        if not delta:
-                            continue
-                        collected += delta
-                        yield _sse_event(
-                            "explanation-delta",
-                            {
-                                "segment_id": segment_id,
-                                "delta": delta,
-                            },
-                        )
-
-                    # Save the explanation to the database
-                    logger.info(
-                        "Saving segment explanation (regenerate)",
-                        extra={
-                            "work_id": work_id,
-                            "chapter_id": chapter_id,
-                            "segment_id": segment_id,
-                            "order_index": segment.order_index,
-                            "source_preview": current_source[:80]
-                            + ("..." if len(current_source) > 80 else ""),
-                            "translation_preview": current_translation[:80]
-                            + ("..." if len(current_translation) > 80 else ""),
-                            "explanation_preview": collected[:120]
-                            + ("..." if len(collected) > 120 else ""),
-                            "explanation_sha256": hashlib.sha256(
-                                collected.encode("utf-8")
-                            ).hexdigest()
-                            if collected
-                            else None,
-                        },
-                    )
-                    explanation_service.save_explanation(segment_id, collected)
-
-                    yield _sse_event(
-                        "explanation-complete",
-                        {
-                            "segment_id": segment_id,
-                            "explanation": collected,
-                        },
-                    )
-                except asyncio.CancelledError:
-                    raise
-                except Exception as exc:  # pragma: no cover
-                    logger.exception("Explanation regeneration failed")
-                    yield _sse_event(
-                        "explanation-error",
-                        {
-                            "segment_id": segment_id,
-                            "error": str(exc),
-                        },
-                    )
+                async for event in workflow.explain_segment(
+                    chapter,
+                    segment_id,
+                    force=True,
+                    is_disconnected=request.is_disconnected,
+                ):
+                    yield _explanation_event_to_sse(event)
             finally:
                 db.close()
 
         return EventSourceResponse(event_generator())
-
+    except HTTPException:
+        raise
     except Exception:
-        if db:
-            db.close()
+        db.close()
         raise

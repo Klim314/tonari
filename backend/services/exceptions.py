@@ -32,3 +32,11 @@ class ChapterGroupNotFoundError(NotFoundError):
 
 class ChapterGroupConflictError(ServiceError):
     """Raised when chapters already belong to another group."""
+
+
+class SegmentNotFoundError(NotFoundError):
+    """Raised when a translation segment lookup fails."""
+
+
+class SegmentNotTranslatedError(ServiceError):
+    """Raised when an explanation is requested for an untranslated segment."""

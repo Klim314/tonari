@@ -6,7 +6,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Chapter, ScrapeJob, Work
+from app.models import Chapter, ChapterTranslation, ScrapeJob, TranslationSegment, Work
 from app.syosetu.scraper import SyosetuScraper
 from services.scrape_manager import ScrapeManager
 
@@ -259,6 +259,25 @@ def test_get_chapter_detail_wrong_work(client, db_session):
     assert resp.status_code == 404
 
 
+def _parse_sse_events(text: str) -> list[tuple[str, dict]]:
+    """Parse an SSE stream into a list of (event_name, data) tuples."""
+    import json
+
+    events = []
+    current_event = None
+    current_data = None
+    for line in text.splitlines():
+        if line.startswith("event: "):
+            current_event = line[len("event: "):]
+        elif line.startswith("data: "):
+            current_data = line[len("data: "):]
+        elif line == "" and current_event is not None and current_data is not None:
+            events.append((current_event, json.loads(current_data)))
+            current_event = None
+            current_data = None
+    return events
+
+
 def test_stream_chapter_translation_persists_segments(client, db_session):
     work = _create_work(db_session, "Translated Work")
     chapter = Chapter(
@@ -276,7 +295,33 @@ def test_stream_chapter_translation_persists_segments(client, db_session):
     response = client.get(f"/works/{work.id}/chapters/{chapter.id}/translate/stream")
 
     assert response.status_code == 200
-    assert "event: translation-complete" in response.text
+
+    events = _parse_sse_events(response.text)
+    event_names = [name for name, _ in events]
+
+    # Full event sequence: status(running) → [start/delta(s)/complete per segment] → complete
+    assert event_names[0] == "translation-status"
+    assert events[0][1]["status"] == "running"
+
+    # Two translatable segments ("彼は歩く。\n彼女も歩く。" and "場面転換。"); whitespace skipped
+    start_indices = [i for i, name in enumerate(event_names) if name == "segment-start"]
+    assert len(start_indices) == 2
+
+    for start_idx in start_indices:
+        segment_id = events[start_idx][1]["segment_id"]
+        # At least one delta follows
+        next_names = event_names[start_idx + 1:]
+        assert "segment-delta" in next_names, "Expected segment-delta after segment-start"
+        # segment-complete for this segment follows
+        complete_for_seg = [
+            i
+            for i, (name, data) in enumerate(events)
+            if name == "segment-complete" and data.get("segment_id") == segment_id
+        ]
+        assert complete_for_seg, f"Expected segment-complete for segment {segment_id}"
+
+    assert event_names[-1] == "translation-complete"
+    assert events[-1][1]["status"] == "completed"
 
     state = client.get(f"/works/{work.id}/chapters/{chapter.id}/translation")
     assert state.status_code == 200
@@ -292,3 +337,142 @@ def test_stream_chapter_translation_persists_segments(client, db_session):
     assert payload["segments"][2]["src"] == "場面転換。"
     assert payload["segments"][2]["tgt"] != ""
     assert payload["segments"][2]["flags"] == []
+
+
+# ---------------------------------------------------------------------------
+# Streaming endpoint error boundary tests
+# ---------------------------------------------------------------------------
+
+
+def _make_translated_chapter(db_session: Session, work: Work) -> tuple[Chapter, TranslationSegment]:
+    """Create a chapter with one translated segment, returning (chapter, segment)."""
+    chapter = Chapter(
+        work_id=work.id,
+        idx=1,
+        sort_key=Decimal(1),
+        title="Work #1",
+        normalized_text="some text",
+        text_hash="some-hash",
+    )
+    db_session.add(chapter)
+    db_session.flush()
+
+    translation = ChapterTranslation(
+        chapter_id=chapter.id, status="completed", cache_policy="reuse", params={}
+    )
+    db_session.add(translation)
+    db_session.flush()
+
+    segment = TranslationSegment(
+        chapter_translation_id=translation.id,
+        start=0,
+        end=9,
+        order_index=0,
+        tgt="translated",
+        flags=[],
+        src_hash="abc",
+    )
+    db_session.add(segment)
+    db_session.commit()
+    db_session.refresh(chapter)
+    db_session.refresh(segment)
+    return chapter, segment
+
+
+def test_retranslate_stream_returns_404_for_missing_segment(client, db_session):
+    """Invalid segment id must produce HTTP 404 before the SSE stream opens."""
+    work = _create_work(db_session, "Retranslate Work")
+    chapter, _ = _make_translated_chapter(db_session, work)
+
+    resp = client.get(
+        f"/works/{work.id}/chapters/{chapter.id}/segments/99999/retranslate/stream"
+    )
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "segment not found"
+
+
+def test_explain_stream_returns_404_for_missing_segment(client, db_session):
+    """Invalid segment id must produce HTTP 404 before the SSE stream opens."""
+    work = _create_work(db_session, "Explain Work 404")
+    chapter, _ = _make_translated_chapter(db_session, work)
+
+    resp = client.get(
+        f"/works/{work.id}/chapters/{chapter.id}/segments/99999/explain/stream"
+    )
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "segment not found"
+
+
+def test_explain_stream_returns_400_for_untranslated_segment(client, db_session):
+    """Untranslated segment must produce HTTP 400 before the SSE stream opens."""
+    work = _create_work(db_session, "Explain Work 400")
+    chapter = Chapter(
+        work_id=work.id,
+        idx=1,
+        sort_key=Decimal(1),
+        title="Work #1",
+        normalized_text="some text",
+        text_hash="untranslated-hash",
+    )
+    db_session.add(chapter)
+    db_session.flush()
+    translation = ChapterTranslation(
+        chapter_id=chapter.id, status="pending", cache_policy="reuse", params={}
+    )
+    db_session.add(translation)
+    db_session.flush()
+    segment = TranslationSegment(
+        chapter_translation_id=translation.id,
+        start=0,
+        end=9,
+        order_index=0,
+        tgt="",  # not translated
+        flags=[],
+        src_hash="def",
+    )
+    db_session.add(segment)
+    db_session.commit()
+    db_session.refresh(segment)
+
+    resp = client.get(
+        f"/works/{work.id}/chapters/{chapter.id}/segments/{segment.id}/explain/stream"
+    )
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "segment is not translated"
+
+
+def test_regenerate_explanation_returns_404_for_missing_segment(client, db_session):
+    """Invalid segment id must produce HTTP 404 before the SSE stream opens."""
+    work = _create_work(db_session, "Regenerate Work 404")
+    chapter, _ = _make_translated_chapter(db_session, work)
+
+    resp = client.post(
+        f"/works/{work.id}/chapters/{chapter.id}/segments/99999/regenerate-explanation"
+    )
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "segment not found"
+
+
+def test_regenerate_explanation_returns_400_for_untranslated_segment(client, db_session):
+    """Untranslated segment must produce HTTP 400 before the SSE stream opens."""
+    work = _create_work(db_session, "Regenerate Work 400")
+    chapter, _ = _make_translated_chapter(db_session, work)
+
+    # Reset the segment's tgt to make it untranslated
+    segment = db_session.execute(
+        select(TranslationSegment).where(
+            TranslationSegment.chapter_translation_id
+            == db_session.execute(
+                select(ChapterTranslation).where(ChapterTranslation.chapter_id == chapter.id)
+            ).scalar_one().id
+        )
+    ).scalar_one()
+    segment.tgt = ""
+    db_session.add(segment)
+    db_session.commit()
+
+    resp = client.post(
+        f"/works/{work.id}/chapters/{chapter.id}/segments/{segment.id}/regenerate-explanation"
+    )
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "segment is not translated"
