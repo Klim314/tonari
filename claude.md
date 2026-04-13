@@ -13,16 +13,28 @@ The project uses:
 This project uses `just` as a task runner. See `justfile` for all available commands:
 
 **Common commands:**
-- `just dev-up` - Start development environment (db and api-dev)
+- `just dev-up` - Start development environment (db, api-dev, and frontend)
 - `just dev-down` - Stop development environment
 - `just test` - Run backend tests
 - `just lint` - Lint backend code
 - `just format` - Format backend code
 - `just lint-web` - Lint frontend code with Biome
+- `just format-web` - Format frontend code with Biome
 - `just migrate` - Run database migrations
 - `just makemigrations [name]` - Generate new migration
 - `just generate-api` - Generate frontend API client from OpenAPI spec
 - `just --list` - See all available just recipes
+
+## Long-Running Task Tracking
+
+Multi-session tasks live under `.ai/active/`. Each subdirectory is a self-contained task.
+
+Progress uses a two-file pattern:
+
+- **`state.md`** — Compact current state: status, summary table, next steps, blockers. Overwritten each session. Read this first when resuming.
+- **`log.md`** — Append-only session history. Only consult when you need to understand past decisions.
+
+When starting a session: read `state.md`. When ending: overwrite `state.md`, append to `log.md`.
 
 ## Available MCPs (Model Context Protocols)
 

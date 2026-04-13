@@ -41,6 +41,6 @@ typecheck:
 generate-api:
     curl -fsSLo frontend/openapi.json http://localhost:8087/openapi.json && npm --prefix frontend run generate:api
 
-# Sync .ai/ instructions to platform files (CLAUDE.md, AGENTS.md, GEMINI.md)
+# Sync .ai/ instructions to platform files (CLAUDE.md, AGENTS.md)
 ai-sync:
     bash .ai/sync.sh
