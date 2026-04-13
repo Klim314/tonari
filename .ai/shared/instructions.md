@@ -27,11 +27,50 @@ This project uses `just` as a task runner. See `justfile` for all available comm
 
 ## Long-Running Task Tracking
 
-Multi-session tasks live under `.ai/active/`. Each subdirectory is a self-contained task.
+Multi-session tasks live under `.ai/active/`. Each subdirectory is a self-contained task with this layout:
 
-Progress uses a two-file pattern:
+```
+.ai/active/<task>/
+├── state.md              # compact current state; overwritten each session
+├── log.md                # append-only session history
+├── <design-doc>.md       # PRDs, plans, mockups at top level (as many as needed)
+├── phase-1/              # one folder per phase (typically one PR per phase)
+│   └── review.md         # shared review doc; reviewers append sections
+├── phase-2/
+└── ...
+```
 
-- **`state.md`** — Compact current state: status, summary table, next steps, blockers. Overwritten each session. Read this first when resuming.
-- **`log.md`** — Append-only session history. Only consult when you need to understand past decisions.
+- **`state.md`** — status, phase summary table, next steps, blockers. Overwritten each session. Read this first when resuming.
+- **`log.md`** — append-only session history. Consult only when you need past decisions.
+- **Top-level docs** — PRD, plan, mockups, and other design artifacts that span the whole task.
+- **`phase-<n>/`** — one folder per phase (roughly one PR). Phase-scoped artifacts live here.
+- **`phase-<n>/review.md`** — shared, append-only review document. Multiple reviewers (possibly different models) add sections to the same file so a human can read one consolidated review.
 
 When starting a session: read `state.md`. When ending: overwrite `state.md`, append to `log.md`.
+
+### review.md format
+
+Each reviewer appends a block of this form — never edit or remove prior blocks:
+
+```markdown
+## Review — <your model id> — <YYYY-MM-DD>
+
+**Files reviewed**: comma-separated list
+**Changes**: brief one-line description
+
+### Critical
+- **[file:line]** Description → Suggested fix
+
+### Important
+- **[file:line]** Description → Suggested fix
+
+### Minor
+- **[file:line]** Description
+
+### Summary
+One sentence: overall assessment and whether this is safe to commit.
+
+---
+```
+
+Omit empty severity sections. If the file doesn't exist yet, create it with a `# Phase <n> Review` heading, then add your block.
