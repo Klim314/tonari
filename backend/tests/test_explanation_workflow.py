@@ -1,4 +1,5 @@
 """Workflow-level event sequence tests for ExplanationWorkflow."""
+
 from __future__ import annotations
 
 import asyncio

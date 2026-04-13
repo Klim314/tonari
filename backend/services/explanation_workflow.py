@@ -87,6 +87,7 @@ class ExplanationWorkflow:
             self._explanation_service.clear_explanation(segment_id)
             # Refresh segment to reflect cleared explanation
             from sqlalchemy import select
+
             stmt = select(TranslationSegment).where(TranslationSegment.id == segment_id)
             segment = self.db.execute(stmt).scalars().first()
         elif segment.explanation:
@@ -95,16 +96,12 @@ class ExplanationWorkflow:
                 extra={"segment_id": segment_id, "chapter_id": chapter.id},
             )
             yield ExplanationDeltaEvent(segment_id=segment_id, delta=segment.explanation)
-            yield ExplanationCompleteEvent(
-                segment_id=segment_id, explanation=segment.explanation
-            )
+            yield ExplanationCompleteEvent(segment_id=segment_id, explanation=segment.explanation)
             return
 
         explanation_agent = get_explanation_agent()
         chapter_text = chapter.normalized_text
-        all_segments = list(
-            self._translation_service.get_segments_for_translation(translation.id)
-        )
+        all_segments = list(self._translation_service.get_segments_for_translation(translation.id))
 
         current_source = chapter_text[segment.start : segment.end]
         current_translation = segment.tgt or ""

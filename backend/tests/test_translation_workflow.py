@@ -1,4 +1,5 @@
 """Workflow-level event sequence tests for TranslationWorkflow."""
+
 from __future__ import annotations
 
 import asyncio
@@ -110,9 +111,7 @@ class TestResolveAgent:
         mock_version.model = "custom-model"
 
         with (
-            patch.object(
-                workflow._prompt_service, "get_prompt_for_work", return_value=mock_prompt
-            ),
+            patch.object(workflow._prompt_service, "get_prompt_for_work", return_value=mock_prompt),
             patch.object(
                 workflow._prompt_service,
                 "get_prompt_versions",
@@ -214,12 +213,16 @@ class TestStartOrResume:
         ).scalar_one()
         assert translation.status == "completed"
 
-        segments = db_session.execute(
-            select(TranslationSegment).where(
-                TranslationSegment.chapter_translation_id == translation.id,
-                ~TranslationSegment.flags.contains(["whitespace"]),
+        segments = (
+            db_session.execute(
+                select(TranslationSegment).where(
+                    TranslationSegment.chapter_translation_id == translation.id,
+                    ~TranslationSegment.flags.contains(["whitespace"]),
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         for seg in segments:
             assert seg.tgt != ""
 

@@ -22,7 +22,10 @@ class TranslationExplanation(Base):
     __tablename__ = "translation_explanations"
     __table_args__ = (
         UniqueConstraint(
-            "anchor_segment_id", "span_start", "span_end", "density",
+            "anchor_segment_id",
+            "span_start",
+            "span_end",
+            "density",
             name="uq_explanation_segment_span_density",
         ),
     )

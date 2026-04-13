@@ -90,9 +90,7 @@ class TranslationWorkflow:
         self._stream_service = TranslationStreamService(db)
         self._prompt_service = PromptService(db)
 
-    def preflight_segment_check(
-        self, chapter: Chapter, segment_id: int
-    ) -> TranslationSegment:
+    def preflight_segment_check(self, chapter: Chapter, segment_id: int) -> TranslationSegment:
         """Validate segment existence before opening an SSE stream.
 
         Raises SegmentNotFoundError if the segment does not exist or does not
@@ -191,9 +189,7 @@ class TranslationWorkflow:
             return
 
         chapter_text = chapter.normalized_text
-        segments_to_translate = [
-            s for s in segments if self._stream_service.needs_translation(s)
-        ]
+        segments_to_translate = [s for s in segments if self._stream_service.needs_translation(s)]
 
         async for event in self._run_segment_loop(
             agent=agent,

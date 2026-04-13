@@ -5,6 +5,18 @@ export type ClientOptions = {
 };
 
 /**
+ * ArtifactPayload
+ *
+ * Full payload stored in translation_explanations.payload_json.
+ */
+export type ArtifactPayload = {
+    overview?: FacetEntry | null;
+    vocabulary?: FacetEntry | null;
+    grammar?: FacetEntry | null;
+    translation_logic?: FacetEntry | null;
+};
+
+/**
  * BatchSegmentUpdateRequest
  *
  * Request payload for batch updating segment translations.
@@ -444,6 +456,97 @@ export type ChaptersWithGroupsResponse = {
 };
 
 /**
+ * ExplanationArtifactOut
+ *
+ * Response for GET .../sentences/explanation.
+ */
+export type ExplanationArtifactOut = {
+    /**
+     * Artifact Id
+     */
+    artifact_id?: number | null;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Density
+     */
+    density?: string | null;
+    /**
+     * Analysis Unit Type
+     */
+    analysis_unit_type?: string | null;
+    /**
+     * Span Start
+     */
+    span_start?: number | null;
+    /**
+     * Span End
+     */
+    span_end?: number | null;
+    facets?: ArtifactPayload | null;
+};
+
+/**
+ * ExplanationStartRequest
+ *
+ * Request body for POST .../sentences/explanation.
+ */
+export type ExplanationStartRequest = {
+    /**
+     * Span Start
+     */
+    span_start: number;
+    /**
+     * Span End
+     */
+    span_end: number;
+    /**
+     * Density
+     */
+    density?: 'sparse' | 'dense';
+    /**
+     * Force
+     */
+    force?: boolean;
+};
+
+/**
+ * ExplanationStartResponse
+ *
+ * Response for POST .../sentences/explanation.
+ */
+export type ExplanationStartResponse = {
+    /**
+     * Artifact Id
+     */
+    artifact_id: number;
+};
+
+/**
+ * FacetEntry
+ *
+ * One facet's record as stored in and returned from the artifact payload.
+ */
+export type FacetEntry = {
+    /**
+     * Status
+     */
+    status: 'pending' | 'generating' | 'complete' | 'error';
+    /**
+     * Data
+     */
+    data?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Error
+     */
+    error?: string | null;
+};
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -813,6 +916,24 @@ export type SegmentEditPayload = {
 };
 
 /**
+ * SentenceSpanOut
+ */
+export type SentenceSpanOut = {
+    /**
+     * Span Start
+     */
+    span_start: number;
+    /**
+     * Span End
+     */
+    span_end: number;
+    /**
+     * Text
+     */
+    text: string;
+};
+
+/**
  * TranslationSegmentOut
  */
 export type TranslationSegmentOut = {
@@ -844,6 +965,10 @@ export type TranslationSegmentOut = {
      * Flags
      */
     flags?: Array<string>;
+    /**
+     * Sentences
+     */
+    sentences?: Array<SentenceSpanOut>;
 };
 
 /**
@@ -2136,6 +2261,144 @@ export type RegenerateExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdRe
 export type RegenerateExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdRegenerateExplanationPostError = RegenerateExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdRegenerateExplanationPostErrors[keyof RegenerateExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdRegenerateExplanationPostErrors];
 
 export type RegenerateExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdRegenerateExplanationPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type GetSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationGetData = {
+    body?: never;
+    path: {
+        /**
+         * Work Id
+         */
+        work_id: number;
+        /**
+         * Chapter Id
+         */
+        chapter_id: number;
+        /**
+         * Segment Id
+         */
+        segment_id: number;
+    };
+    query: {
+        /**
+         * Span Start
+         */
+        span_start: number;
+        /**
+         * Span End
+         */
+        span_end: number;
+        /**
+         * Density
+         */
+        density?: 'sparse' | 'dense';
+    };
+    url: '/works/{work_id}/chapters/{chapter_id}/segments/{segment_id}/sentences/explanation';
+};
+
+export type GetSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationGetError = GetSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationGetErrors[keyof GetSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationGetErrors];
+
+export type GetSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: ExplanationArtifactOut;
+};
+
+export type GetSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationGetResponse = GetSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationGetResponses[keyof GetSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationGetResponses];
+
+export type StartSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationPostData = {
+    body: ExplanationStartRequest;
+    path: {
+        /**
+         * Work Id
+         */
+        work_id: number;
+        /**
+         * Chapter Id
+         */
+        chapter_id: number;
+        /**
+         * Segment Id
+         */
+        segment_id: number;
+    };
+    query?: never;
+    url: '/works/{work_id}/chapters/{chapter_id}/segments/{segment_id}/sentences/explanation';
+};
+
+export type StartSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type StartSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationPostError = StartSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationPostErrors[keyof StartSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationPostErrors];
+
+export type StartSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ExplanationStartResponse;
+};
+
+export type StartSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationPostResponse = StartSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationPostResponses[keyof StartSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationPostResponses];
+
+export type StreamSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationStreamGetData = {
+    body?: never;
+    path: {
+        /**
+         * Work Id
+         */
+        work_id: number;
+        /**
+         * Chapter Id
+         */
+        chapter_id: number;
+        /**
+         * Segment Id
+         */
+        segment_id: number;
+    };
+    query: {
+        /**
+         * Span Start
+         */
+        span_start: number;
+        /**
+         * Span End
+         */
+        span_end: number;
+        /**
+         * Density
+         */
+        density?: 'sparse' | 'dense';
+    };
+    url: '/works/{work_id}/chapters/{chapter_id}/segments/{segment_id}/sentences/explanation/stream';
+};
+
+export type StreamSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationStreamGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type StreamSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationStreamGetError = StreamSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationStreamGetErrors[keyof StreamSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationStreamGetErrors];
+
+export type StreamSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationStreamGetResponses = {
     /**
      * Successful Response
      */

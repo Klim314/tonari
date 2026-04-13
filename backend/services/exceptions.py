@@ -40,3 +40,7 @@ class SegmentNotFoundError(NotFoundError):
 
 class SegmentNotTranslatedError(ServiceError):
     """Raised when an explanation is requested for an untranslated segment."""
+
+
+class SpanValidationError(ServiceError):
+    """Raised when explanation span coordinates are invalid."""

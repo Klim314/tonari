@@ -72,6 +72,85 @@ def _chunk_content_to_text(chunk_content) -> str:
     return ""
 
 
+def create_llm(
+    provider: str,
+    model: str,
+    api_key: str,
+    api_base: str | None,
+) -> BaseChatModel:
+    """Create the appropriate LLM based on the provider."""
+    if provider == "openai":
+        if ChatOpenAI is None:
+            raise ImportError("langchain-openai not installed")
+        return ChatOpenAI(
+            api_key=api_key,
+            model=model,
+            base_url=api_base or None,
+            temperature=0.2,
+            streaming=True,
+        )
+    elif provider == "gemini":
+        if ChatGoogleGenerativeAI is None:
+            raise ImportError("langchain-google-genai not installed")
+        return ChatGoogleGenerativeAI(
+            google_api_key=api_key,
+            model=model,
+            temperature=0.2,
+            streaming=True,
+        )
+    else:
+        raise ValueError(f"Unsupported provider: {provider}")
+
+
+def _normalize_context_segments(
+    segments: Sequence[SegmentContextInput],
+) -> list[SegmentContext]:
+    normalized: list[SegmentContext] = []
+    for raw in segments:
+        if isinstance(raw, SegmentContext):
+            normalized.append(raw)
+            continue
+        if isinstance(raw, Mapping):
+            src_value = raw.get("src") or raw.get("source") or ""
+            tgt_value = raw.get("tgt") or raw.get("translation") or ""
+            src = str(src_value).strip()
+            tgt = str(tgt_value).strip()
+            if not src and not tgt:
+                continue
+            normalized.append(SegmentContext(src=src, tgt=tgt))
+    return normalized
+
+
+def render_block(
+    segments: Sequence[SegmentContextInput] | None,
+    block_name: str = "preceding",
+) -> str:
+    """Render context segments as an XML block string."""
+    if not segments:
+        return ""
+
+    normalized = _normalize_context_segments(segments)
+    if not normalized:
+        return ""
+
+    lines: list[str] = [f"<{block_name}>"]
+    for segment in normalized:
+        if not segment.src and not segment.tgt:
+            continue
+        lines.append("<segment>")
+        if segment.src:
+            lines.append("<source>")
+            lines.append(segment.src)
+            lines.append("</source>")
+        if segment.tgt:
+            lines.append("<translation>")
+            lines.append(segment.tgt)
+            lines.append("</translation>")
+        lines.append("</segment>")
+    lines.append(f"</{block_name}>\n")
+    return "\n".join(lines)
+
+
 class BaseAgent:
     """Base agent for LLM-powered text generation with streaming support."""
 
@@ -95,7 +174,7 @@ class BaseAgent:
 
         if api_key and ChatPromptTemplate:
             try:
-                self._llm = self._create_llm(
+                self._llm = create_llm(
                     provider=provider,
                     model=model,
                     api_key=api_key,
@@ -112,36 +191,6 @@ class BaseAgent:
                 logger.info("Using stub instead")
         else:
             logger.info("LangChain dependencies unavailable or API key missing; using stub")
-
-    @staticmethod
-    def _create_llm(
-        provider: str,
-        model: str,
-        api_key: str,
-        api_base: str | None,
-    ) -> BaseChatModel:
-        """Create the appropriate LLM based on the provider."""
-        if provider == "openai":
-            if ChatOpenAI is None:
-                raise ImportError("langchain-openai not installed")
-            return ChatOpenAI(
-                api_key=api_key,
-                model=model,
-                base_url=api_base or None,
-                temperature=0.2,
-                streaming=True,
-            )
-        elif provider == "gemini":
-            if ChatGoogleGenerativeAI is None:
-                raise ImportError("langchain-google-genai not installed")
-            return ChatGoogleGenerativeAI(
-                google_api_key=api_key,
-                model=model,
-                temperature=0.2,
-                streaming=True,
-            )
-        else:
-            raise ValueError(f"Unsupported provider: {provider}")
 
     @property
     def has_provider(self) -> bool:
@@ -198,67 +247,13 @@ class BaseAgent:
             collected.append(chunk)
         return "".join(collected).strip()
 
-    @staticmethod
-    def _normalize_context_segments(
-        segments: Sequence[SegmentContextInput],
-    ) -> list[SegmentContext]:
-        normalized: list[SegmentContext] = []
-        for raw in segments:
-            if isinstance(raw, SegmentContext):
-                normalized.append(raw)
-                continue
-            if isinstance(raw, Mapping):
-                src_value = raw.get("src") or raw.get("source") or ""
-                tgt_value = raw.get("tgt") or raw.get("translation") or ""
-                src = str(src_value).strip()
-                tgt = str(tgt_value).strip()
-                if not src and not tgt:
-                    continue
-                normalized.append(SegmentContext(src=src, tgt=tgt))
-        return normalized
-
-    @staticmethod
-    def _render_block(
-        segments: Sequence[SegmentContextInput] | None,
-        block_name: str = "preceding",
-    ) -> str:
-        """Render context segments as XML block.
-
-        Args:
-            segments: Sequence of segments to render.
-            block_name: Name of the block (e.g., "preceding", "following").
-
-        Returns:
-            XML-formatted block string, or empty string if no segments.
-        """
-        if not segments:
-            return ""
-
-        normalized = BaseAgent._normalize_context_segments(segments)
-        if not normalized:
-            return ""
-
-        lines: list[str] = [f"<{block_name}>"]
-        for segment in normalized:
-            if not segment.src and not segment.tgt:
-                continue
-            lines.append("<segment>")
-            if segment.src:
-                lines.append("<source>")
-                lines.append(segment.src)
-                lines.append("</source>")
-            if segment.tgt:
-                lines.append("<translation>")
-                lines.append(segment.tgt)
-                lines.append("</translation>")
-            lines.append("</segment>")
-        lines.append(f"</{block_name}>\n")
-        return "\n".join(lines)
 
 
 __all__ = [
     "BaseAgent",
     "SegmentContext",
     "SegmentContextInput",
+    "create_llm",
+    "render_block",
     "stub_stream",
 ]

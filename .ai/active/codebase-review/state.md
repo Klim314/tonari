@@ -4,7 +4,7 @@
 
 - State: `in progress`
 - Started: 2026-03-25
-- Last updated: 2026-04-05
+- Last updated: 2026-04-12
 
 ## Findings Summary
 
@@ -31,6 +31,7 @@ Major findings consolidated. Remediation of individual findings in progress, wit
 - Continue remediation of confirmed findings (prioritize P1s)
 - Begin A-003 frontend server-state migration using `tasks/a-003-react-query-migration.md`
 - Complete unchecked review lanes (see checklist.md)
+- Add a review note for `backend/agents/explanation_generator_v2.py`: current v2 extraction relies on generic system guidance plus schema coercion; evaluate whether facet-specific prompting is needed for consistent vocabulary/grammar/translation-logic quality
 
 ## Open Review Lanes
 
@@ -46,6 +47,7 @@ Major findings consolidated. Remediation of individual findings in progress, wit
 
 - Should final review outputs remain under `.ai/active/` or be promoted into `docs/` once stabilized?
 - Are the failing scrape tests stale after an intentional shift to async job-based scraping, or does the current API still violate intended product behavior?
+- Is `ExplanationGeneratorV2`'s current prompt contract strong enough for reliable extraction quality, or should each facet get stronger task-specific instructions and explicit omission rules?
 
 ## Blockers
 

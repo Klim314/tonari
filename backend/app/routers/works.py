@@ -4,11 +4,18 @@ import json
 import logging
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
 from sse_starlette.sse import EventSourceResponse
 
 from app.db import SessionLocal
+from app.explanation_schemas import (
+    ArtifactPayload,
+    ExplanationArtifactOut,
+    ExplanationStartRequest,
+    ExplanationStartResponse,
+)
 from app.models import ChapterTranslation
 from app.prompt_overrides import (
     PromptOverrideExpiredError,
@@ -42,14 +49,23 @@ from services.exceptions import (
     ChapterNotFoundError,
     SegmentNotFoundError,
     SegmentNotTranslatedError,
+    SpanValidationError,
     WorkNotFoundError,
 )
+from services.explanation_service import ExplanationService
 from services.explanation_workflow import (
     ExplanationCompleteEvent,
     ExplanationDeltaEvent,
     ExplanationErrorEvent,
     ExplanationEvent,
     ExplanationWorkflow,
+)
+from services.explanation_workflow_v2 import (
+    ArtifactCompleteEvent,
+    ArtifactErrorEvent,
+    ExplanationV2Event,
+    ExplanationWorkflowV2,
+    FacetCompleteEvent,
 )
 from services.scrape_manager import ScrapeManager
 from services.translation_stream import TranslationStreamService
@@ -516,7 +532,6 @@ def _sse_event(event: str, payload: dict) -> dict:
     return {"event": event, "data": json.dumps(payload)}
 
 
-
 def _build_translation_state(chapter, translation, segments) -> ChapterTranslationStateOut:
     chapter_text = chapter.normalized_text
     splitter = get_sentence_splitter()
@@ -822,6 +837,175 @@ async def regenerate_explanation(
                     is_disconnected=request.is_disconnected,
                 ):
                     yield _explanation_event_to_sse(event)
+            finally:
+                db.close()
+
+        return EventSourceResponse(event_generator())
+    except Exception:
+        db.close()
+        raise
+
+
+# ---------------------------------------------------------------------------
+# Sentence explanation — v2 structured endpoints
+# ---------------------------------------------------------------------------
+
+
+def _v2_event_to_sse(event: ExplanationV2Event) -> dict:
+    match event:
+        case FacetCompleteEvent():
+            return _sse_event(
+                "explanation-facet-complete",
+                {
+                    "artifact_id": event.artifact_id,
+                    "facet_type": event.facet_type,
+                    "payload": event.payload,
+                },
+            )
+        case ArtifactCompleteEvent():
+            return _sse_event(
+                "explanation-complete",
+                {"artifact_id": event.artifact_id, "status": event.status},
+            )
+        case ArtifactErrorEvent():
+            data: dict = {"artifact_id": event.artifact_id, "message": event.error}
+            if event.facet_type is not None:
+                data["facet_type"] = event.facet_type
+            return _sse_event("explanation-error", data)
+
+
+def _resolve_chapter_for_segment(db, work_id: int, chapter_id: int, segment_id: int):
+    """Validate work/chapter/segment and return ``(chapter, ExplanationWorkflowV2)``."""
+    works_service = WorksService(db)
+    chapters_service = ChaptersService(db)
+    try:
+        work = works_service.get_work(work_id)
+    except WorkNotFoundError:
+        raise HTTPException(status_code=404, detail="work not found") from None
+    try:
+        chapter = chapters_service.get_chapter(chapter_id)
+    except ChapterNotFoundError:
+        raise HTTPException(status_code=404, detail="chapter not found") from None
+    if chapter.work_id != work.id:
+        raise HTTPException(status_code=404, detail="chapter not found") from None
+
+    workflow = ExplanationWorkflowV2(db)
+    try:
+        workflow.preflight_check(chapter, segment_id)
+    except SegmentNotFoundError:
+        raise HTTPException(status_code=404, detail="segment not found") from None
+    except SegmentNotTranslatedError:
+        raise HTTPException(status_code=400, detail="segment is not translated") from None
+
+    return chapter, workflow
+
+
+@router.get(
+    "/{work_id}/chapters/{chapter_id}/segments/{segment_id}/sentences/explanation",
+    response_model=ExplanationArtifactOut,
+)
+def get_sentence_explanation(
+    work_id: int,
+    chapter_id: int,
+    segment_id: int,
+    span_start: int = Query(..., ge=0),
+    span_end: int = Query(..., gt=0),
+    density: Literal["sparse", "dense"] = Query(default="sparse"),
+):
+    """Return the cached explanation artifact, or ``status: not_found`` on a miss."""
+    with SessionLocal() as db:
+        _resolve_chapter_for_segment(db, work_id, chapter_id, segment_id)
+        svc = ExplanationService(db)
+        artifact = svc.get_artifact(segment_id, density, span_start=span_start, span_end=span_end)
+        if artifact is None:
+            return ExplanationArtifactOut(status="not_found")
+        facets = None
+        if artifact.payload_json:
+            try:
+                facets = ArtifactPayload.model_validate(artifact.payload_json)
+            except Exception:
+                pass
+        return ExplanationArtifactOut(
+            artifact_id=artifact.id,
+            status=artifact.status,
+            density=artifact.density,
+            analysis_unit_type=artifact.analysis_unit_type,
+            span_start=artifact.span_start,
+            span_end=artifact.span_end,
+            facets=facets,
+        )
+
+
+@router.post(
+    "/{work_id}/chapters/{chapter_id}/segments/{segment_id}/sentences/explanation",
+    response_model=ExplanationStartResponse,
+)
+def start_sentence_explanation(
+    work_id: int,
+    chapter_id: int,
+    segment_id: int,
+    body: ExplanationStartRequest,
+):
+    """Create (or return existing) explanation artifact and return its ID.
+
+    Generation is driven by the SSE stream endpoint, not this one.
+    Pass ``force=true`` to reset an existing artifact so the next stream
+    regenerates it.
+    """
+    with SessionLocal() as db:
+        chapter, workflow = _resolve_chapter_for_segment(db, work_id, chapter_id, segment_id)
+        try:
+            artifact_id = workflow.start(
+                chapter,
+                segment_id,
+                body.span_start,
+                body.span_end,
+                body.density,
+                force=body.force,
+            )
+        except SpanValidationError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from None
+        return ExplanationStartResponse(artifact_id=artifact_id)
+
+
+@router.get(
+    "/{work_id}/chapters/{chapter_id}/segments/{segment_id}/sentences/explanation/stream",
+)
+async def stream_sentence_explanation(
+    work_id: int,
+    chapter_id: int,
+    segment_id: int,
+    request: Request,
+    span_start: int = Query(..., ge=0),
+    span_end: int = Query(..., gt=0),
+    density: Literal["sparse", "dense"] = Query(default="sparse"),
+):
+    """SSE stream that generates explanation facets one at a time.
+
+    On a cache hit all facets are replayed from the stored artifact without
+    calling the LLM.  On a cache miss each facet is generated sequentially,
+    persisted, and emitted as an ``explanation-facet-complete`` event.
+    """
+    db = SessionLocal()
+    try:
+        chapter, workflow = _resolve_chapter_for_segment(db, work_id, chapter_id, segment_id)
+        try:
+            workflow.validate_span(segment_id, chapter, span_start, span_end)
+        except SpanValidationError as exc:
+            db.close()
+            raise HTTPException(status_code=400, detail=str(exc)) from None
+
+        async def event_generator():
+            try:
+                async for event in workflow.stream(
+                    chapter,
+                    segment_id,
+                    span_start,
+                    span_end,
+                    density,
+                    is_disconnected=request.is_disconnected,
+                ):
+                    yield _v2_event_to_sse(event)
             finally:
                 db.close()
 

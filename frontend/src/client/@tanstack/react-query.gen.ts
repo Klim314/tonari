@@ -5,7 +5,7 @@ import type { AxiosError } from 'axios';
 
 import { client } from '../client.gen';
 import { ChapterGroups, Default, Ingest, Lab, Models, type Options, Prompts, Works } from '../sdk.gen';
-import type { AddChaptersToGroupWorksWorkIdChapterGroupsGroupIdMembersPostData, AddChaptersToGroupWorksWorkIdChapterGroupsGroupIdMembersPostError, AddChaptersToGroupWorksWorkIdChapterGroupsGroupIdMembersPostResponse, AppendPromptVersionPromptsPromptIdVersionsPostData, AppendPromptVersionPromptsPromptIdVersionsPostError, AppendPromptVersionPromptsPromptIdVersionsPostResponse, BatchUpdateSegmentsWorksWorkIdChaptersChapterIdSegmentsBatchPatchData, BatchUpdateSegmentsWorksWorkIdChaptersChapterIdSegmentsBatchPatchError, BatchUpdateSegmentsWorksWorkIdChaptersChapterIdSegmentsBatchPatchResponse, CancelChapterScrapeWorksWorkIdScrapeCancelPostData, CancelChapterScrapeWorksWorkIdScrapeCancelPostError, CreateChapterGroupWorksWorkIdChapterGroupsPostData, CreateChapterGroupWorksWorkIdChapterGroupsPostError, CreateChapterGroupWorksWorkIdChapterGroupsPostResponse, CreateChapterPromptOverrideWorksWorkIdChaptersChapterIdPromptOverridesPostData, CreateChapterPromptOverrideWorksWorkIdChaptersChapterIdPromptOverridesPostError, CreateChapterPromptOverrideWorksWorkIdChaptersChapterIdPromptOverridesPostResponse, CreatePromptPromptsPostData, CreatePromptPromptsPostError, CreatePromptPromptsPostResponse, DeleteChapterGroupWorksWorkIdChapterGroupsGroupIdDeleteData, DeleteChapterGroupWorksWorkIdChapterGroupsGroupIdDeleteError, DeleteChapterGroupWorksWorkIdChapterGroupsGroupIdDeleteResponse, DeletePromptPromptsPromptIdDeleteData, DeletePromptPromptsPromptIdDeleteError, DeletePromptPromptsPromptIdDeleteResponse, ExplainSegmentWorksWorkIdChaptersChapterIdSegmentsSegmentIdExplainStreamGetData, GetChapterForWorkWorksWorkIdChaptersChapterIdGetData, GetChapterGroupWorksWorkIdChapterGroupsGroupIdGetData, GetChapterTranslationStateWorksWorkIdChaptersChapterIdTranslationGetData, GetPromptPromptsPromptIdGetData, GetPromptVersionPromptsPromptIdVersionsVersionIdGetData, GetWorkPromptPromptsWorksWorkIdPromptGetData, GetWorkWorksWorkIdGetData, HealthHealthGetData, ImportWorkWorksImportPostData, ImportWorkWorksImportPostError, ImportWorkWorksImportPostResponse, IngestSyosetuIngestSyosetuPostData, IngestSyosetuIngestSyosetuPostError, IngestSyosetuIngestSyosetuPostResponse, ListChapterGroupsWorksWorkIdChapterGroupsGetData, ListChaptersForWorkWorksWorkIdChaptersGetData, ListChaptersForWorkWorksWorkIdChaptersGetError, ListChaptersForWorkWorksWorkIdChaptersGetResponse, ListModelsModelsGetData, ListPromptsPromptsGetData, ListPromptsPromptsGetError, ListPromptsPromptsGetResponse, ListPromptVersionsPromptsPromptIdVersionsGetData, ListPromptVersionsPromptsPromptIdVersionsGetError, ListPromptVersionsPromptsPromptIdVersionsGetResponse, ListWorkPromptsPromptsWorksWorkIdPromptsGetData, ListWorkPromptsPromptsWorksWorkIdPromptsGetError, ListWorkPromptsPromptsWorksWorkIdPromptsGetResponse, RegenerateChapterSegmentsWorksWorkIdChaptersChapterIdRegenerateSegmentsPostData, RegenerateChapterSegmentsWorksWorkIdChaptersChapterIdRegenerateSegmentsPostError, RegenerateExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdRegenerateExplanationPostData, RegenerateExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdRegenerateExplanationPostError, RequestChapterScrapeWorksWorkIdScrapeChaptersPostData, RequestChapterScrapeWorksWorkIdScrapeChaptersPostError, RequestChapterScrapeWorksWorkIdScrapeChaptersPostResponse, ResetChapterTranslationWorksWorkIdChaptersChapterIdTranslationDeleteData, ResetChapterTranslationWorksWorkIdChaptersChapterIdTranslationDeleteError, ResetChapterTranslationWorksWorkIdChaptersChapterIdTranslationDeleteResponse, RetranslateSegmentWorksWorkIdChaptersChapterIdSegmentsSegmentIdRetranslateStreamGetData, SearchWorksWorksGetData, SearchWorksWorksGetError, SearchWorksWorksGetResponse, StreamChapterTranslationWorksWorkIdChaptersChapterIdTranslateStreamGetData, StreamLabTranslationLabStreamPostData, StreamLabTranslationLabStreamPostError, StreamScrapeStatusWorksWorkIdScrapeStatusGetData, UpdateChapterGroupMembersWorksWorkIdChapterGroupsGroupIdMembersPutData, UpdateChapterGroupMembersWorksWorkIdChapterGroupsGroupIdMembersPutError, UpdateChapterGroupMembersWorksWorkIdChapterGroupsGroupIdMembersPutResponse, UpdateChapterGroupWorksWorkIdChapterGroupsGroupIdPatchData, UpdateChapterGroupWorksWorkIdChapterGroupsGroupIdPatchError, UpdateChapterGroupWorksWorkIdChapterGroupsGroupIdPatchResponse, UpdatePromptPromptsPromptIdPatchData, UpdatePromptPromptsPromptIdPatchError, UpdatePromptPromptsPromptIdPatchResponse, UpdateWorkPromptPromptsWorksWorkIdPromptPatchData, UpdateWorkPromptPromptsWorksWorkIdPromptPatchError, UpdateWorkPromptPromptsWorksWorkIdPromptPatchResponse } from '../types.gen';
+import type { AddChaptersToGroupWorksWorkIdChapterGroupsGroupIdMembersPostData, AddChaptersToGroupWorksWorkIdChapterGroupsGroupIdMembersPostError, AddChaptersToGroupWorksWorkIdChapterGroupsGroupIdMembersPostResponse, AppendPromptVersionPromptsPromptIdVersionsPostData, AppendPromptVersionPromptsPromptIdVersionsPostError, AppendPromptVersionPromptsPromptIdVersionsPostResponse, BatchUpdateSegmentsWorksWorkIdChaptersChapterIdSegmentsBatchPatchData, BatchUpdateSegmentsWorksWorkIdChaptersChapterIdSegmentsBatchPatchError, BatchUpdateSegmentsWorksWorkIdChaptersChapterIdSegmentsBatchPatchResponse, CancelChapterScrapeWorksWorkIdScrapeCancelPostData, CancelChapterScrapeWorksWorkIdScrapeCancelPostError, CreateChapterGroupWorksWorkIdChapterGroupsPostData, CreateChapterGroupWorksWorkIdChapterGroupsPostError, CreateChapterGroupWorksWorkIdChapterGroupsPostResponse, CreateChapterPromptOverrideWorksWorkIdChaptersChapterIdPromptOverridesPostData, CreateChapterPromptOverrideWorksWorkIdChaptersChapterIdPromptOverridesPostError, CreateChapterPromptOverrideWorksWorkIdChaptersChapterIdPromptOverridesPostResponse, CreatePromptPromptsPostData, CreatePromptPromptsPostError, CreatePromptPromptsPostResponse, DeleteChapterGroupWorksWorkIdChapterGroupsGroupIdDeleteData, DeleteChapterGroupWorksWorkIdChapterGroupsGroupIdDeleteError, DeleteChapterGroupWorksWorkIdChapterGroupsGroupIdDeleteResponse, DeletePromptPromptsPromptIdDeleteData, DeletePromptPromptsPromptIdDeleteError, DeletePromptPromptsPromptIdDeleteResponse, ExplainSegmentWorksWorkIdChaptersChapterIdSegmentsSegmentIdExplainStreamGetData, GetChapterForWorkWorksWorkIdChaptersChapterIdGetData, GetChapterGroupWorksWorkIdChapterGroupsGroupIdGetData, GetChapterTranslationStateWorksWorkIdChaptersChapterIdTranslationGetData, GetPromptPromptsPromptIdGetData, GetPromptVersionPromptsPromptIdVersionsVersionIdGetData, GetSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationGetData, GetWorkPromptPromptsWorksWorkIdPromptGetData, GetWorkWorksWorkIdGetData, HealthHealthGetData, ImportWorkWorksImportPostData, ImportWorkWorksImportPostError, ImportWorkWorksImportPostResponse, IngestSyosetuIngestSyosetuPostData, IngestSyosetuIngestSyosetuPostError, IngestSyosetuIngestSyosetuPostResponse, ListChapterGroupsWorksWorkIdChapterGroupsGetData, ListChaptersForWorkWorksWorkIdChaptersGetData, ListChaptersForWorkWorksWorkIdChaptersGetError, ListChaptersForWorkWorksWorkIdChaptersGetResponse, ListModelsModelsGetData, ListPromptsPromptsGetData, ListPromptsPromptsGetError, ListPromptsPromptsGetResponse, ListPromptVersionsPromptsPromptIdVersionsGetData, ListPromptVersionsPromptsPromptIdVersionsGetError, ListPromptVersionsPromptsPromptIdVersionsGetResponse, ListWorkPromptsPromptsWorksWorkIdPromptsGetData, ListWorkPromptsPromptsWorksWorkIdPromptsGetError, ListWorkPromptsPromptsWorksWorkIdPromptsGetResponse, RegenerateChapterSegmentsWorksWorkIdChaptersChapterIdRegenerateSegmentsPostData, RegenerateChapterSegmentsWorksWorkIdChaptersChapterIdRegenerateSegmentsPostError, RegenerateExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdRegenerateExplanationPostData, RegenerateExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdRegenerateExplanationPostError, RequestChapterScrapeWorksWorkIdScrapeChaptersPostData, RequestChapterScrapeWorksWorkIdScrapeChaptersPostError, RequestChapterScrapeWorksWorkIdScrapeChaptersPostResponse, ResetChapterTranslationWorksWorkIdChaptersChapterIdTranslationDeleteData, ResetChapterTranslationWorksWorkIdChaptersChapterIdTranslationDeleteError, ResetChapterTranslationWorksWorkIdChaptersChapterIdTranslationDeleteResponse, RetranslateSegmentWorksWorkIdChaptersChapterIdSegmentsSegmentIdRetranslateStreamGetData, SearchWorksWorksGetData, SearchWorksWorksGetError, SearchWorksWorksGetResponse, StartSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationPostData, StartSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationPostError, StartSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationPostResponse, StreamChapterTranslationWorksWorkIdChaptersChapterIdTranslateStreamGetData, StreamLabTranslationLabStreamPostData, StreamLabTranslationLabStreamPostError, StreamScrapeStatusWorksWorkIdScrapeStatusGetData, StreamSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationStreamGetData, UpdateChapterGroupMembersWorksWorkIdChapterGroupsGroupIdMembersPutData, UpdateChapterGroupMembersWorksWorkIdChapterGroupsGroupIdMembersPutError, UpdateChapterGroupMembersWorksWorkIdChapterGroupsGroupIdMembersPutResponse, UpdateChapterGroupWorksWorkIdChapterGroupsGroupIdPatchData, UpdateChapterGroupWorksWorkIdChapterGroupsGroupIdPatchError, UpdateChapterGroupWorksWorkIdChapterGroupsGroupIdPatchResponse, UpdatePromptPromptsPromptIdPatchData, UpdatePromptPromptsPromptIdPatchError, UpdatePromptPromptsPromptIdPatchResponse, UpdateWorkPromptPromptsWorksWorkIdPromptPatchData, UpdateWorkPromptPromptsWorksWorkIdPromptPatchError, UpdateWorkPromptPromptsWorksWorkIdPromptPatchResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseURL' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -991,6 +991,77 @@ export const regenerateExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdR
         }
     };
     return mutationOptions;
+};
+
+export const getSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationGetQueryKey = (options: Options<GetSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationGetData>) => createQueryKey('getSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationGet', options);
+
+/**
+ * Get Sentence Explanation
+ *
+ * Return the cached explanation artifact, or ``status: not_found`` on a miss.
+ */
+export const getSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationGetOptions = (options: Options<GetSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationGetData>) => {
+    return queryOptions({
+        queryFn: async ({ queryKey, signal }) => {
+            const { data } = await Works.getSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationGet({
+                ...options,
+                ...queryKey[0],
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: getSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationGetQueryKey(options)
+    });
+};
+
+/**
+ * Start Sentence Explanation
+ *
+ * Create (or return existing) explanation artifact and return its ID.
+ *
+ * Generation is driven by the SSE stream endpoint, not this one.
+ * Pass ``force=true`` to reset an existing artifact so the next stream
+ * regenerates it.
+ */
+export const startSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationPostMutation = (options?: Partial<Options<StartSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationPostData>>): UseMutationOptions<StartSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationPostResponse, AxiosError<StartSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationPostError>, Options<StartSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationPostData>> => {
+    const mutationOptions: UseMutationOptions<StartSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationPostResponse, AxiosError<StartSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationPostError>, Options<StartSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationPostData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await Works.startSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationPost({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const streamSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationStreamGetQueryKey = (options: Options<StreamSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationStreamGetData>) => createQueryKey('streamSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationStreamGet', options);
+
+/**
+ * Stream Sentence Explanation
+ *
+ * SSE stream that generates explanation facets one at a time.
+ *
+ * On a cache hit all facets are replayed from the stored artifact without
+ * calling the LLM.  On a cache miss each facet is generated sequentially,
+ * persisted, and emitted as an ``explanation-facet-complete`` event.
+ */
+export const streamSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationStreamGetOptions = (options: Options<StreamSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationStreamGetData>) => {
+    return queryOptions({
+        queryFn: async ({ queryKey, signal }) => {
+            const { data } = await Works.streamSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationStreamGet({
+                ...options,
+                ...queryKey[0],
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: streamSentenceExplanationWorksWorkIdChaptersChapterIdSegmentsSegmentIdSentencesExplanationStreamGetQueryKey(options)
+    });
 };
 
 /**

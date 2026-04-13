@@ -268,9 +268,9 @@ def _parse_sse_events(text: str) -> list[tuple[str, dict]]:
     current_data = None
     for line in text.splitlines():
         if line.startswith("event: "):
-            current_event = line[len("event: "):]
+            current_event = line[len("event: ") :]
         elif line.startswith("data: "):
-            current_data = line[len("data: "):]
+            current_data = line[len("data: ") :]
         elif line == "" and current_event is not None and current_data is not None:
             events.append((current_event, json.loads(current_data)))
             current_event = None
@@ -310,7 +310,7 @@ def test_stream_chapter_translation_persists_segments(client, db_session):
     for start_idx in start_indices:
         segment_id = events[start_idx][1]["segment_id"]
         # At least one delta follows
-        next_names = event_names[start_idx + 1:]
+        next_names = event_names[start_idx + 1 :]
         assert "segment-delta" in next_names, "Expected segment-delta after segment-start"
         # segment-complete for this segment follows
         complete_for_seg = [
@@ -384,9 +384,7 @@ def test_retranslate_stream_returns_404_for_missing_segment(client, db_session):
     work = _create_work(db_session, "Retranslate Work")
     chapter, _ = _make_translated_chapter(db_session, work)
 
-    resp = client.get(
-        f"/works/{work.id}/chapters/{chapter.id}/segments/99999/retranslate/stream"
-    )
+    resp = client.get(f"/works/{work.id}/chapters/{chapter.id}/segments/99999/retranslate/stream")
     assert resp.status_code == 404
     assert resp.json()["detail"] == "segment not found"
 
@@ -396,9 +394,7 @@ def test_explain_stream_returns_404_for_missing_segment(client, db_session):
     work = _create_work(db_session, "Explain Work 404")
     chapter, _ = _make_translated_chapter(db_session, work)
 
-    resp = client.get(
-        f"/works/{work.id}/chapters/{chapter.id}/segments/99999/explain/stream"
-    )
+    resp = client.get(f"/works/{work.id}/chapters/{chapter.id}/segments/99999/explain/stream")
     assert resp.status_code == 404
     assert resp.json()["detail"] == "segment not found"
 
@@ -464,7 +460,9 @@ def test_regenerate_explanation_returns_400_for_untranslated_segment(client, db_
             TranslationSegment.chapter_translation_id
             == db_session.execute(
                 select(ChapterTranslation).where(ChapterTranslation.chapter_id == chapter.id)
-            ).scalar_one().id
+            )
+            .scalar_one()
+            .id
         )
     ).scalar_one()
     segment.tgt = ""
