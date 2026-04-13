@@ -4,7 +4,13 @@ import logging
 from collections.abc import AsyncGenerator, Sequence
 from functools import lru_cache
 
-from agents.base_agent import BaseAgent, SegmentContext, SegmentContextInput
+from agents.base_agent import (
+    BaseAgent,
+    SegmentContext,
+    SegmentContextInput,
+    _normalize_context_segments,
+    render_block,
+)
 from agents.prompts import SYSTEM_DEFAULT
 from app.config import settings
 from constants.llm import get_model_info
@@ -122,12 +128,12 @@ class TranslationAgent(BaseAgent):
         if self.context_window <= 0 or not preceding_segments:
             return ""
 
-        normalized = self._normalize_context_segments(preceding_segments)
+        normalized = _normalize_context_segments(preceding_segments)
         if not normalized:
             return ""
 
         window = normalized[-self.context_window :]
-        return self._render_block(window, block_name="preceding")
+        return render_block(window, block_name="preceding")
 
     def _render_instruction_block(
         self, instruction: str | None, current_translation: str | None = None
