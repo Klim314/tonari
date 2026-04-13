@@ -18,6 +18,8 @@ import {
 	useChapterTranslationStream,
 } from "../../../hooks/useChapterTranslationStream";
 import { ExplanationPanel } from "./ExplanationPanel";
+import { ExplanationWorkspace } from "./explanation/ExplanationWorkspace";
+import { useExplanationV2Flag } from "./explanation/useExplanationV2Flag";
 import { RetranslateModal } from "./RetranslateModal";
 import { SegmentsList } from "./SegmentsList";
 
@@ -47,6 +49,7 @@ export const TranslationPanel = memo(function TranslationPanel({
 		number | null
 	>(null);
 	const [editingSegmentId, setEditingSegmentId] = useState<number | null>(null);
+	const explanationV2Enabled = useExplanationV2Flag();
 	const {
 		status: translationStatus,
 		error: translationError,
@@ -143,20 +146,9 @@ export const TranslationPanel = memo(function TranslationPanel({
 		setSelectedSegmentId(null);
 	}, []);
 
-	const handleSegmentExplain = useCallback(
-		(segmentId: number) => {
-			const selected = translationSegments.find(
-				(segment) => segment.segmentId === segmentId,
-			);
-			console.info("Explain segment selected", {
-				segmentId,
-				orderIndex: selected?.orderIndex,
-				src: selected?.src,
-			});
-			setExplanationSegmentId(segmentId);
-		},
-		[translationSegments],
-	);
+	const handleSegmentExplain = useCallback((segmentId: number) => {
+		setExplanationSegmentId(segmentId);
+	}, []);
 
 	// Retranslate opens the modal with instruction input
 	const handleSegmentRetranslateModal = useCallback((segmentId: number) => {
@@ -271,16 +263,26 @@ export const TranslationPanel = memo(function TranslationPanel({
 				/>
 			)}
 
-			{explanationSegmentId !== null && (
-				<ExplanationPanel
-					key={explanationSegmentId}
-					segmentId={explanationSegmentId}
-					workId={workId}
-					chapterId={chapterId}
-					isOpen={explanationSegmentId !== null}
-					onClose={() => setExplanationSegmentId(null)}
-				/>
-			)}
+			{explanationSegmentId !== null &&
+				(explanationV2Enabled ? (
+					<ExplanationWorkspace
+						key={explanationSegmentId}
+						segmentId={explanationSegmentId}
+						workId={workId}
+						chapterId={chapterId}
+						isOpen={explanationSegmentId !== null}
+						onClose={() => setExplanationSegmentId(null)}
+					/>
+				) : (
+					<ExplanationPanel
+						key={explanationSegmentId}
+						segmentId={explanationSegmentId}
+						workId={workId}
+						chapterId={chapterId}
+						isOpen={explanationSegmentId !== null}
+						onClose={() => setExplanationSegmentId(null)}
+					/>
+				))}
 
 			{retranslateModalSegmentId !== null && (
 				<RetranslateModal
