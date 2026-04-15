@@ -940,22 +940,22 @@ def get_sentence_explanation(
     "/{work_id}/chapters/{chapter_id}/segments/{segment_id}/sentences/explanation",
     response_model=ExplanationStartResponse,
 )
-def start_sentence_explanation(
+async def start_sentence_explanation(
     work_id: int,
     chapter_id: int,
     segment_id: int,
     body: ExplanationStartRequest,
 ):
-    """Create (or return existing) explanation artifact and return its ID.
+    """Create (or return existing) explanation artifact and kick off generation.
 
-    Generation is driven by the SSE stream endpoint, not this one.
-    Pass ``force=true`` to reset an existing artifact so the next stream
-    regenerates it.
+    Generation runs as a detached background task so client disconnects do
+    not cancel it. Pass ``force=true`` to cancel any running generation for
+    this artifact, reset it, and start a fresh run.
     """
     with SessionLocal() as db:
         chapter, workflow = _resolve_chapter_for_segment(db, work_id, chapter_id, segment_id)
         try:
-            artifact_id = workflow.start(
+            artifact_id = await workflow.start(
                 chapter,
                 segment_id,
                 body.span_start,
@@ -997,7 +997,7 @@ async def stream_sentence_explanation(
 
         async def event_generator():
             try:
-                async for event in workflow.stream(
+                async for event in workflow.subscribe(
                     chapter,
                     segment_id,
                     span_start,

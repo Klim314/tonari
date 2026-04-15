@@ -10,9 +10,11 @@ from sqlalchemy.orm import Session
 
 from agents.base_agent import SegmentContext
 from agents.explanation_generator_v2 import get_explanation_generator_v2
+from app.db import SessionLocal
 from app.explanation_schemas import FACET_ORDER, ArtifactPayload, FacetType
 from app.models import Chapter, TranslationSegment
 from services.exceptions import SegmentNotFoundError, SegmentNotTranslatedError, SpanValidationError
+from services.explanation_generation_registry import GenerationHandle, get_registry
 from services.explanation_service import ExplanationService
 from services.translation_stream import PARTIAL_TRANSLATION_FLAG, TranslationStreamService
 
@@ -44,6 +46,10 @@ class ArtifactErrorEvent:
 
 
 ExplanationV2Event = FacetCompleteEvent | ArtifactCompleteEvent | ArtifactErrorEvent
+
+# Poll cadence when waiting on the subscriber queue. Small enough to notice
+# client disconnects promptly, large enough to stay idle most of the time.
+_SUBSCRIBE_POLL_INTERVAL_S = 1.0
 
 # ---------------------------------------------------------------------------
 # Workflow
@@ -88,12 +94,7 @@ class ExplanationWorkflowV2:
         span_start: int,
         span_end: int,
     ) -> None:
-        """Raise ``SpanValidationError`` if the span is invalid for this segment.
-
-        Checks:
-        - ``span_start < span_end``
-        - ``span_end <= len(segment_source)``
-        """
+        """Raise ``SpanValidationError`` if the span is invalid for this segment."""
         if span_start >= span_end:
             raise SpanValidationError(
                 f"span_start ({span_start}) must be less than span_end ({span_end})"
@@ -108,10 +109,10 @@ class ExplanationWorkflowV2:
             )
 
     # ------------------------------------------------------------------
-    # Start — create artifact, return ID
+    # Start — create artifact, (re)start background generation
     # ------------------------------------------------------------------
 
-    def start(
+    async def start(
         self,
         chapter: Chapter,
         segment_id: int,
@@ -121,10 +122,12 @@ class ExplanationWorkflowV2:
         *,
         force: bool = False,
     ) -> int:
-        """Get or create an explanation artifact and return its ID.
+        """Get or create an artifact and kick off background generation.
 
-        If ``force=True`` and the artifact already exists it is reset to
-        ``pending`` so the next stream will regenerate it.
+        If ``force=True`` any in-flight generation for this artifact is
+        cancelled and the artifact is reset before a fresh run is started.
+        Idempotent otherwise: if generation is already running, a duplicate
+        call is a no-op.
         """
         self.validate_span(segment_id, chapter, span_start, span_end)
         translation = self._translation_svc.get_or_create_translation(chapter.id)
@@ -136,16 +139,32 @@ class ExplanationWorkflowV2:
             span_end=span_end,
         )
 
-        if force and artifact.status != "pending":
-            artifact = self._explanation_svc.regenerate(artifact.id)
+        if force:
+            registry = get_registry()
+            superseded = ArtifactErrorEvent(artifact_id=artifact.id, error="superseded")
+            await registry.cancel(artifact.id, emit_final=superseded)
+            if artifact.status != "pending" or artifact.payload_json is not None:
+                self._explanation_svc.regenerate(artifact.id)
+                artifact = self._get_artifact_fresh(artifact.id) or artifact
+
+        # Only start generation when the artifact is not already terminal.
+        if artifact.status not in ("complete", "error"):
+            await self._ensure_generation(
+                artifact.id,
+                chapter.id,
+                segment_id,
+                span_start,
+                span_end,
+                density,
+            )
 
         return artifact.id
 
     # ------------------------------------------------------------------
-    # Stream — drive generation, yield events
+    # Subscribe — tail live events or replay from cache
     # ------------------------------------------------------------------
 
-    async def stream(
+    async def subscribe(
         self,
         chapter: Chapter,
         segment_id: int,
@@ -155,11 +174,18 @@ class ExplanationWorkflowV2:
         *,
         is_disconnected: Callable[[], Awaitable[bool]],
     ) -> AsyncGenerator[ExplanationV2Event, None]:
-        """Generate (or replay cached) explanation facets as SSE events.
+        """Yield facet events for this artifact.
 
-        On a cache hit (status=complete) all facets are replayed from the
-        stored payload without calling the LLM.  On a cache miss the LLM
-        generates each facet sequentially and persists them as they complete.
+        Resolution order:
+
+        1. Artifact is terminal (``complete``/``error``) → replay from the
+           stored payload and close.
+        2. Generation is already running → subscribe, replay buffered events,
+           then tail.
+        3. Otherwise → start a new generation task and subscribe to it.
+
+        Client disconnection only unsubscribes; the background generation task
+        continues to completion so its work is not wasted.
         """
         translation = self._translation_svc.get_or_create_translation(chapter.id)
         artifact, _ = self._explanation_svc.get_or_create(
@@ -170,117 +196,74 @@ class ExplanationWorkflowV2:
             span_end=span_end,
         )
 
-        # Cache hit — replay stored facets and close.
         if artifact.status in ("complete", "error") and artifact.payload_json:
             async for event in self._replay_from_cache(artifact.id, artifact.payload_json):
                 yield event
             return
 
-        # Partial progress — replay what's already saved, then generate the rest.
-        # Errored facets are intentionally *not* emitted here: they are not in
-        # done_facets, so generate_facets will retry them, and surfacing a stale
-        # error for a facet about to succeed is misleading.
-        done_facets: set[FacetType] = set()
-        if artifact.payload_json:
-            try:
-                existing = ArtifactPayload.model_validate(artifact.payload_json)
-            except Exception:
-                existing = ArtifactPayload()
-            for facet_type in FACET_ORDER:
-                entry = getattr(existing, facet_type)
-                if entry is None:
-                    continue
-                if entry.status == "complete" and entry.data is not None:
-                    done_facets.add(facet_type)
-                    yield FacetCompleteEvent(
-                        artifact_id=artifact.id,
-                        facet_type=facet_type,
-                        payload=entry.data,
-                    )
+        registry = get_registry()
+        handle = await registry.get(artifact.id)
+        if handle is None or handle.done.is_set():
+            handle = await self._ensure_generation(
+                artifact.id,
+                chapter.id,
+                segment_id,
+                span_start,
+                span_end,
+                density,
+            )
 
-        # If every facet is already complete, finalize and close without calling the LLM.
-        if len(done_facets) == len(FACET_ORDER):
-            yield self._finalize_artifact(artifact.id)
-            return
-
-        # Drive generation for the remaining facets.
-        segment = self._get_segment(segment_id)
-        chapter_text = chapter.normalized_text
-        source_text = chapter_text[segment.start : segment.end]
-        translation_text = segment.tgt or ""
-
-        all_segments = list(self._translation_svc.get_segments_for_translation(translation.id))
-        preceding = self._get_preceding_context(all_segments, segment, chapter_text)
-        following = self._get_following_context(all_segments, segment, chapter_text)
-
-        generator = get_explanation_generator_v2()
-
+        queue = handle.subscribe()
         try:
-            async for facet_type, data, error in generator.generate_facets(
-                segment_source=source_text,
-                segment_translation=translation_text,
+            while True:
+                if await is_disconnected():
+                    return
+                try:
+                    event = await asyncio.wait_for(
+                        queue.get(), timeout=_SUBSCRIBE_POLL_INTERVAL_S
+                    )
+                except TimeoutError:
+                    continue
+                if event is None:
+                    return
+                yield event
+        finally:
+            handle.unsubscribe(queue)
+
+    # ------------------------------------------------------------------
+    # Generation task machinery
+    # ------------------------------------------------------------------
+
+    async def _ensure_generation(
+        self,
+        artifact_id: int,
+        chapter_id: int,
+        segment_id: int,
+        span_start: int,
+        span_end: int,
+        density: Literal["sparse", "dense"],
+    ) -> GenerationHandle:
+        registry = get_registry()
+
+        def producer_factory() -> AsyncGenerator[ExplanationV2Event, None]:
+            return _run_generation(
+                artifact_id=artifact_id,
+                chapter_id=chapter_id,
+                segment_id=segment_id,
                 span_start=span_start,
                 span_end=span_end,
                 density=density,
-                preceding_segments=preceding,
-                following_segments=following,
-                skip_facets=done_facets,
-            ):
-                if await is_disconnected():
-                    raise asyncio.CancelledError
-
-                self._explanation_svc.update_facet(artifact.id, facet_type, data, error=error)
-
-                if error:
-                    yield ArtifactErrorEvent(
-                        artifact_id=artifact.id,
-                        error=error,
-                        facet_type=facet_type,
-                    )
-                else:
-                    yield FacetCompleteEvent(
-                        artifact_id=artifact.id,
-                        facet_type=facet_type,
-                        payload=data.model_dump(),
-                    )
-
-            yield self._finalize_artifact(artifact.id)
-
-        except asyncio.CancelledError:
-            raise
-        except Exception as exc:
-            logger.exception(
-                "ExplanationWorkflowV2: generation failed",
-                extra={"artifact_id": artifact.id, "segment_id": segment_id},
             )
-            self._explanation_svc.mark_error(artifact.id, str(exc))
-            yield ArtifactErrorEvent(artifact_id=artifact.id, error=str(exc))
+
+        return await registry.ensure(artifact_id, producer_factory)
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _finalize_artifact(self, artifact_id: int) -> ArtifactCompleteEvent:
-        """Derive final artifact status from the persisted payload.
-
-        Reading from payload_json (rather than tracking in-memory flags) keeps
-        the artifact status in lock-step with what actually landed on disk —
-        including retries that succeeded after an earlier failure.
-        """
-        payload = self._explanation_svc.get_payload(artifact_id)
-        failed: list[FacetType] = []
-        for facet_type in FACET_ORDER:
-            entry = getattr(payload, facet_type)
-            if entry is not None and entry.status == "error":
-                failed.append(facet_type)
-
-        if failed:
-            message = f"facet generation failed: {', '.join(failed)}"
-            self._explanation_svc.mark_error(artifact_id, message)
-            return ArtifactCompleteEvent(artifact_id=artifact_id, status="error")
-
-        self._explanation_svc.mark_complete(artifact_id)
-        return ArtifactCompleteEvent(artifact_id=artifact_id, status="complete")
+    def _get_artifact_fresh(self, artifact_id: int):
+        self.db.expire_all()
+        return self._explanation_svc._get_by_id(artifact_id)
 
     async def _replay_from_cache(
         self, artifact_id: int, payload_json: dict
@@ -331,29 +314,192 @@ class ExplanationWorkflowV2:
             return False
         return bool((segment.tgt or "").strip())
 
-    @staticmethod
-    def _get_preceding_context(segments, current, chapter_text, limit: int = 1):
-        context = []
-        for seg in reversed(segments):
-            if seg.order_index >= current.order_index:
-                continue
-            tgt = (seg.tgt or "").strip()
-            src = chapter_text[seg.start : seg.end].strip()
-            if src and tgt:
-                context.append(SegmentContext(src=src, tgt=tgt))
-            if len(context) >= limit:
-                break
-        return list(reversed(context))
 
-    @staticmethod
-    def _get_following_context(segments, current, chapter_text, limit: int = 1):
-        context = []
-        for seg in segments:
-            if seg.order_index <= current.order_index:
-                continue
-            src = chapter_text[seg.start : seg.end].strip()
-            if src:
-                context.append(SegmentContext(src=src, tgt=(seg.tgt or "").strip()))
-            if len(context) >= limit:
-                break
-        return context
+# ---------------------------------------------------------------------------
+# Background generation producer
+# ---------------------------------------------------------------------------
+
+
+def _get_preceding_context(segments, current, chapter_text, limit: int = 1):
+    context = []
+    for seg in reversed(segments):
+        if seg.order_index >= current.order_index:
+            continue
+        tgt = (seg.tgt or "").strip()
+        src = chapter_text[seg.start : seg.end].strip()
+        if src and tgt:
+            context.append(SegmentContext(src=src, tgt=tgt))
+        if len(context) >= limit:
+            break
+    return list(reversed(context))
+
+
+def _get_following_context(segments, current, chapter_text, limit: int = 1):
+    context = []
+    for seg in segments:
+        if seg.order_index <= current.order_index:
+            continue
+        src = chapter_text[seg.start : seg.end].strip()
+        if src:
+            context.append(SegmentContext(src=src, tgt=(seg.tgt or "").strip()))
+        if len(context) >= limit:
+            break
+    return context
+
+
+async def _run_generation(
+    *,
+    artifact_id: int,
+    chapter_id: int,
+    segment_id: int,
+    span_start: int,
+    span_end: int,
+    density: Literal["sparse", "dense"],
+) -> AsyncGenerator[ExplanationV2Event, None]:
+    """Background producer: drives the LLM and persists each facet.
+
+    Opens its own DB session because the request-scoped session that kicked
+    this off will be closed long before generation finishes.
+    """
+    from sqlalchemy import select
+
+    from app.models import Chapter, TranslationSegment
+
+    with SessionLocal() as db:
+        explanation_svc = ExplanationService(db)
+        translation_svc = TranslationStreamService(db)
+
+        try:
+            chapter = (
+                db.execute(select(Chapter).where(Chapter.id == chapter_id)).scalars().first()
+            )
+            segment = (
+                db.execute(select(TranslationSegment).where(TranslationSegment.id == segment_id))
+                .scalars()
+                .first()
+            )
+            if chapter is None or segment is None:
+                logger.warning(
+                    "generation task: missing chapter or segment",
+                    extra={
+                        "artifact_id": artifact_id,
+                        "chapter_id": chapter_id,
+                        "segment_id": segment_id,
+                    },
+                )
+                explanation_svc.mark_error(artifact_id, "chapter or segment not found")
+                yield ArtifactErrorEvent(
+                    artifact_id=artifact_id, error="chapter or segment not found"
+                )
+                return
+
+            chapter_text = chapter.normalized_text
+            source_text = chapter_text[segment.start : segment.end]
+            translation_text = segment.tgt or ""
+
+            all_segments = list(
+                translation_svc.get_segments_for_translation(segment.chapter_translation_id)
+            )
+            preceding = _get_preceding_context(all_segments, segment, chapter_text)
+            following = _get_following_context(all_segments, segment, chapter_text)
+
+            # Resume support: replay facets already persisted in payload_json, and
+            # skip them on the LLM pass.
+            artifact = explanation_svc._get_by_id(artifact_id)
+            done_facets: set[FacetType] = set()
+            if artifact is not None and artifact.payload_json:
+                try:
+                    existing = ArtifactPayload.model_validate(artifact.payload_json)
+                except Exception:
+                    existing = ArtifactPayload()
+                for facet_type in FACET_ORDER:
+                    entry = getattr(existing, facet_type)
+                    if entry is None:
+                        continue
+                    if entry.status == "complete" and entry.data is not None:
+                        done_facets.add(facet_type)
+                        yield FacetCompleteEvent(
+                            artifact_id=artifact_id,
+                            facet_type=facet_type,
+                            payload=entry.data,
+                        )
+
+            if len(done_facets) == len(FACET_ORDER):
+                yield _finalize_artifact(explanation_svc, artifact_id)
+                return
+
+            generator = get_explanation_generator_v2()
+
+            async for facet_type, data, error in generator.generate_facets(
+                segment_source=source_text,
+                segment_translation=translation_text,
+                span_start=span_start,
+                span_end=span_end,
+                density=density,
+                preceding_segments=preceding,
+                following_segments=following,
+                skip_facets=done_facets,
+            ):
+                explanation_svc.update_facet(artifact_id, facet_type, data, error=error)
+                if error:
+                    yield ArtifactErrorEvent(
+                        artifact_id=artifact_id,
+                        error=error,
+                        facet_type=facet_type,
+                    )
+                else:
+                    yield FacetCompleteEvent(
+                        artifact_id=artifact_id,
+                        facet_type=facet_type,
+                        payload=data.model_dump(),
+                    )
+
+            yield _finalize_artifact(explanation_svc, artifact_id)
+
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.exception(
+                "ExplanationWorkflowV2: generation failed",
+                extra={"artifact_id": artifact_id, "segment_id": segment_id},
+            )
+            try:
+                explanation_svc.mark_error(artifact_id, str(exc))
+            except Exception:
+                logger.exception(
+                    "ExplanationWorkflowV2: failed to persist terminal error status",
+                    extra={"artifact_id": artifact_id},
+                )
+            yield ArtifactErrorEvent(artifact_id=artifact_id, error=str(exc))
+
+
+def _finalize_artifact(svc: ExplanationService, artifact_id: int) -> ArtifactCompleteEvent:
+    """Derive final artifact status from the persisted payload."""
+    payload = svc.get_payload(artifact_id)
+    failed: list[FacetType] = []
+    for facet_type in FACET_ORDER:
+        entry = getattr(payload, facet_type)
+        if entry is not None and entry.status == "error":
+            failed.append(facet_type)
+
+    if failed:
+        message = f"facet generation failed: {', '.join(failed)}"
+        svc.mark_error(artifact_id, message)
+        return ArtifactCompleteEvent(artifact_id=artifact_id, status="error")
+
+    svc.mark_complete(artifact_id)
+    return ArtifactCompleteEvent(artifact_id=artifact_id, status="complete")
+
+
+# Keep exception imports available to callers that relied on the previous
+# module surface.
+__all__ = [
+    "ArtifactCompleteEvent",
+    "ArtifactErrorEvent",
+    "ExplanationV2Event",
+    "ExplanationWorkflowV2",
+    "FacetCompleteEvent",
+    "SegmentNotFoundError",
+    "SegmentNotTranslatedError",
+    "SpanValidationError",
+]
