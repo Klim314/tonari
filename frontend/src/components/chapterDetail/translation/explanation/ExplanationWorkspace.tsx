@@ -154,6 +154,35 @@ export function ExplanationWorkspace({
 		}
 	}, [segmentIndex, segments.length, goToSegment]);
 
+	const handleStepBack = useCallback(() => {
+		if (safeSentenceIndex > 0) {
+			setSentenceIndex((n) => Math.max(0, n - 1));
+			return;
+		}
+		if (segmentIndex <= 0) return;
+		const target = segments[segmentIndex - 1];
+		if (!target) return;
+		const prevSentences = resolveSentences(target);
+		setSegmentId(target.id);
+		setSentenceIndex(Math.max(0, prevSentences.length - 1));
+	}, [safeSentenceIndex, segmentIndex, segments]);
+
+	const handleStepForward = useCallback(() => {
+		if (safeSentenceIndex < sentences.length - 1) {
+			setSentenceIndex((n) => Math.min(sentences.length - 1, n + 1));
+			return;
+		}
+		if (segmentIndex >= 0 && segmentIndex < segments.length - 1) {
+			goToSegment(segmentIndex + 1);
+		}
+	}, [
+		safeSentenceIndex,
+		sentences.length,
+		segmentIndex,
+		segments.length,
+		goToSegment,
+	]);
+
 	useEffect(() => {
 		if (!isOpen) return;
 		const onKey = (e: KeyboardEvent) => {
@@ -162,15 +191,15 @@ export function ExplanationWorkspace({
 			if (target?.isContentEditable) return;
 			if (e.key === "ArrowLeft") {
 				e.preventDefault();
-				handlePrevSegment();
+				handleStepBack();
 			} else if (e.key === "ArrowRight") {
 				e.preventDefault();
-				handleNextSegment();
+				handleStepForward();
 			}
 		};
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
-	}, [isOpen, handlePrevSegment, handleNextSegment]);
+	}, [isOpen, handleStepBack, handleStepForward]);
 
 	const statusLabel =
 		status === "generating"
