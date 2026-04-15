@@ -97,3 +97,53 @@ Append-only. Each session adds an entry. Only consult when you need to understan
 - Added one new review finding to `phase-3/review.md`: the frontend v2 SSE error handler still expects `error`, but the backend emits `message`, so the workspace drops the real backend error detail and falls back to generic strings.
 - Confirmed the earlier medium issue remains open: reopening the workspace while an artifact is still `pending` / `generating` still goes through POST + stream again and can restart generation instead of attaching to the in-progress artifact.
 - Re-ran frontend validation: `just lint-web` and `just typecheck` both pass.
+
+## 2026-04-13 — Phase 3 hydration hardening
+
+- Focused on the remaining hydration/regression issue around chapter translation resume behavior.
+- Root cause was twofold:
+  - backend only persisted `TranslationSegment.tgt` once a segment finished, so disconnecting mid-segment lost the visible partial text
+  - frontend `useChapterTranslationStream.ts` cleared `text` on `segment-start`, so a resumed/restarted stream could blank out already hydrated text before new deltas arrived
+- Added partial segment persistence in `backend/services/translation_workflow.py` and `backend/services/translation_stream.py`:
+  - persist `tgt` on every streamed delta
+  - mark incomplete rows with a `"partial"` flag so resume still treats them as pending
+  - clear the partial flag once a segment completes
+  - exclude partial rows from context-window reuse
+- Updated `frontend/src/hooks/useChapterTranslationStream.ts` to:
+  - hydrate `"partial"` segments as pending while preserving their current text
+  - keep existing text visible when a replacement stream starts
+  - replace, not append to, the first delta after a restart/retranslation so text is not duplicated
+- Added backend regression coverage in `backend/tests/test_translation_workflow.py` for:
+  - disconnect after first delta persists partial text and leaves the segment resumable
+  - resumed runs finalize partial segments and clear the partial marker
+- Validation:
+  - `npm run typecheck` passed
+  - `npm run lint -- src/hooks/useChapterTranslationStream.ts` passed
+  - `just test` ran; the new translation workflow tests passed, and the suite has one unrelated existing failure in `tests/test_prompts_validation.py::TestPromptVersionValidation::test_create_version_invalid_template_syntax`
+
+## 2026-04-13 — Review pass on partial-state follow-up
+
+- Reviewed the current delta after the partial-translation persistence / hydration changes.
+- Re-ran focused backend validation:
+  - `just test tests/test_translation_workflow.py` passed
+  - `just test tests/test_explanation_workflow.py` passed
+- Appended a new `Codex` block to `phase-3/review.md`.
+- Added two important findings:
+  - partial segments now persist non-empty `tgt`, but explanation preflight and the UI still allow “Explain Translation” on those incomplete rows
+  - manual batch edits do not clear the new `"partial"` flag, so resuming translation can overwrite an explicit user edit on a paused partial segment
+- Refreshed `state.md` so the current session state now tracks those two items as the remaining blockers for this follow-up delta.
+
+## 2026-04-15 — Review pass on explanation guard follow-up
+
+- Reviewed the current follow-up delta that updates explanation eligibility for partial segments.
+- Confirmed the intended fix landed in all three relevant paths:
+  - `backend/services/explanation_stream.py` now rejects `PARTIAL_TRANSLATION_FLAG`
+  - `backend/services/explanation_workflow_v2.py` now rejects `PARTIAL_TRANSLATION_FLAG`
+  - `frontend/src/components/chapterDetail/translation/SegmentsList.tsx` now disables Explain unless the segment status is `completed`
+- Validation:
+  - `just test tests/test_explanation_workflow.py` passed
+  - `cd frontend && npx tsc --noEmit` passed
+  - `cd frontend && npx biome check src/components/chapterDetail/translation/SegmentsList.tsx` passed
+- Appended a new `Codex` block to `phase-3/review.md`.
+- Remaining important finding: manual batch edits still do not clear the `"partial"` flag in `batch_update_segment_translations()`, so user edits on paused partial rows can still be overwritten on resume.
+- New unrelated review finding: `.husky/pre-commit` now uses `lint-staged --no-stash`, which weakens partial-staging safety and should be reverted or justified in a separate change.

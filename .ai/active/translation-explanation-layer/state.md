@@ -4,7 +4,7 @@
 
 - State: `in progress`
 - Started: 2026-04-12
-- Last updated: 2026-04-13
+- Last updated: 2026-04-15
 
 ## Plan
 
@@ -19,7 +19,7 @@ UI mockup: [translation-explanation-layer-ui-mockup.md](translation-explanation-
 | 1 | Schema + backend foundation (models, sentence splitter, segment schema extension) | done | `303b23a` |
 | 2 | Structured generation + new API (facet schemas, generator v2, service, workflow v2, 3 SSE endpoints) | done | `d28bf44` |
 | 2 (tests) | Sentence splitter tests | done | `020091c` |
-| 3 | Explanation Workspace UI (two-panel layout, sentence mode, feature-flagged) | done — follow-up fixes still open | — |
+| 3 | Explanation Workspace UI (two-panel layout, sentence mode, feature-flagged) | done — follow-up fixes still pending review items | — |
 | 4 | Span highlighting + polish | not started | — |
 | 5 | Segment analysis mode (lower priority) | not started | — |
 
@@ -38,45 +38,39 @@ New component tree under `frontend/src/components/chapterDetail/translation/expl
 
 Wired into [TranslationPanel.tsx](../../../frontend/src/components/chapterDetail/translation/TranslationPanel.tsx): when the flag is on, "Explain" opens `ExplanationWorkspace`; otherwise the old markdown `ExplanationPanel` remains active.
 
-Validation: `just lint-web` and `just typecheck` pass.
+Additional hardening since the initial Phase 3 ship:
+
+- [useChapterTranslationStream.ts](../../../frontend/src/hooks/useChapterTranslationStream.ts), [translation_workflow.py](../../../backend/services/translation_workflow.py), and [translation_stream.py](../../../backend/services/translation_stream.py) now preserve partially streamed segment text across hydrate/resume, mark in-flight rows with a `"partial"` flag, persist text per streamed delta, and clear the partial marker when the segment finishes.
+- [explanation_workflow_v2.py](../../../backend/services/explanation_workflow_v2.py) and [explanation_generator_v2.py](../../../backend/agents/explanation_generator_v2.py) now replay persisted facet progress from `payload_json` and skip already-complete facets when a workspace is reopened mid-generation.
+
+Validation this session: `just test tests/test_explanation_workflow.py`, `cd frontend && npx tsc --noEmit`, and `cd frontend && npx biome check src/components/chapterDetail/translation/SegmentsList.tsx` passed.
 
 ## Review Status
 
-Phase 3 now has four review passes recorded in [phase-3/review.md](phase-3/review.md).
+Phase 3 has multiple review passes recorded in [phase-3/review.md](phase-3/review.md). Earlier explanation-workspace issues were addressed. The latest follow-up delta closes one of the two partial-state integration gaps by blocking explanation on `"partial"` rows in both backend preflight paths and the segment context menu.
 
-Addressed from earlier reviews:
+Still open after the 2026-04-15 review:
 
-- sticky regenerate invalidation bug in `useExplanationArtifact.ts`
-- transient SSE reconnects incorrectly surfacing as errors
-- ad-hoc chapter translation response typing in `ExplanationWorkspace.tsx`
-- redundant initial-segment reset effect in `ExplanationWorkspace.tsx`
-- missing `sentences.length > 0` fetch guard
-- edge-overlay navigation interfering with selection
-- dead facet-rail `"generating"` UI branch
-- leftover debug logging in `TranslationPanel.tsx`
-
-Still open after the latest re-review:
-
-- reopening the workspace while an explanation artifact is still `pending` / `generating` can still restart generation instead of reattaching to the in-progress artifact
-- the frontend SSE error handler still expects `error`, while the backend v2 stream emits `message`, so real backend failure details are lost in the UI
+- manual batch edits do not clear the new `"partial"` flag, so a later resume can overwrite an explicit user edit
+- `.husky/pre-commit` now adds `lint-staged --no-stash`, which is unrelated to the explanation fix and weakens partial-staging safety for frontend commits
 
 ## Next Steps
 
-1. Fix the SSE error payload contract mismatch between `backend/app/routers/works.py` and `useExplanationArtifact.ts`.
-2. Decide whether Phase 3 must support true reopen/resume for in-progress artifacts now, or explicitly defer it to Phase 4 with that risk called out.
-3. Re-run manual QA with the feature flag enabled (`?explanation_v2=1` or `localStorage.setItem('explanation_v2', '1')`): cache hit, cache miss, regenerate, reopen mid-generation, keyboard nav, and facet switching.
-4. If the follow-up fixes land cleanly, decide whether to keep the v2 workspace gated or widen exposure before Phase 4.
+1. Fix the remaining partial-state integration gap: clear `"partial"` on manual edits and add regression coverage through the batch edit API.
+2. Decide whether `.husky/pre-commit` should keep `lint-staged --no-stash`; if not, drop it from this delta.
+3. Re-run manual QA with the feature flag enabled (`?explanation_v2=1` or `localStorage.setItem('explanation_v2', '1')`): cache hit, cache miss, regenerate, reopen mid-generation, pause/resume chapter translation mid-segment, manual edit on a paused partial segment, and explain availability on incomplete segments.
+4. If QA is clean, decide whether to keep the v2 workspace gated or widen exposure before Phase 4.
 
 ## Known Issues
 
-- Reopening a still-running sentence explanation does not yet hydrate partial facet progress or attach to the existing run.
-- The hook still uses a hand-typed GET response shape (`ArtifactGetResponse`) even though generated API types now exist; this is cleanup debt, not a release blocker by itself.
+- Navigating away from an in-progress sentence explanation and back can briefly leave two server-side stream tasks alive at once (the original is still awaiting its in-flight LLM call when the new one starts). Worst case is one duplicated LLM call for a single facet; final artifact state is consistent because `update_facet` is last-write-wins per facet row. A true lease/heartbeat to prevent the overlap is deferred.
+- `useExplanationArtifact.ts` still uses a hand-typed GET response shape (`ArtifactGetResponse`) instead of generated API types; cleanup debt, not a blocker.
 
 ## Open Questions
 
-- Should in-progress artifact replay / attach be treated as required before widening the flag, or is it acceptable to defer until Phase 4?
-- Do we want the SSE error payload to standardize on `error` for parity with the older explanation stream, or switch the frontend to `message` for v2 only?
+- Is the transient overlap-window concurrency behaviour acceptable, or do we want a generation lease on the artifact before widening the flag?
 
 ## Blockers
 
-- None.
+- Manual edits still do not clear the `"partial"` flag.
+- The unrelated `--no-stash` pre-commit change should be removed or justified separately before this follow-up is treated as ready.

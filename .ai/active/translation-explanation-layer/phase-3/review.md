@@ -160,3 +160,64 @@ No blocking cleanliness issues, but `ExplanationWorkspace.tsx` is overweight (61
 Most of the earlier review notes are addressed: the sticky force-regenerate bug is fixed, transient SSE reconnects no longer surface false errors, the workspace now uses generated chapter-translation types, the redundant reset effect and debug log are gone, and the edge-nav / facet-rail cleanup landed. Two meaningful issues remain before this follow-up can be considered fully closed: the in-progress reopen lifecycle and the frontend/backend SSE error payload mismatch.
 
 ---
+
+## Review — Codex — 2026-04-13
+
+**Files reviewed**: `backend/services/translation_stream.py`, `backend/services/explanation_workflow_v2.py`, `backend/services/translation_workflow.py`, `backend/app/routers/works.py`, `frontend/src/hooks/useChapterTranslationStream.ts`, `frontend/src/components/chapterDetail/translation/SegmentsList.tsx`, `frontend/src/components/chapterDetail/translation/TranslationPanel.tsx`
+**Changes**: Review of the partial-translation persistence / hydration follow-up delta
+
+### Important
+- **[backend/services/explanation_workflow_v2.py:75]** The new `"partial"` segment state is not treated as untranslated before explanation generation. This delta now persists `segment.tgt` mid-stream and marks the row with `"partial"` in **[backend/services/translation_stream.py:94]**, but explanation preflight still accepts any non-empty `tgt` as translated, and the UI still enables “Explain Translation” whenever target text exists in **[frontend/src/components/chapterDetail/translation/SegmentsList.tsx:265]**. Result: users can open sentence explanations against an incomplete translation and get analysis for text that is about to change. Suggested fix: reject `"partial"` in `_is_translated()` and disable Explain unless the segment is actually complete.
+- **[backend/services/translation_stream.py:240]** Manual edits do not clear the new `"partial"` flag. The existing batch edit path used by **[frontend/src/components/chapterDetail/translation/TranslationPanel.tsx:172]** updates `segment.tgt` and clears cached explanations, but leaves `flags` untouched, so an edited partial segment still satisfies `needs_translation()` and will be retransmitted on the next resume. That means a user can pause, edit the visible partial text, and then lose that edit when translation resumes. Suggested fix: treat an explicit user edit as authoritative by removing the `"partial"` flag in `batch_update_segment_translations()` and cover it with a regression test.
+
+### Summary
+The resume/hydration behavior itself looks sound and the targeted backend tests pass, but the new `"partial"` state is not integrated with existing explain/edit affordances yet. I would not treat this delta as safe to commit until those two paths are closed.
+
+---
+
+## Review — claude-opus-4-6 — 2026-04-13
+
+**Files reviewed**: `backend/services/translation_workflow.py`, `backend/services/translation_stream.py`, `backend/services/explanation_workflow_v2.py`, `backend/agents/explanation_generator_v2.py`, `backend/tests/test_translation_workflow.py`, `frontend/src/hooks/useChapterTranslationStream.ts`, `frontend/src/components/chapterDetail/translation/explanation/useExplanationArtifact.ts`
+**Changes**: Post-Phase-3 hardening — partial segment-translation persistence across disconnect/resume, partial-facet replay on explanation reopen, SSE `message` field alignment.
+
+### Important
+- **[backend/services/explanation_workflow_v2.py:199, 258-263]** `any_facet_error` leaks across replay -> regeneration. If a facet was previously errored in `payload_json`, the replay loop sets `any_facet_error = True`; since errored facets are not added to `done_facets`, `generate_facets` retries them. If the retry succeeds, `update_facet` writes a `"complete"` entry, but the in-memory `any_facet_error` is still `True`, so the artifact is finalized via `mark_error("one or more facets failed")` and the final `ArtifactCompleteEvent` has `status="error"`. The persisted facets are all complete, but the artifact shows as errored — and on the next reopen the replay will fire no error events (all entries are now `"complete"`), so state is self-healing on reopen but wrong at stream close.
+  → Reset `any_facet_error` to `False` before the generation loop and recompute from `generate_facets` results only, or re-derive final status from the persisted `payload_json` after the loop (single source of truth).
+
+- **[backend/services/explanation_workflow_v2.py:198-204]** Replay emits `ArtifactErrorEvent` for facets persisted as errored, but generation immediately retries those same facets (they're not in `done_facets`). The frontend receives an error event for a facet that is about to be retried; if the user disconnects between the replay error and the successful retry, the UI is left showing a stale error for a facet that in fact succeeded server-side. The mismatch isn't a crash, but the replay/retry ordering is user-visible.
+  → Either skip emitting `ArtifactErrorEvent` during replay for facets that will be retried, or mark previously-errored facets as `"pending"` in the UI contract and only emit a terminal error if the retry itself fails.
+
+- **[backend/services/translation_workflow.py:335-338]** `persist_partial_segment_translation` commits to Postgres on *every* streamed delta. For a 2 KB segment with ~500 tokens that is ~500 UPDATE + COMMIT round trips per segment, multiplied across a chapter. This will hold a row lock and generate heavy WAL churn; it also serializes the stream behind DB fsync latency, which can perceptibly slow streaming under load. The Phase 3 goal is resumability, not per-token durability.
+  → Throttle partial persistence (e.g. commit at most every N deltas or every ~250ms, and always on segment-complete/cancel). The test at `test_translation_workflow.py:309` still passes with throttling because the segment is persisted at least once before cancellation under any reasonable threshold.
+
+- **[frontend/src/hooks/useChapterTranslationStream.ts:207]** `replaceOnNextDelta: Boolean(existing?.text)` flips on any non-empty existing text, including fully completed segments. In a scenario where `segment-start` fires for a segment whose prior state was `"completed"` (e.g. a retranslate triggered from the UI that re-emits `segment-start` for an already-finalized row), the first delta will blow away the completed text instead of appending. Today this is probably safe because `retranslateSegment` calls `updateSegmentText(segmentId, "")` first, but the invariant is implicit — any new code path that emits `segment-start` over a completed segment without clearing text will produce wrong output.
+  → Gate `replaceOnNextDelta` on an explicit "partial/running" prior status rather than "any text present", or document the invariant in a code comment.
+
+### Minor
+- **[backend/services/translation_stream.py:161, 170, 182]** `persist_partial_segment_translation` and `persist_completed_segment_translation` both set `segment.explanation = None` unconditionally. For the partial path this is fine, but on the completed path it silently drops any explanation that existed before this translate call — if a user re-runs a single segment via `retranslateSegment`, their previous explanation is wiped even if the new translation is identical. The old code (`current.tgt = collected; db.commit()`) didn't touch `explanation`, so this is a behavior change piggy-backed onto the refactor.
+  → Either preserve `explanation` when the new `tgt` matches the old one, or call out this semantic shift in the commit message so it isn't silent.
+- **[backend/services/explanation_workflow_v2.py:185]** `except Exception: existing = ArtifactPayload()` swallows the payload-parse failure silently. The sibling `_replay_from_cache` at least logs a warning. Add a `logger.warning` here too so a corrupted payload is observable.
+- **[backend/agents/explanation_generator_v2.py:153]** `skip = skip_facets or set()` treats an empty-set argument identically to `None`, which is semantically fine but relies on the `or` fallback; `skip_facets if skip_facets is not None else set()` is slightly clearer for a public-ish API.
+- **[backend/tests/test_translation_workflow.py:343]** `test_resume_retranslates_partial_segment_and_clears_partial_flag` asserts `captured_contexts == [[]]`, which exercises the "partial row is excluded from context" path only incidentally (there is one segment in the chapter, so context is always empty). Consider a multi-segment variant where segment N is partial and segment N+1's context is expected to skip N.
+- **[frontend/src/hooks/useChapterTranslationStream.ts:171-178]** The nested ternary for `status` is readable enough but would be clearer as a small helper (`deriveStatus(flags, tgt)`), mirroring the backend's `needs_translation`.
+- **[frontend/src/components/chapterDetail/translation/explanation/useExplanationArtifact.ts:228-234]** The GET path now hydrates facets for every status including `"error"`, then falls through to POST + stream. For an artifact already marked terminal `"error"`, this re-drives generation. Behavior change vs. prior "only hydrate on complete" — probably intended (so error retries) but worth confirming.
+
+### Summary
+The partial-persistence mechanics are sound and well-tested, but the explanation-workflow retry path has a stale `any_facet_error` flag that will misreport artifact status when a previously-errored facet is retried successfully, and the per-delta DB commit in translation streaming is a real throughput concern. Recommend fixing the `any_facet_error` reset and throttling partial commits before merging; the rest are minor.
+
+---
+
+## Review — Codex — 2026-04-15
+
+**Files reviewed**: `.husky/pre-commit`, `backend/services/explanation_stream.py`, `backend/services/explanation_workflow_v2.py`, `backend/services/translation_stream.py`, `frontend/src/components/chapterDetail/translation/SegmentsList.tsx`
+**Changes**: Follow-up delta to block explanation on partially translated segments
+
+### Important
+- **[backend/services/translation_stream.py:240]** This patch closes the "partial rows can still be explained" path, but the companion manual-edit bug is still open. `batch_update_segment_translations()` updates `segment.tgt` and clears `segment.explanation`, yet it still leaves the `"partial"` flag intact. A user who pauses on a partial segment, edits the visible text, and later resumes translation can still have that explicit edit overwritten because `needs_translation()` will continue to treat the row as resumable machine output. Suggested fix: clear `PARTIAL_TRANSLATION_FLAG` when applying a manual edit and add a regression test through the batch edit route.
+
+- **[.husky/pre-commit:1]** `lint-staged --no-stash` is an unrelated behavior change that removes partial-staging protection for frontend commits. With this flag, hooks run against the working tree instead of a staged snapshot, so unstaged hunks in a partially staged file can be reformatted and swept into the commit. Unless that tradeoff is explicitly intended for the whole repo, this should not ship in the same delta. Suggested fix: drop `--no-stash`, or land it separately with rationale.
+
+### Summary
+The actual issue this delta targets is valid and the fix is directionally correct: partial translations now stay blocked from explanation in both backend preflight paths and in the segment context menu. I would not mark the overall follow-up safe yet, because manual edits on partial rows are still not authoritative and the pre-commit hook change adds unrelated commit-safety risk.
+
+---
