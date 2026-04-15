@@ -170,6 +170,13 @@ class ExplanationService:
         stmt = select(TranslationExplanation).where(TranslationExplanation.id == artifact_id)
         return self.session.execute(stmt).scalars().first()
 
+    def get_payload(self, artifact_id: int) -> ArtifactPayload:
+        """Return the persisted payload for an artifact, or an empty payload."""
+        artifact = self._get_by_id(artifact_id)
+        if artifact is None:
+            return ArtifactPayload()
+        return self._load_payload(artifact)
+
     @staticmethod
     def _load_payload(artifact: TranslationExplanation) -> ArtifactPayload:
         """Parse stored payload JSON, or return an empty payload if absent."""

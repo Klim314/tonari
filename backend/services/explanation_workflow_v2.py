@@ -177,8 +177,10 @@ class ExplanationWorkflowV2:
             return
 
         # Partial progress — replay what's already saved, then generate the rest.
+        # Errored facets are intentionally *not* emitted here: they are not in
+        # done_facets, so generate_facets will retry them, and surfacing a stale
+        # error for a facet about to succeed is misleading.
         done_facets: set[FacetType] = set()
-        any_facet_error = False
         if artifact.payload_json:
             try:
                 existing = ArtifactPayload.model_validate(artifact.payload_json)
@@ -195,22 +197,10 @@ class ExplanationWorkflowV2:
                         facet_type=facet_type,
                         payload=entry.data,
                     )
-                elif entry.status == "error":
-                    any_facet_error = True
-                    yield ArtifactErrorEvent(
-                        artifact_id=artifact.id,
-                        error=entry.error or "facet generation failed",
-                        facet_type=facet_type,
-                    )
 
         # If every facet is already complete, finalize and close without calling the LLM.
         if len(done_facets) == len(FACET_ORDER):
-            if any_facet_error:
-                self._explanation_svc.mark_error(artifact.id, "one or more facets failed")
-                yield ArtifactCompleteEvent(artifact_id=artifact.id, status="error")
-            else:
-                self._explanation_svc.mark_complete(artifact.id)
-                yield ArtifactCompleteEvent(artifact_id=artifact.id, status="complete")
+            yield self._finalize_artifact(artifact.id)
             return
 
         # Drive generation for the remaining facets.
@@ -242,7 +232,6 @@ class ExplanationWorkflowV2:
                 self._explanation_svc.update_facet(artifact.id, facet_type, data, error=error)
 
                 if error:
-                    any_facet_error = True
                     yield ArtifactErrorEvent(
                         artifact_id=artifact.id,
                         error=error,
@@ -255,12 +244,7 @@ class ExplanationWorkflowV2:
                         payload=data.model_dump(),
                     )
 
-            if any_facet_error:
-                self._explanation_svc.mark_error(artifact.id, "one or more facets failed")
-                yield ArtifactCompleteEvent(artifact_id=artifact.id, status="error")
-            else:
-                self._explanation_svc.mark_complete(artifact.id)
-                yield ArtifactCompleteEvent(artifact_id=artifact.id, status="complete")
+            yield self._finalize_artifact(artifact.id)
 
         except asyncio.CancelledError:
             raise
@@ -275,6 +259,28 @@ class ExplanationWorkflowV2:
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    def _finalize_artifact(self, artifact_id: int) -> ArtifactCompleteEvent:
+        """Derive final artifact status from the persisted payload.
+
+        Reading from payload_json (rather than tracking in-memory flags) keeps
+        the artifact status in lock-step with what actually landed on disk —
+        including retries that succeeded after an earlier failure.
+        """
+        payload = self._explanation_svc.get_payload(artifact_id)
+        failed: list[FacetType] = []
+        for facet_type in FACET_ORDER:
+            entry = getattr(payload, facet_type)
+            if entry is not None and entry.status == "error":
+                failed.append(facet_type)
+
+        if failed:
+            message = f"facet generation failed: {', '.join(failed)}"
+            self._explanation_svc.mark_error(artifact_id, message)
+            return ArtifactCompleteEvent(artifact_id=artifact_id, status="error")
+
+        self._explanation_svc.mark_complete(artifact_id)
+        return ArtifactCompleteEvent(artifact_id=artifact_id, status="complete")
 
     async def _replay_from_cache(
         self, artifact_id: int, payload_json: dict
