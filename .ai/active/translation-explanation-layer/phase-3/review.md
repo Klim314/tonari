@@ -221,3 +221,40 @@ The partial-persistence mechanics are sound and well-tested, but the explanation
 The actual issue this delta targets is valid and the fix is directionally correct: partial translations now stay blocked from explanation in both backend preflight paths and in the segment context menu. I would not mark the overall follow-up safe yet, because manual edits on partial rows are still not authoritative and the pre-commit hook change adds unrelated commit-safety risk.
 
 ---
+
+## Review — Codex — 2026-04-15
+
+**Files reviewed**: `backend/app/routers/works.py`, `backend/services/explanation_workflow_v2.py`, `backend/services/explanation_generation_registry.py`, `backend/services/translation_stream.py`
+**Changes**: Follow-up delta that moves sentence-explanation generation into detached process-local background tasks
+
+### Important
+- **[backend/services/explanation_workflow_v2.py:150-159, 392-454]** Generation now starts from the POST endpoint and keeps running after the client disconnects, but the artifact key is still only `(segment, span, density)` and the producer snapshots `segment.tgt` once before writing the final payload. Nothing in the segment edit / retranslate paths invalidates `translation_explanations`, only the old markdown `segment.explanation` field is cleared in **[backend/services/translation_stream.py:226-242]**. Result: a user can close the workspace, edit or retranslate the segment, and still have the detached task finish and cache an explanation for stale text under the current artifact key. Suggested fix: version explanation artifacts by translation revision or clear/reject the artifact when `segment.tgt` changes before finalize.
+- **[backend/services/explanation_workflow_v2.py:378-390]** The detached producer emits `ArtifactErrorEvent("chapter or segment not found")` and returns when its setup data is missing, but it never marks the artifact itself as `error`. Combined with the registry wrapper swallowing producer crashes in **[backend/services/explanation_generation_registry.py:82-97]**, this leaves the row stuck in `pending` / `generating` even though the run has already died. Suggested fix: persist a terminal error status for every fatal producer exit path before returning or swallowing the exception.
+
+### Summary
+The detached-run architecture fixes the “disconnect cancels work” problem, but I would not treat this delta as safe yet: it can now cache explanations for stale translations, and some fatal background-task exits leave the artifact in a non-terminal state that is hard for the UI to reason about.
+
+---
+
+## Review — claude-opus-4-6 — 2026-04-15
+
+**Files reviewed**: `backend/app/routers/works.py`, `backend/services/explanation_workflow_v2.py`, `backend/services/explanation_generation_registry.py`
+**Changes**: Introduces a process-local generation registry so sentence-explanation runs survive client disconnects and dedupe concurrent subscribers.
+
+### Critical
+- **[backend/services/explanation_workflow_v2.py:142-159]** `start(..., force=True)` has a window where a concurrent `subscribe()` can start a second generation against the *pre-reset* artifact payload. Sequence: (A) `await registry.cancel(...)` returns — registry entry is already deleted by the cancelled runner's `finally`; (B) before we reach `self._explanation_svc.regenerate(...)`, another request enters `subscribe()`, sees `status != terminal`, registry empty, calls `_ensure_generation`, and a fresh producer reads `payload_json`. (C) Our `regenerate()` then wipes the payload under that producer. The producer's `done_facets` snapshot is now inconsistent with the artifact row, so it will skip facets that no longer exist in storage and the artifact ends up permanently incomplete. Suggested fix: hold a per-artifact lock across cancel→regenerate→ensure, or reset the artifact *before* calling `registry.cancel` so the cancelled run sees the reset row.
+
+### Important
+- **[backend/services/explanation_generation_registry.py:50-100]** Registry is process-local (`_registry` module global). Under `uvicorn --workers >1` (or any multi-process deployment) the POST and the SSE GET can land on different workers: worker A starts the detached task, worker B's `subscribe()` finds no handle and starts a second generation. Result is duplicate LLM calls and the same race as `update_facet` last-write-wins. Either document single-worker as a deployment requirement, or gate the registry behind a process-wide coordinator (DB advisory lock keyed on artifact_id, or a Redis-backed handle). At minimum state.md's "deferred lease" note should be updated — this delta does not solve it across workers.
+- **[backend/services/explanation_generation_registry.py:82-100]** The `except Exception:` in `runner()` logs but swallows producer crashes, and the producer's own `except Exception` at [explanation_workflow_v2.py:458-464] only triggers if the exception is raised *inside* the `async for` loop. Exceptions raised earlier — e.g. the session-open in `SessionLocal()`, the chapter/segment lookups, or `generator = get_explanation_generator_v2()` — propagate into `runner`, get swallowed, and leave the artifact in `pending` forever. Codex flagged the "chapter or segment not found" branch specifically; the broader class is all pre-loop failures. Suggested fix: wrap the entire `_run_generation` body in try/except that calls `mark_error` before yielding the terminal event.
+
+### Minor
+- **[backend/services/explanation_workflow_v2.py:264-266]** `_get_artifact_fresh` reaches into `self._explanation_svc._get_by_id` (a private). Add a public `get_by_id` on `ExplanationService` or inline the query — the leaky abstraction will bite the next refactor.
+- **[backend/services/explanation_workflow_v2.py:146-148]** `if artifact.status != "pending" or artifact.payload_json is not None` will skip `regenerate()` when the status is already `"pending"` with empty payload. That's the intended fast path, but after `registry.cancel` the cancelled run may have emitted one or more `FacetCompleteEvent`s and persisted them — payload_json could be non-null, but the condition already handles that. Confirming: the path is correct, just not self-evident. Consider a comment.
+- **[backend/services/explanation_generation_registry.py:21-47]** `subscribers: set[asyncio.Queue]` and `buffer: list` are unbounded. For the current fixed `FACET_ORDER` the buffer is bounded in practice (a handful of events per run), but there's no guardrail if a future producer emits token-level events. Minor — worth a cap or comment.
+- **[backend/app/routers/works.py:997]** Rename `workflow.stream` → `workflow.subscribe` in the router is consistent with the workflow API, but the SSE endpoint docstring (not shown) may still reference the old "stream" semantics. Worth a grep.
+
+### Summary
+The registry adds real value (detached runs + dedup within one process), but the force-reset race and the multi-worker gap mean this is not yet the "generation lease" state.md describes. Both are fixable with modest additional locking; I'd hold the merge until at least the force-reset race and the pre-loop exception swallowing are addressed.
+
+---

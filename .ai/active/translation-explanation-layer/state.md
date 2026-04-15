@@ -42,8 +42,9 @@ Additional hardening since the initial Phase 3 ship:
 
 - [useChapterTranslationStream.ts](../../../frontend/src/hooks/useChapterTranslationStream.ts), [translation_workflow.py](../../../backend/services/translation_workflow.py), and [translation_stream.py](../../../backend/services/translation_stream.py) now preserve partially streamed segment text across hydrate/resume, mark in-flight rows with a `"partial"` flag, persist text per streamed delta, and clear the partial marker when the segment finishes.
 - [explanation_workflow_v2.py](../../../backend/services/explanation_workflow_v2.py) and [explanation_generator_v2.py](../../../backend/agents/explanation_generator_v2.py) now replay persisted facet progress from `payload_json` and skip already-complete facets when a workspace is reopened mid-generation.
+- [explanation_generation_registry.py](../../../backend/services/explanation_generation_registry.py), [explanation_workflow_v2.py](../../../backend/services/explanation_workflow_v2.py), and the sentence-explanation endpoints in [works.py](../../../backend/app/routers/works.py) now let explanation generation continue in a detached background task so SSE disconnects do not immediately waste in-flight LLM work.
 
-Validation this session: `just test tests/test_explanation_workflow.py`, `cd frontend && npx tsc --noEmit`, and `cd frontend && npx biome check src/components/chapterDetail/translation/SegmentsList.tsx` passed.
+Latest validation on file: `just test tests/test_explanation_workflow.py`, `cd frontend && npx tsc --noEmit`, and `cd frontend && npx biome check src/components/chapterDetail/translation/SegmentsList.tsx` passed.
 
 ## Review Status
 
@@ -53,24 +54,38 @@ Still open after the 2026-04-15 review:
 
 - manual batch edits do not clear the new `"partial"` flag, so a later resume can overwrite an explicit user edit
 - `.husky/pre-commit` now adds `lint-staged --no-stash`, which is unrelated to the explanation fix and weakens partial-staging safety for frontend commits
+- detached explanation runs can finalize and cache an artifact for stale `segment.tgt` text if the translation changes after the POST starts generation
+- some fatal detached-producer exits leave the artifact row stuck in `pending` / `generating` instead of persisting `status="error"`
 
 ## Next Steps
 
 1. Fix the remaining partial-state integration gap: clear `"partial"` on manual edits and add regression coverage through the batch edit API.
 2. Decide whether `.husky/pre-commit` should keep `lint-staged --no-stash`; if not, drop it from this delta.
-3. Re-run manual QA with the feature flag enabled (`?explanation_v2=1` or `localStorage.setItem('explanation_v2', '1')`): cache hit, cache miss, regenerate, reopen mid-generation, pause/resume chapter translation mid-segment, manual edit on a paused partial segment, and explain availability on incomplete segments.
-4. If QA is clean, decide whether to keep the v2 workspace gated or widen exposure before Phase 4.
+3. Prevent stale detached explanations from being finalized after the underlying translation changes. Either version explanation artifacts by translation revision/hash or invalidate/reject them on segment text change.
+4. Persist `status="error"` for every fatal detached-generation exit path, including setup failures before facet generation begins.
+5. Re-run manual QA with the feature flag enabled (`?explanation_v2=1` or `localStorage.setItem('explanation_v2', '1')`): cache hit, cache miss, regenerate, reopen mid-generation, pause/resume chapter translation mid-segment, manual edit on a paused partial segment, translation edit during detached explanation generation, and explain availability on incomplete segments.
+6. If QA is clean, decide whether to keep the v2 workspace gated or widen exposure before Phase 4.
+
+## Deferred Work
+
+Tracked in [backlog.md](backlog.md):
+- Force-reset race in `ExplanationWorkflowV2.start(force=True)` — concurrent `subscribe()` can build `done_facets` from pre-reset `payload_json` and skip facets permanently. Low priority for single-user; revisit with the Redis migration.
+- Process-local `GenerationRegistry` — move behind Redis (or DB advisory lock) for multi-worker. Single-worker is a deployment requirement until then.
 
 ## Known Issues
 
 - Navigating away from an in-progress sentence explanation and back can briefly leave two server-side stream tasks alive at once (the original is still awaiting its in-flight LLM call when the new one starts). Worst case is one duplicated LLM call for a single facet; final artifact state is consistent because `update_facet` is last-write-wins per facet row. A true lease/heartbeat to prevent the overlap is deferred.
 - `useExplanationArtifact.ts` still uses a hand-typed GET response shape (`ArtifactGetResponse`) instead of generated API types; cleanup debt, not a blocker.
+- Detached explanation runs are still process-local and unversioned against translation edits, so artifact correctness currently depends on the underlying segment text staying stable for the life of the run.
 
 ## Open Questions
 
 - Is the transient overlap-window concurrency behaviour acceptable, or do we want a generation lease on the artifact before widening the flag?
+- Do we want detached explanation generation to survive translation edits, or should any segment text change invalidate the run and require a restart?
 
 ## Blockers
 
 - Manual edits still do not clear the `"partial"` flag.
 - The unrelated `--no-stash` pre-commit change should be removed or justified separately before this follow-up is treated as ready.
+- Detached explanation generation can currently publish stale artifacts after the segment translation changes.
+- Fatal background-producer setup failures do not persist a terminal artifact error state.

@@ -147,3 +147,12 @@ Append-only. Each session adds an entry. Only consult when you need to understan
 - Appended a new `Codex` block to `phase-3/review.md`.
 - Remaining important finding: manual batch edits still do not clear the `"partial"` flag in `batch_update_segment_translations()`, so user edits on paused partial rows can still be overwritten on resume.
 - New unrelated review finding: `.husky/pre-commit` now uses `lint-staged --no-stash`, which weakens partial-staging safety and should be reverted or justified in a separate change.
+
+## 2026-04-15 — Review pass on detached explanation generation follow-up
+
+- Reviewed the current backend delta that moves sentence explanations from request-scoped SSE generation into detached background tasks backed by a process-local registry.
+- Appended a new `Codex` block to `phase-3/review.md`.
+- Added two new important findings:
+  - detached explanation runs can now finish and cache artifacts for stale `segment.tgt` text if the translation changes after the POST starts generation, because the artifact key is not versioned by translation state and translation edits do not invalidate `translation_explanations`
+  - some fatal producer exits (for example missing setup data before facet generation) emit/log an error but do not persist `status="error"` on the artifact, leaving the row stuck in a non-terminal state
+- Refreshed `state.md` so the active blocker list now includes both detached-generation issues in addition to the earlier partial-edit and pre-commit concerns.
