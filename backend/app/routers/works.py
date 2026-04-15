@@ -980,11 +980,14 @@ async def stream_sentence_explanation(
     span_end: int = Query(..., gt=0),
     density: Literal["sparse", "dense"] = Query(default="sparse"),
 ):
-    """SSE stream that generates explanation facets one at a time.
+    """SSE endpoint that subscribes to this artifact's generation.
 
-    On a cache hit all facets are replayed from the stored artifact without
-    calling the LLM.  On a cache miss each facet is generated sequentially,
-    persisted, and emitted as an ``explanation-facet-complete`` event.
+    Generation runs as a detached background task started by the POST
+    endpoint; this endpoint only tails events. On a cache hit all facets
+    are replayed from the stored artifact without calling the LLM.
+    Otherwise each facet is emitted as an ``explanation-facet-complete``
+    event as the detached task persists it. Client disconnect only
+    unsubscribes; the generation task continues to completion.
     """
     db = SessionLocal()
     try:

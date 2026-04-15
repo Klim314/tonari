@@ -19,6 +19,9 @@ class GenerationHandle:
     def __init__(self) -> None:
         self.task: asyncio.Task[None] | None = None
         self.subscribers: set[asyncio.Queue[Any]] = set()
+        # Bounded in practice by FACET_ORDER (~5 facet events plus one
+        # terminal event per run). Revisit if a future producer emits
+        # token-level events.
         self.buffer: list[Any] = []
         self.done: asyncio.Event = asyncio.Event()
         self.superseded: bool = False

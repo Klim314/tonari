@@ -43,6 +43,10 @@ class ExplanationService:
         )
         return self.session.execute(stmt).scalars().first()
 
+    def get_by_id(self, artifact_id: int) -> TranslationExplanation | None:
+        stmt = select(TranslationExplanation).where(TranslationExplanation.id == artifact_id)
+        return self.session.execute(stmt).scalars().first()
+
     # ------------------------------------------------------------------
     # Writes
     # ------------------------------------------------------------------
@@ -110,7 +114,7 @@ class ExplanationService:
         error: str | None = None,
     ) -> None:
         """Persist a completed (or errored) facet into the artifact payload."""
-        artifact = self._get_by_id(artifact_id)
+        artifact = self.get_by_id(artifact_id)
         if artifact is None:
             return
 
@@ -128,7 +132,7 @@ class ExplanationService:
 
     def mark_complete(self, artifact_id: int) -> None:
         """Set artifact status to ``complete``."""
-        artifact = self._get_by_id(artifact_id)
+        artifact = self.get_by_id(artifact_id)
         if artifact is None:
             return
         artifact.status = "complete"
@@ -137,7 +141,7 @@ class ExplanationService:
 
     def mark_error(self, artifact_id: int, message: str) -> None:
         """Set artifact status to ``error`` and record the message."""
-        artifact = self._get_by_id(artifact_id)
+        artifact = self.get_by_id(artifact_id)
         if artifact is None:
             return
         artifact.status = "error"
@@ -152,7 +156,7 @@ class ExplanationService:
 
         The next SSE stream request will re-drive generation.
         """
-        artifact = self._get_by_id(artifact_id)
+        artifact = self.get_by_id(artifact_id)
         if artifact is None:
             return None
         artifact.status = "pending"
@@ -166,13 +170,9 @@ class ExplanationService:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _get_by_id(self, artifact_id: int) -> TranslationExplanation | None:
-        stmt = select(TranslationExplanation).where(TranslationExplanation.id == artifact_id)
-        return self.session.execute(stmt).scalars().first()
-
     def get_payload(self, artifact_id: int) -> ArtifactPayload:
         """Return the persisted payload for an artifact, or an empty payload."""
-        artifact = self._get_by_id(artifact_id)
+        artifact = self.get_by_id(artifact_id)
         if artifact is None:
             return ArtifactPayload()
         return self._load_payload(artifact)

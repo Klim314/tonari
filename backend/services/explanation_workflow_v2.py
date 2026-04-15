@@ -263,7 +263,7 @@ class ExplanationWorkflowV2:
 
     def _get_artifact_fresh(self, artifact_id: int):
         self.db.expire_all()
-        return self._explanation_svc._get_by_id(artifact_id)
+        return self._explanation_svc.get_by_id(artifact_id)
 
     async def _replay_from_cache(
         self, artifact_id: int, payload_json: dict
@@ -405,7 +405,7 @@ async def _run_generation(
 
             # Resume support: replay facets already persisted in payload_json, and
             # skip them on the LLM pass.
-            artifact = explanation_svc._get_by_id(artifact_id)
+            artifact = explanation_svc.get_by_id(artifact_id)
             done_facets: set[FacetType] = set()
             if artifact is not None and artifact.payload_json:
                 try:
