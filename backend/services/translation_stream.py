@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session
 from app.models import Chapter, ChapterTranslation, TranslationSegment
 from app.segment_utils import hash_text, newline_segment_slices
 
+PARTIAL_TRANSLATION_FLAG = "partial"
+
 
 class TranslationStreamService:
     """Helpers for initializing and tracking streaming chapter translations."""
@@ -89,6 +91,8 @@ class TranslationStreamService:
         flags = segment.flags or []
         if "whitespace" in flags or "empty" in flags:
             return False
+        if PARTIAL_TRANSLATION_FLAG in flags:
+            return True
         tgt_value = cast(str | None, segment.tgt)
         if tgt_value is None:
             return True
@@ -116,6 +120,8 @@ class TranslationStreamService:
         # Keep the logic intentionally simple; segment counts are small.
         for segment in reversed(segments):
             if segment.order_index >= current.order_index:
+                continue
+            if PARTIAL_TRANSLATION_FLAG in (segment.flags or []):
                 continue
             tgt = (segment.tgt or "").strip()
             if not tgt:
@@ -152,9 +158,33 @@ class TranslationStreamService:
             return None
 
         segment.tgt = ""
+        segment.explanation = None
+        segment.flags = self._with_partial_flag(segment.flags, partial=False)
         self.session.add(segment)
         self.session.commit()
         self.session.refresh(segment)
+        return segment
+
+    def persist_partial_segment_translation(
+        self, segment: TranslationSegment, text: str
+    ) -> TranslationSegment:
+        """Persist an in-flight translation while keeping the segment resumable."""
+        segment.tgt = text
+        segment.explanation = None
+        segment.flags = self._with_partial_flag(segment.flags, partial=True)
+        self.session.add(segment)
+        self.session.commit()
+        return segment
+
+    def persist_completed_segment_translation(
+        self, segment: TranslationSegment, text: str
+    ) -> TranslationSegment:
+        """Persist a finished translation and clear any partial marker."""
+        segment.tgt = text
+        segment.explanation = None
+        segment.flags = self._with_partial_flag(segment.flags, partial=False)
+        self.session.add(segment)
+        self.session.commit()
         return segment
 
     def regenerate_chapter_segments(self, chapter: Chapter) -> None:
@@ -216,3 +246,10 @@ class TranslationStreamService:
         for seg in updated:
             self.session.refresh(seg)
         return updated
+
+    @staticmethod
+    def _with_partial_flag(flags: list | None, *, partial: bool) -> list[str]:
+        next_flags = [str(flag) for flag in (flags or []) if flag != PARTIAL_TRANSLATION_FLAG]
+        if partial:
+            next_flags.append(PARTIAL_TRANSLATION_FLAG)
+        return next_flags

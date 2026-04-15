@@ -164,7 +164,7 @@ export function useExplanationArtifact({
 				try {
 					const msg = JSON.parse((ev as MessageEvent).data) as {
 						facet_type?: FacetType;
-						error?: string;
+						message?: string;
 					};
 					if (msg.facet_type) {
 						setFacets((prev) => ({
@@ -172,11 +172,11 @@ export function useExplanationArtifact({
 							[msg.facet_type as FacetType]: {
 								status: "error",
 								data: null,
-								error: msg.error ?? "facet generation failed",
+								error: msg.message ?? "facet generation failed",
 							},
 						}));
 					} else {
-						setError(msg.error ?? "explanation generation failed");
+						setError(msg.message ?? "explanation generation failed");
 					}
 				} catch {
 					// ignore
@@ -223,8 +223,12 @@ export function useExplanationArtifact({
 					});
 					if (controller.signal.aborted) return;
 					const data = getResp.data as ArtifactGetResponse;
-					if (data.status === "complete") {
+					// Hydrate whatever facets are already persisted so partial
+					// progress renders immediately; the stream will fill the rest.
+					if (data.facets) {
 						setFacets(applyCachedFacets(data.facets));
+					}
+					if (data.status === "complete") {
 						setStatus("complete");
 						return;
 					}

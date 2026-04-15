@@ -136,11 +136,13 @@ class ExplanationGeneratorV2:
         density: Literal["sparse", "dense"],
         preceding_segments: list[SegmentContextInput] | None = None,
         following_segments: list[SegmentContextInput] | None = None,
+        skip_facets: set[FacetType] | None = None,
     ) -> AsyncGenerator[tuple[FacetType, AnyFacetData | None, str | None], None]:
         """Yield ``(facet_type, data, error)`` for each facet in order.
 
         ``data`` is ``None`` and ``error`` is set when a single facet fails.
-        Remaining facets continue regardless of individual errors.
+        Remaining facets continue regardless of individual errors.  Facets in
+        ``skip_facets`` are not sent to the LLM and are not yielded.
         """
         sentence_text = segment_source[span_start:span_end]
         preceding_block = render_block(preceding_segments or [], "preceding")
@@ -148,8 +150,11 @@ class ExplanationGeneratorV2:
         system_prompt = (
             SYSTEM_EXPLANATION_V2_DENSE if density == "dense" else SYSTEM_EXPLANATION_V2_SPARSE
         )
+        skip = skip_facets or set()
 
         for facet_type in FACET_ORDER:
+            if facet_type in skip:
+                continue
             yield await self._generate_one(
                 facet_type=facet_type,
                 system_prompt=system_prompt,

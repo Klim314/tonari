@@ -176,7 +176,44 @@ class ExplanationWorkflowV2:
                 yield event
             return
 
-        # Cache miss — drive generation.
+        # Partial progress — replay what's already saved, then generate the rest.
+        done_facets: set[FacetType] = set()
+        any_facet_error = False
+        if artifact.payload_json:
+            try:
+                existing = ArtifactPayload.model_validate(artifact.payload_json)
+            except Exception:
+                existing = ArtifactPayload()
+            for facet_type in FACET_ORDER:
+                entry = getattr(existing, facet_type)
+                if entry is None:
+                    continue
+                if entry.status == "complete" and entry.data is not None:
+                    done_facets.add(facet_type)
+                    yield FacetCompleteEvent(
+                        artifact_id=artifact.id,
+                        facet_type=facet_type,
+                        payload=entry.data,
+                    )
+                elif entry.status == "error":
+                    any_facet_error = True
+                    yield ArtifactErrorEvent(
+                        artifact_id=artifact.id,
+                        error=entry.error or "facet generation failed",
+                        facet_type=facet_type,
+                    )
+
+        # If every facet is already complete, finalize and close without calling the LLM.
+        if len(done_facets) == len(FACET_ORDER):
+            if any_facet_error:
+                self._explanation_svc.mark_error(artifact.id, "one or more facets failed")
+                yield ArtifactCompleteEvent(artifact_id=artifact.id, status="error")
+            else:
+                self._explanation_svc.mark_complete(artifact.id)
+                yield ArtifactCompleteEvent(artifact_id=artifact.id, status="complete")
+            return
+
+        # Drive generation for the remaining facets.
         segment = self._get_segment(segment_id)
         chapter_text = chapter.normalized_text
         source_text = chapter_text[segment.start : segment.end]
@@ -189,7 +226,6 @@ class ExplanationWorkflowV2:
         generator = get_explanation_generator_v2()
 
         try:
-            any_facet_error = False
             async for facet_type, data, error in generator.generate_facets(
                 segment_source=source_text,
                 segment_translation=translation_text,
@@ -198,6 +234,7 @@ class ExplanationWorkflowV2:
                 density=density,
                 preceding_segments=preceding,
                 following_segments=following,
+                skip_facets=done_facets,
             ):
                 if await is_disconnected():
                     raise asyncio.CancelledError

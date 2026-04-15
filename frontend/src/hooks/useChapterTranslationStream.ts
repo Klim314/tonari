@@ -17,6 +17,7 @@ export interface SegmentState {
 	src: string;
 	text: string;
 	status: "pending" | "running" | "completed";
+	replaceOnNextDelta?: boolean;
 }
 
 export type ChapterTranslationSegment = SegmentState;
@@ -159,6 +160,7 @@ export function useChapterTranslationStream({
 			const mapped: Record<number, SegmentState> = {};
 			for (const segment of payload.segments) {
 				const isWhitespace = segment.flags?.includes("whitespace");
+				const isPartial = segment.flags?.includes("partial");
 				mapped[segment.id] = {
 					segmentId: segment.id,
 					orderIndex: segment.order_index,
@@ -166,7 +168,14 @@ export function useChapterTranslationStream({
 					end: segment.end,
 					src: segment.src,
 					text: segment.tgt ?? "",
-					status: segment.tgt || isWhitespace ? "completed" : "pending",
+					status: isWhitespace
+						? "completed"
+						: isPartial
+							? "pending"
+							: segment.tgt
+								? "completed"
+								: "pending",
+					replaceOnNextDelta: Boolean(isPartial && segment.tgt),
 				};
 			}
 			setSegmentsMap(mapped);
@@ -186,14 +195,16 @@ export function useChapterTranslationStream({
 
 		setSegmentsMap((prev) => {
 			const next = { ...prev };
+			const existing = prev[payload.segment_id];
 			next[payload.segment_id] = {
 				segmentId: payload.segment_id,
 				orderIndex: payload.order_index,
 				start: payload.start,
 				end: payload.end,
 				src: payload.src,
-				text: "",
+				text: existing?.text ?? "",
 				status: "running",
+				replaceOnNextDelta: Boolean(existing?.text),
 			};
 			return next;
 		});
@@ -212,8 +223,11 @@ export function useChapterTranslationStream({
 				...prev,
 				[payload.segment_id]: {
 					...existing,
-					text: existing.text + (payload.delta ?? ""),
+					text: existing.replaceOnNextDelta
+						? (payload.delta ?? "")
+						: existing.text + (payload.delta ?? ""),
 					status: "running",
+					replaceOnNextDelta: false,
 				},
 			};
 		});
@@ -234,6 +248,7 @@ export function useChapterTranslationStream({
 					...existing,
 					text: payload.text ?? existing.text,
 					status: "completed",
+					replaceOnNextDelta: false,
 				},
 			};
 		});
@@ -458,7 +473,11 @@ export function useChapterTranslationStream({
 				if (!existing) return prev;
 				return {
 					...prev,
-					[segmentId]: { ...existing, text: newText },
+					[segmentId]: {
+						...existing,
+						text: newText,
+						replaceOnNextDelta: false,
+					},
 				};
 			});
 		},

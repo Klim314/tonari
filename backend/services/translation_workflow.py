@@ -332,6 +332,10 @@ class TranslationWorkflow:
                     if not delta:
                         continue
                     collected += delta
+                    self._stream_service.persist_partial_segment_translation(
+                        current,
+                        collected,
+                    )
                     yield SegmentDeltaEvent(
                         chapter_translation_id=translation.id,
                         segment_id=current.id,
@@ -339,9 +343,10 @@ class TranslationWorkflow:
                         delta=delta,
                     )
 
-                current.tgt = collected
-                self.db.add(current)
-                self.db.commit()
+                self._stream_service.persist_completed_segment_translation(
+                    current,
+                    collected,
+                )
                 yield SegmentCompleteEvent(
                     chapter_translation_id=translation.id,
                     segment_id=current.id,

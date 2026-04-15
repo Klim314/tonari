@@ -306,6 +306,101 @@ class TestStartOrResume:
         ).scalar_one()
         assert translation.status == "idle"
 
+    def test_cancellation_persists_partial_segment_text(self, db_session):
+        """Disconnect after a delta keeps the partial text resumable on the segment."""
+        work = _make_work(db_session)
+        chapter = _make_chapter(db_session, work, "some text")
+        workflow = TranslationWorkflow(db_session)
+        agent = _mock_agent(["hello", " world"])
+
+        is_disconnected = AsyncMock(side_effect=[False, False, True])
+
+        with patch.object(workflow, "_resolve_agent", return_value=agent):
+            events, was_cancelled = _run_until_cancelled(
+                workflow.start_or_resume(
+                    chapter,
+                    work.id,
+                    prompt_override=None,
+                    is_disconnected=is_disconnected,
+                )
+            )
+
+        assert was_cancelled
+        assert any(isinstance(event, SegmentDeltaEvent) for event in events)
+
+        svc = TranslationStreamService(db_session)
+        translation = db_session.execute(
+            select(ChapterTranslation).where(ChapterTranslation.chapter_id == chapter.id)
+        ).scalar_one()
+        segment = db_session.execute(
+            select(TranslationSegment).where(
+                TranslationSegment.chapter_translation_id == translation.id
+            )
+        ).scalar_one()
+
+        assert translation.status == "idle"
+        assert segment.tgt == "hello"
+        assert "partial" in (segment.flags or [])
+        assert svc.needs_translation(segment) is True
+
+    def test_resume_retranslates_partial_segment_and_clears_partial_flag(self, db_session):
+        """Partial persisted text is retried and finalized on the next resume."""
+        work = _make_work(db_session)
+        chapter = _make_chapter(db_session, work, "some text")
+        workflow = TranslationWorkflow(db_session)
+
+        svc = TranslationStreamService(db_session)
+        translation = svc.get_or_create_translation(chapter.id)
+        segment = svc.ensure_segments(translation, chapter.normalized_text)[0]
+        segment.tgt = "hello"
+        segment.flags = ["partial"]
+        translation.status = "idle"
+        db_session.add_all([translation, segment])
+        db_session.commit()
+
+        captured_contexts: list[list[dict[str, str]] | None] = []
+
+        async def _stream(
+            src,
+            *,
+            preceding_segments=None,
+            instruction=None,
+            current_translation=None,
+        ):
+            captured_contexts.append(preceding_segments)
+            yield "finished"
+
+        agent = MagicMock()
+        agent.context_window = 3
+        agent.model = "test-model"
+        agent.stream_segment = MagicMock(side_effect=_stream)
+
+        with patch.object(workflow, "_resolve_agent", return_value=agent):
+            events = _run(
+                workflow.start_or_resume(
+                    chapter,
+                    work.id,
+                    prompt_override=None,
+                    is_disconnected=AsyncMock(return_value=False),
+                )
+            )
+
+        assert any(isinstance(event, SegmentStartEvent) for event in events)
+        assert isinstance(events[-1], TranslationCompleteEvent)
+
+        db_session.expire_all()
+        updated_translation = db_session.execute(
+            select(ChapterTranslation).where(ChapterTranslation.id == translation.id)
+        ).scalar_one()
+        updated_segment = db_session.execute(
+            select(TranslationSegment).where(TranslationSegment.id == segment.id)
+        ).scalar_one()
+
+        assert updated_translation.status == "completed"
+        assert updated_segment.tgt == "finished"
+        assert "partial" not in (updated_segment.flags or [])
+        assert captured_contexts == [[]]
+
     def test_agent_error_emits_error_event(self, db_session):
         """Agent exception mid-stream yields TranslationErrorEvent; status set to error."""
         work = _make_work(db_session)
