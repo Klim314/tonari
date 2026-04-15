@@ -89,6 +89,7 @@ const SegmentRow = memo(function SegmentRow({
 		segment.text || (segment.status === "running" ? "Translating..." : "");
 	const hasSource = srcText.trim().length > 0;
 	const hasTarget = tgtText.trim().length > 0;
+	const isFullyTranslated = segment.status === "completed" && hasTarget;
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [contextMenuPos, setContextMenuPos] = useState<{
 		x: number;
@@ -265,7 +266,7 @@ const SegmentRow = memo(function SegmentRow({
 						<Menu.Item
 							value="explain"
 							onClick={() => onExplain(segment.segmentId)}
-							disabled={!hasTarget || isRetranslating || isEditing}
+							disabled={!isFullyTranslated || isRetranslating || isEditing}
 						>
 							Explain Translation
 						</Menu.Item>

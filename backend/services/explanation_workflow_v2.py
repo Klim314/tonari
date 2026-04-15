@@ -14,7 +14,7 @@ from app.explanation_schemas import FACET_ORDER, ArtifactPayload, FacetType
 from app.models import Chapter, TranslationSegment
 from services.exceptions import SegmentNotFoundError, SegmentNotTranslatedError, SpanValidationError
 from services.explanation_service import ExplanationService
-from services.translation_stream import TranslationStreamService
+from services.translation_stream import PARTIAL_TRANSLATION_FLAG, TranslationStreamService
 
 logger = logging.getLogger(__name__)
 
@@ -326,6 +326,8 @@ class ExplanationWorkflowV2:
     def _is_translated(segment: TranslationSegment) -> bool:
         flags = segment.flags or []
         if "whitespace" in flags or "empty" in flags:
+            return False
+        if PARTIAL_TRANSLATION_FLAG in flags:
             return False
         return bool((segment.tgt or "").strip())
 

@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import TranslationSegment
+from services.translation_stream import PARTIAL_TRANSLATION_FLAG
 
 
 class ExplanationStreamService:
@@ -24,6 +25,8 @@ class ExplanationStreamService:
         """Check if a segment has been translated."""
         flags = segment.flags or []
         if "whitespace" in flags or "empty" in flags:
+            return False
+        if PARTIAL_TRANSLATION_FLAG in flags:
             return False
         tgt_value = cast(str | None, segment.tgt)
         if tgt_value is None:
