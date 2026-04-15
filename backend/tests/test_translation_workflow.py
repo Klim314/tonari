@@ -401,6 +401,87 @@ class TestStartOrResume:
         assert "partial" not in (updated_segment.flags or [])
         assert captured_contexts == [[]]
 
+    def test_partial_persistence_is_throttled_across_many_deltas(self, db_session):
+        """Rapid-fire deltas should not commit on every token; final text must still land."""
+        from services import translation_workflow as tw
+
+        work = _make_work(db_session)
+        chapter = _make_chapter(db_session, work, "some text")
+        workflow = TranslationWorkflow(db_session)
+        tokens = [f"t{i}" for i in range(50)]
+        agent = _mock_agent(tokens)
+
+        persist_calls: list[str] = []
+        original = workflow._stream_service.persist_partial_segment_translation
+
+        def _tracking(segment, text):
+            persist_calls.append(text)
+            return original(segment, text)
+
+        with (
+            patch.object(workflow, "_resolve_agent", return_value=agent),
+            patch.object(
+                workflow._stream_service,
+                "persist_partial_segment_translation",
+                side_effect=_tracking,
+            ),
+            patch.object(tw, "PARTIAL_COMMIT_INTERVAL_S", 60.0),
+        ):
+            events = _run(
+                workflow.start_or_resume(
+                    chapter,
+                    work.id,
+                    prompt_override=None,
+                    is_disconnected=AsyncMock(return_value=False),
+                )
+            )
+
+        # With a 60s throttle and a synchronous test loop, only the first delta
+        # should pass the interval gate. The rest coalesce into segment-complete.
+        assert len(persist_calls) == 1
+        assert persist_calls[0] == "t0"
+
+        assert any(isinstance(e, SegmentCompleteEvent) for e in events)
+        segment = db_session.execute(
+            select(TranslationSegment)
+        ).scalars().first()
+        assert segment.tgt == "".join(tokens)
+        assert "partial" not in (segment.flags or [])
+
+    def test_throttled_partial_is_flushed_on_cancel(self, db_session):
+        """If cancel fires before throttle elapses, the collected text is flushed."""
+        from services import translation_workflow as tw
+
+        work = _make_work(db_session)
+        chapter = _make_chapter(db_session, work, "some text")
+        workflow = TranslationWorkflow(db_session)
+        agent = _mock_agent(["alpha", "beta", "gamma"])
+
+        # side_effect: pre-loop check, delta1, delta2, cancel on delta3
+        is_disconnected = AsyncMock(side_effect=[False, False, False, True])
+
+        with (
+            patch.object(workflow, "_resolve_agent", return_value=agent),
+            patch.object(tw, "PARTIAL_COMMIT_INTERVAL_S", 60.0),
+        ):
+            _events, was_cancelled = _run_until_cancelled(
+                workflow.start_or_resume(
+                    chapter,
+                    work.id,
+                    prompt_override=None,
+                    is_disconnected=is_disconnected,
+                )
+            )
+
+        assert was_cancelled
+        segment = db_session.execute(
+            select(TranslationSegment)
+        ).scalars().first()
+        # First delta persisted by throttle; cancel fires on the third iteration,
+        # after "alpha"+"beta" was collected. Flush-on-cancel must save that text.
+        assert segment.tgt == "alphabeta"
+        assert "partial" in (segment.flags or [])
+
     def test_agent_error_emits_error_event(self, db_session):
         """Agent exception mid-stream yields TranslationErrorEvent; status set to error."""
         work = _make_work(db_session)

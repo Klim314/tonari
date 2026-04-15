@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -16,6 +17,11 @@ from services.prompt import PromptService
 from services.translation_stream import TranslationStreamService
 
 logger = logging.getLogger(__name__)
+
+# Throttle partial-segment commits: persist at most this often while streaming.
+# Final text is always persisted on segment-complete or cancel, so resumability
+# is preserved regardless of the interval.
+PARTIAL_COMMIT_INTERVAL_S = 1.0
 
 
 # ---------------------------------------------------------------------------
@@ -321,27 +327,45 @@ class TranslationWorkflow:
                 )
 
                 collected = ""
-                async for delta in agent.stream_segment(
-                    src,
-                    preceding_segments=context_segments,
-                    instruction=instruction,
-                    current_translation=current_translation,
-                ):
-                    if await is_disconnected():
-                        raise asyncio.CancelledError
-                    if not delta:
-                        continue
-                    collected += delta
-                    self._stream_service.persist_partial_segment_translation(
-                        current,
-                        collected,
-                    )
-                    yield SegmentDeltaEvent(
-                        chapter_translation_id=translation.id,
-                        segment_id=current.id,
-                        order_index=current.order_index,
-                        delta=delta,
-                    )
+                last_persisted = ""
+                last_persist_at = 0.0
+                try:
+                    async for delta in agent.stream_segment(
+                        src,
+                        preceding_segments=context_segments,
+                        instruction=instruction,
+                        current_translation=current_translation,
+                    ):
+                        if await is_disconnected():
+                            raise asyncio.CancelledError
+                        if not delta:
+                            continue
+                        collected += delta
+                        now = time.monotonic()
+                        if (
+                            collected != last_persisted
+                            and now - last_persist_at >= PARTIAL_COMMIT_INTERVAL_S
+                        ):
+                            self._stream_service.persist_partial_segment_translation(
+                                current,
+                                collected,
+                            )
+                            last_persisted = collected
+                            last_persist_at = now
+                        yield SegmentDeltaEvent(
+                            chapter_translation_id=translation.id,
+                            segment_id=current.id,
+                            order_index=current.order_index,
+                            delta=delta,
+                        )
+                except asyncio.CancelledError:
+                    # Flush any throttled-but-unsaved text so resume can pick it up.
+                    if collected and collected != last_persisted:
+                        self._stream_service.persist_partial_segment_translation(
+                            current,
+                            collected,
+                        )
+                    raise
 
                 self._stream_service.persist_completed_segment_translation(
                     current,
