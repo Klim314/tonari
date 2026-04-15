@@ -252,7 +252,7 @@ const SegmentRow = memo(function SegmentRow({
 						<Menu.Item
 							value="edit"
 							onClick={() => onEditStart(segment.segmentId)}
-							disabled={isRetranslating || isEditing}
+							disabled={!isFullyTranslated || isRetranslating || isEditing}
 						>
 							Edit Translation
 						</Menu.Item>
