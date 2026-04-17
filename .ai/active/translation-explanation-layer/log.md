@@ -156,3 +156,77 @@ Append-only. Each session adds an entry. Only consult when you need to understan
   - detached explanation runs can now finish and cache artifacts for stale `segment.tgt` text if the translation changes after the POST starts generation, because the artifact key is not versioned by translation state and translation edits do not invalidate `translation_explanations`
   - some fatal producer exits (for example missing setup data before facet generation) emit/log an error but do not persist `status="error"` on the artifact, leaving the row stuck in a non-terminal state
 - Refreshed `state.md` so the active blocker list now includes both detached-generation issues in addition to the earlier partial-edit and pre-commit concerns.
+
+## 2026-04-16 — Phase 4 kickoff audit
+
+- Decided to move past remaining Phase 3 follow-ups (partial-flag-on-edit, stale detached explanations, producer setup errors) and start Phase 4 work. Those items remain tracked in `state.md` / `backlog.md`.
+- Audited existing code against the Phase 4 checklist before planning new work. Several items were already landed during Phase 3 implementation, so scope is smaller than the plan implies:
+  - **Edge-click navigation** — already shipped as `EdgeNav` in `ExplanationWorkspace.tsx` (desktop-only chevrons at left/right of the reading pane).
+  - **Mobile tab rail** — already shipped; `FacetRail` renders in `orientation="horizontal"` above `FacetContent` on mobile.
+  - **Cache status badge** — partial; `statusLabel` in `ExplanationWorkspace.tsx` already emits `"cached · sparse"` / `"generating..."` / `"loading..."` / `"error"` and renders through `FacetSidebar`. Still density-unaware and desktop-only.
+- Remaining Phase 4 work:
+  - **Span highlighting on card click** — schema fields `source_span_start` / `source_span_end` exist on `VocabularyItem` and `GrammarPoint` in `backend/app/explanation_schemas.py`, and the frontend `types.ts` carries them, but `FacetContent.tsx` only uses them as part of a React key. No click handler, no active-span state, no wiring into `SourcePane`.
+  - **Mobile bottom action bar** — Prev/Next/Regenerate still live in the toolbar on all breakpoints; plan calls for a bottom bar on mobile.
+  - **SSE reconnect** — `useExplanationArtifact.ts` still closes on error with no automatic retry (noted as deferred in the original Phase 3 log entry).
+  - **Cache status badge polish** — density-aware labeling and mobile placement.
+- **Gating concern for span highlighting:** `SYSTEM_EXPLANATION_V2_SPARSE` / `SYSTEM_EXPLANATION_V2_DENSE` in `backend/agents/prompts.py` do not mention span offsets at all. Structured output via `llm.with_structured_output(schema)` may populate the fields, but the prompts give the LLM no guidance on what character offsets to emit. Before building the highlight UI we need to either (a) verify empirically that an existing artifact has populated spans, or (b) update the v2 system prompts to explicitly instruct the LLM to emit character offsets into the `<sentence>` text.
+
+## 2026-04-16 — Explanation quality review
+
+- Performed a non-technical review of the current explanation system focused on output quality and selection logic rather than transport or storage.
+- Read the active task state plus the current v2 prompt/schema/generator flow:
+  - `backend/agents/prompts.py`
+  - `backend/agents/explanation_generator_v2.py`
+  - `backend/app/explanation_schemas.py`
+  - `frontend/src/components/chapterDetail/translation/explanation/FacetContent.tsx`
+  - PRD / plan / UI mockup docs under `.ai/active/translation-explanation-layer/`
+- Wrote findings to `.ai/active/translation-explanation-layer/explanation-quality-review-2026-04-16.md`.
+- Main conclusion: the v2 system has the right facet structure, but the current logic is still too generic. The biggest opportunity is to improve what gets selected for explanation, especially in `overview`, `vocabulary`, and `translation_logic`.
+- Recommended product-level priorities:
+  - move from one shared explanation prompt to facet-specific rubrics
+  - make `translation_logic` about discrete decision points instead of a single broad rationale block
+  - define true sparse/dense selection rules rather than length differences
+  - handle ambiguity and context dependency explicitly
+- Updated `state.md` to link the new review doc and include the quality-rubric work as a follow-up track alongside the ongoing Phase 4 UI work.
+
+## 2026-04-16 — Facet rubric draft v1
+
+- Turned the quality review into a concrete rubric artifact at `.ai/active/translation-explanation-layer/facet-rubrics-v1-2026-04-16.md`.
+- Defined rubric rules for the four current facets:
+  - `overview`
+  - `vocabulary`
+  - `grammar`
+  - `translation_logic`
+- Added shared guidance for:
+  - global explanation rules
+  - cross-facet boundaries to reduce overlap
+  - sparse vs dense selection policy
+  - comparison criteria for later rubric variants
+- Updated `state.md` to link the new rubric artifact and treat it as the baseline document to compare against future rubric attempts before moving into prompt drafting.
+
+## 2026-04-16 — Facet prompt drafts v1
+
+- Created `.ai/active/translation-explanation-layer/facet-prompts/` to hold prompt drafts outside the production codepath.
+- Added a folder index at `.ai/active/translation-explanation-layer/facet-prompts/README.md`.
+- Added four Codex-authored prompt draft files:
+  - `overview-prompt-v1-codex-2026-04-16.md`
+  - `vocabulary-prompt-v1-codex-2026-04-16.md`
+  - `grammar-prompt-v1-codex-2026-04-16.md`
+  - `translation-logic-prompt-v1-codex-2026-04-16.md`
+- Each file is explicitly marked with `Created by: Codex` so future variants can be compared cleanly.
+- The prompt drafts are based on `facet-rubrics-v1-2026-04-16.md` and are intentionally stored as design artifacts rather than integrated prompt code.
+- Updated `state.md` to link the prompt-draft folder and track comparison against alternate prompt sets before any runtime prompt rewrite.
+
+## 2026-04-17 — Facet prompt comparison pass
+
+- Reviewed the four Codex-authored prompt drafts against:
+  - the current schema in `backend/app/explanation_schemas.py`
+  - the rubric baseline in `.ai/active/translation-explanation-layer/facet-rubrics-v1-2026-04-16.md`
+  - the alternate prompt-design docs already present in `.ai/active/translation-explanation-layer/facet-prompts/`
+- Wrote the comparison artifact to `.ai/active/translation-explanation-layer/facet-prompts/facet-prompt-comparison-codex-vs-alt-2026-04-17.md`.
+- Main conclusions:
+  - the Codex drafts are concise and directionally correct, but mostly rubric-shaped rather than schema-shaped
+  - `vocabulary` and `grammar` are closest to runtime viability but need explicit field contracts and span-offset instructions
+  - `overview` needs stronger anti-paraphrase constraints
+  - `translation_logic` has the best product direction but is blocked more by schema mismatch than by prompt wording
+- Updated `state.md` to link the comparison artifact and convert the old "compare prompt drafts" next step into concrete revision decisions.

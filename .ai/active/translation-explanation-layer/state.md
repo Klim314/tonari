@@ -4,13 +4,17 @@
 
 - State: `in progress`
 - Started: 2026-04-12
-- Last updated: 2026-04-15
+- Last updated: 2026-04-17
 
 ## Plan
 
 Implementation plan: [translation-explanation-layer-plan.md](translation-explanation-layer-plan.md)
 PRD: [translation-explanation-layer-prd.md](translation-explanation-layer-prd.md)
 UI mockup: [translation-explanation-layer-ui-mockup.md](translation-explanation-layer-ui-mockup.md)
+Quality review: [explanation-quality-review-2026-04-16.md](explanation-quality-review-2026-04-16.md)
+Facet rubrics v1: [facet-rubrics-v1-2026-04-16.md](facet-rubrics-v1-2026-04-16.md)
+Facet prompt drafts: [facet-prompts/README.md](facet-prompts/README.md)
+Facet prompt comparison: [facet-prompts/facet-prompt-comparison-codex-vs-alt-2026-04-17.md](facet-prompts/facet-prompt-comparison-codex-vs-alt-2026-04-17.md)
 
 ## Phase Summary
 
@@ -19,11 +23,53 @@ UI mockup: [translation-explanation-layer-ui-mockup.md](translation-explanation-
 | 1 | Schema + backend foundation (models, sentence splitter, segment schema extension) | done | `303b23a` |
 | 2 | Structured generation + new API (facet schemas, generator v2, service, workflow v2, 3 SSE endpoints) | done | `d28bf44` |
 | 2 (tests) | Sentence splitter tests | done | `020091c` |
-| 3 | Explanation Workspace UI (two-panel layout, sentence mode, feature-flagged) | done — follow-up fixes still pending review items | — |
-| 4 | Span highlighting + polish | not started | — |
+| 3 | Explanation Workspace UI (two-panel layout, sentence mode, feature-flagged) | done — follow-up items deferred to backlog | — |
+| 4 | Span highlighting + polish | in progress (kicked off 2026-04-16) | — |
 | 5 | Segment analysis mode (lower priority) | not started | — |
 
-## What Shipped in Phase 3
+## Phase 4 Audit (2026-04-16)
+
+Some Phase 4 items were already completed during Phase 3. Current state per task:
+
+| Task | Status |
+|---|---|
+| Span highlighting on card click | not started — schema + frontend types carry `source_span_start/end`, but no click handler, no active-span state, no wiring into `SourcePane` |
+| Edge-click navigation | done — `EdgeNav` in [ExplanationWorkspace.tsx](../../../frontend/src/components/chapterDetail/translation/explanation/ExplanationWorkspace.tsx) |
+| Mobile tab rail | done — `FacetRail` renders horizontal above `FacetContent` on mobile |
+| Mobile bottom action bar | not started — Prev/Next/Regenerate still live in the toolbar on all breakpoints |
+| Cache status badge | partial — `statusLabel` emits `"cached · sparse"` / `"generating..."` / `"loading..."` / `"error"` via `FacetSidebar`; density-unaware and desktop-only |
+| SSE reconnect | not started — `useExplanationArtifact.ts` closes on error with no retry |
+
+### Gating concern — span highlighting
+
+`SYSTEM_EXPLANATION_V2_SPARSE` / `SYSTEM_EXPLANATION_V2_DENSE` in [backend/agents/prompts.py](../../../backend/agents/prompts.py) do not mention span offsets. Structured output may populate `source_span_start` / `source_span_end` opportunistically, but nothing guarantees it. Before building the highlight UI we need to either:
+
+- verify empirically that existing artifacts have populated spans reliably, or
+- update the v2 system prompts to explicitly instruct the LLM to emit character offsets into the `<sentence>` text.
+
+## Explanation Quality Review (2026-04-16)
+
+A separate product-quality pass is now captured in [explanation-quality-review-2026-04-16.md](explanation-quality-review-2026-04-16.md).
+
+Main conclusion:
+
+- The v2 layer has the right product structure, but the generation logic is still schema-first rather than learner-first.
+
+Highest-leverage product changes:
+
+- Give each facet its own usefulness rubric instead of one shared generic prompt.
+- Redesign `translation_logic` around 2-4 concrete decision points rather than one sentence-wide explanation blob.
+- Make `sparse` vs `dense` differ by selection policy, not just output length.
+- Treat ambiguity and context dependency as first-class explanation behavior.
+- Tighten `overview` so it explains sentence role + translation pressure, not just content.
+
+Current artifact:
+
+- [facet-rubrics-v1-2026-04-16.md](facet-rubrics-v1-2026-04-16.md) defines the first concrete rubric set for `overview`, `vocabulary`, `grammar`, and `translation_logic`, plus cross-facet boundaries and sparse/dense policy.
+- [facet-prompts/README.md](facet-prompts/README.md) indexes Codex-authored prompt draft files for the current four facets.
+- [facet-prompts/facet-prompt-comparison-codex-vs-alt-2026-04-17.md](facet-prompts/facet-prompt-comparison-codex-vs-alt-2026-04-17.md) compares the Codex prompt drafts against the alternate prompt-design docs already in the folder and identifies the main strengths, weaknesses, and schema gaps per facet.
+
+## What Shipped Earlier in Phase 3
 
 New component tree under `frontend/src/components/chapterDetail/translation/explanation/`:
 
@@ -48,27 +94,29 @@ Latest validation on file: `just test tests/test_explanation_workflow.py`, `cd f
 
 ## Review Status
 
-Phase 3 has multiple review passes recorded in [phase-3/review.md](phase-3/review.md). Earlier explanation-workspace issues were addressed. The latest follow-up delta closes one of the two partial-state integration gaps by blocking explanation on `"partial"` rows in both backend preflight paths and the segment context menu.
+Phase 3 has multiple review passes recorded in [phase-3/review.md](phase-3/review.md). Earlier explanation-workspace issues were addressed. Remaining Phase 3 follow-up items are now deferred into Phase 4 / backlog rather than gating Phase 4 kickoff.
 
-Still open after the 2026-04-15 review:
+## Next Steps (Phase 4)
 
-- manual batch edits do not clear the new `"partial"` flag, so a later resume can overwrite an explicit user edit
-- `.husky/pre-commit` now adds `lint-staged --no-stash`, which is unrelated to the explanation fix and weakens partial-staging safety for frontend commits
-- detached explanation runs can finalize and cache an artifact for stale `segment.tgt` text if the translation changes after the POST starts generation
-- some fatal detached-producer exits leave the artifact row stuck in `pending` / `generating` instead of persisting `status="error"`
+1. Decide the span-highlighting gating question: inspect a real artifact's vocabulary/grammar items to see whether `source_span_start/end` are populated. If not, update the v2 system prompts in [backend/agents/prompts.py](../../../backend/agents/prompts.py) to instruct the LLM to emit character offsets into the `<sentence>` text.
+2. Implement span highlight on card click in `FacetContent.tsx` + `SourcePane.tsx`: single active highlight at a time, deactivates on click-away, driven by `source_span_start/end` on vocabulary and grammar items.
+3. Add SSE reconnect to `useExplanationArtifact.ts`: on drop, re-GET the artifact (render completed facets), then re-open the stream for pending facets. No partial-JSON parsing.
+4. Mobile bottom action bar: move Prev/Next/Regenerate to a bottom-of-dialog bar at mobile breakpoints; toolbar keeps counters.
+5. Cache status badge polish: make it density-aware and surface it on mobile as well as desktop.
+6. Manual QA with `?explanation_v2=1`: span click-highlight, mobile layout, SSE drop/reconnect, density labeling.
+7. Product-quality follow-up: turn the quality review into a revised facet rubric before deeper prompt/schema work. Prioritize facet-specific selection rules, decision-point-based `translation_logic`, and true sparse/dense policies.
+8. Compare `facet-rubrics-v1-2026-04-16.md` against at least one alternative rubric attempt before locking prompt drafts.
+9. Turn the prompt comparison into a concrete prompt-revision pass. Highest leverage: `vocabulary` and `grammar` field contracts + span instructions, then `overview` anti-paraphrase hardening.
+10. Decide whether `translation_logic` will keep the current blob schema or move to a decision-point schema before further prompt tuning.
 
-## Next Steps
-
-1. Fix the remaining partial-state integration gap: clear `"partial"` on manual edits and add regression coverage through the batch edit API.
-2. Decide whether `.husky/pre-commit` should keep `lint-staged --no-stash`; if not, drop it from this delta.
-3. Prevent stale detached explanations from being finalized after the underlying translation changes. Either version explanation artifacts by translation revision/hash or invalidate/reject them on segment text change.
-4. Persist `status="error"` for every fatal detached-generation exit path, including setup failures before facet generation begins.
-5. Re-run manual QA with the feature flag enabled (`?explanation_v2=1` or `localStorage.setItem('explanation_v2', '1')`): cache hit, cache miss, regenerate, reopen mid-generation, pause/resume chapter translation mid-segment, manual edit on a paused partial segment, translation edit during detached explanation generation, and explain availability on incomplete segments.
-6. If QA is clean, decide whether to keep the v2 workspace gated or widen exposure before Phase 4.
-
-## Deferred Work
+## Deferred Work (Phase 3 follow-ups not gating Phase 4)
 
 Tracked in [backlog.md](backlog.md):
+
+- Manual batch edits do not clear the `"partial"` flag, so a later resume can overwrite an explicit user edit.
+- `.husky/pre-commit` now adds `lint-staged --no-stash`; unrelated to the explanation fix and weakens partial-staging safety for frontend commits.
+- Detached explanation runs can finalize and cache an artifact for stale `segment.tgt` text if the translation changes after the POST starts generation.
+- Some fatal detached-producer exits leave the artifact row stuck in `pending` / `generating` instead of persisting `status="error"`.
 - Force-reset race in `ExplanationWorkflowV2.start(force=True)` — concurrent `subscribe()` can build `done_facets` from pre-reset `payload_json` and skip facets permanently. Low priority for single-user; revisit with the Redis migration.
 - Process-local `GenerationRegistry` — move behind Redis (or DB advisory lock) for multi-worker. Single-worker is a deployment requirement until then.
 
@@ -80,12 +128,9 @@ Tracked in [backlog.md](backlog.md):
 
 ## Open Questions
 
+- Are the v2 prompts producing populated `source_span_start/end` for vocabulary and grammar items today, or does the prompt need to be updated before the span-highlight UI can land?
 - Is the transient overlap-window concurrency behaviour acceptable, or do we want a generation lease on the artifact before widening the flag?
-- Do we want detached explanation generation to survive translation edits, or should any segment text change invalidate the run and require a restart?
 
 ## Blockers
 
-- Manual edits still do not clear the `"partial"` flag.
-- The unrelated `--no-stash` pre-commit change should be removed or justified separately before this follow-up is treated as ready.
-- Detached explanation generation can currently publish stale artifacts after the segment translation changes.
-- Fatal background-producer setup failures do not persist a terminal artifact error state.
+- None for Phase 4 kickoff — the Phase 3 correctness issues above are deferred into the backlog rather than blocking Phase 4.

@@ -69,7 +69,7 @@ export function ExplanationPanel({
 		>
 			<DialogBackdrop />
 			<DialogPositioner>
-				<DialogContent maxH="85vh">
+				<DialogContent maxH="85vh" display="flex" flexDirection="column">
 					<DialogCloseTrigger />
 					<DialogHeader borderBottomWidth="1px" pb={4}>
 						<Stack gap={1}>
@@ -85,7 +85,7 @@ export function ExplanationPanel({
 						</Stack>
 					</DialogHeader>
 
-					<DialogBody py={6}>
+					<DialogBody py={6} overflowY="auto" flex="1" minH={0}>
 						<VStack gap={6} align="stretch">
 							{/* Context Section */}
 							<VStack gap={0} align="stretch">

@@ -6,7 +6,16 @@ from functools import cache
 from typing import Literal
 
 from agents.base_agent import SegmentContextInput, create_llm, render_block
-from agents.prompts import SYSTEM_EXPLANATION_V2_DENSE, SYSTEM_EXPLANATION_V2_SPARSE
+from agents.prompts import (
+    FACET_GRAMMAR_DENSE,
+    FACET_GRAMMAR_SPARSE,
+    FACET_OVERVIEW_DENSE,
+    FACET_OVERVIEW_SPARSE,
+    FACET_TRANSLATION_LOGIC_DENSE,
+    FACET_TRANSLATION_LOGIC_SPARSE,
+    FACET_VOCABULARY_DENSE,
+    FACET_VOCABULARY_SPARSE,
+)
 from app.config import settings
 from app.explanation_schemas import (
     FACET_LABELS,
@@ -24,6 +33,18 @@ from app.explanation_schemas import (
 from constants.llm import get_model_info
 
 logger = logging.getLogger(__name__)
+
+# Per-facet system prompts keyed by (facet_type, density).
+_FACET_PROMPTS: dict[tuple[FacetType, str], str] = {
+    ("overview", "sparse"): FACET_OVERVIEW_SPARSE,
+    ("overview", "dense"): FACET_OVERVIEW_DENSE,
+    ("vocabulary", "sparse"): FACET_VOCABULARY_SPARSE,
+    ("vocabulary", "dense"): FACET_VOCABULARY_DENSE,
+    ("grammar", "sparse"): FACET_GRAMMAR_SPARSE,
+    ("grammar", "dense"): FACET_GRAMMAR_DENSE,
+    ("translation_logic", "sparse"): FACET_TRANSLATION_LOGIC_SPARSE,
+    ("translation_logic", "dense"): FACET_TRANSLATION_LOGIC_DENSE,
+}
 
 _HUMAN_TEMPLATE = (
     "{preceding_block}"
@@ -147,14 +168,12 @@ class ExplanationGeneratorV2:
         sentence_text = segment_source[span_start:span_end]
         preceding_block = render_block(preceding_segments or [], "preceding")
         following_block = render_block(following_segments or [], "following")
-        system_prompt = (
-            SYSTEM_EXPLANATION_V2_DENSE if density == "dense" else SYSTEM_EXPLANATION_V2_SPARSE
-        )
         skip = skip_facets or set()
 
         for facet_type in FACET_ORDER:
             if facet_type in skip:
                 continue
+            system_prompt = _FACET_PROMPTS[(facet_type, density)]
             yield await self._generate_one(
                 facet_type=facet_type,
                 system_prompt=system_prompt,
