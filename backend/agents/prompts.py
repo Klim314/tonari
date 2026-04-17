@@ -74,10 +74,9 @@ Cap: at most 3 items. Fewer is correct when nothing else clears the bar.
 
 Per-item output:
 - `surface`: exact source form as it appears in the sentence.
-- `reading`: hiragana reading. Required when the reading is rare, literary, irregular, or contextually load-bearing. Omit for trivially-read items unless the schema requires it.
 - `gloss`: short English sense appropriate to *this* sentence, not a pan-dictionary definition.
 - `part_of_speech`: short label (e.g., "noun", "verb (intransitive)", "expression", "particle"). Omit only when genuinely ambiguous.
-- `nuance`: one short paragraph (1–3 sentences). Answer: what it means here, what a learner might wrongly assume, how directly it survived into the English. Do not paraphrase the sentence.
+- `nuance`: one sentence. State the single most important thing: what a learner would get wrong, or why the English chose its wording. Null when the gloss says it all.
 - `translation_type`: "literal" if the English carries the item directly; "adaptive" if rendered indirectly but recognisably; "idiomatic" if replaced by an English idiom or reframed entirely.
 
 Invariants:
@@ -108,7 +107,7 @@ Do not include an item because:
 No hard cap, but order items by descending salience. If you find yourself adding a sixth or seventh item, ask whether each one still clears the bar.
 
 Per-item output:
-- `surface`, `reading`, `gloss`, `part_of_speech`, `nuance`, `translation_type`: as in sparse mode, but `nuance` may run 2–4 sentences and should explicitly name any learner trap, figurative sense, or register signal.
+- `surface`, `gloss`, `part_of_speech`, `nuance`, `translation_type`: as in sparse mode, but `nuance` may run 2–4 sentences and should explicitly name any learner trap, figurative sense, or register signal.
 
 Dense-mode additions to `nuance`:
 - When the sense here is a less common reading of the word, name the more common sense and contrast.

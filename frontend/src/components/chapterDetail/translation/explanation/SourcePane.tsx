@@ -12,6 +12,8 @@ interface SourcePaneProps {
 	translation: string;
 	sentences: SentenceRange[];
 	activeSentenceIndex: number;
+	/** Substrings within the active sentence to bold (e.g. grammar source_snippets) */
+	highlights?: string[];
 }
 
 export function SourcePane({
@@ -19,11 +21,17 @@ export function SourcePane({
 	translation,
 	sentences,
 	activeSentenceIndex,
+	highlights,
 }: SourcePaneProps) {
 	return (
 		<Stack gap={4} w="full">
 			<Section label="Source" isJapanese>
-				{renderSourceWithHighlight(source, sentences, activeSentenceIndex)}
+				{renderSourceWithHighlight(
+					source,
+					sentences,
+					activeSentenceIndex,
+					highlights,
+				)}
 			</Section>
 			<Section label="Translation">
 				<Text fontSize="md" lineHeight="1.7" color="fg">
@@ -74,10 +82,58 @@ function Section({
 	);
 }
 
+/**
+ * Render a string with bold markers around each occurrence of any highlight substring.
+ * Returns an array of ReactNodes (plain strings and <Text fontWeight="bold"> spans).
+ */
+function renderWithBold(text: string, highlights: string[]): ReactNode[] {
+	if (!highlights.length) return [text];
+
+	// Build a sorted list of non-overlapping match ranges
+	const ranges: { start: number; end: number }[] = [];
+	for (const h of highlights) {
+		if (!h) continue;
+		let idx = text.indexOf(h);
+		while (idx !== -1) {
+			ranges.push({ start: idx, end: idx + h.length });
+			idx = text.indexOf(h, idx + h.length);
+		}
+	}
+	ranges.sort((a, b) => a.start - b.start);
+
+	// Merge overlaps
+	const merged: { start: number; end: number }[] = [];
+	for (const r of ranges) {
+		const last = merged[merged.length - 1];
+		if (last && r.start <= last.end) {
+			last.end = Math.max(last.end, r.end);
+		} else {
+			merged.push({ ...r });
+		}
+	}
+
+	if (!merged.length) return [text];
+
+	const parts: ReactNode[] = [];
+	let cursor = 0;
+	for (const { start, end } of merged) {
+		if (cursor < start) parts.push(text.slice(cursor, start));
+		parts.push(
+			<Text as="span" fontWeight="bold" key={start}>
+				{text.slice(start, end)}
+			</Text>,
+		);
+		cursor = end;
+	}
+	if (cursor < text.length) parts.push(text.slice(cursor));
+	return parts;
+}
+
 function renderSourceWithHighlight(
 	source: string,
 	sentences: SentenceRange[],
 	activeIndex: number,
+	highlights?: string[],
 ): ReactNode {
 	if (!source) {
 		return (
@@ -95,6 +151,11 @@ function renderSourceWithHighlight(
 	const start = Math.max(0, Math.min(active.span_start, source.length));
 	const end = Math.max(start, Math.min(active.span_end, source.length));
 
+	const sentenceText = source.slice(start, end);
+	const sentenceContent = highlights?.length
+		? renderWithBold(sentenceText, highlights)
+		: sentenceText;
+
 	return (
 		<>
 			{source.slice(0, start)}
@@ -106,7 +167,7 @@ function renderSourceWithHighlight(
 				py="1px"
 				borderRadius="sm"
 			>
-				{source.slice(start, end)}
+				{sentenceContent}
 			</Box>
 			{source.slice(end)}
 		</>

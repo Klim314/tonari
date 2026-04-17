@@ -6,6 +6,7 @@ from functools import cache
 from typing import Literal
 
 from agents.base_agent import SegmentContextInput, create_llm, render_block
+from agents.furigana import get_reading
 from agents.prompts import (
     FACET_GRAMMAR_DENSE,
     FACET_GRAMMAR_SPARSE,
@@ -174,7 +175,7 @@ class ExplanationGeneratorV2:
             if facet_type in skip:
                 continue
             system_prompt = _FACET_PROMPTS[(facet_type, density)]
-            yield await self._generate_one(
+            ft, data, error = await self._generate_one(
                 facet_type=facet_type,
                 system_prompt=system_prompt,
                 segment_source=segment_source,
@@ -183,6 +184,13 @@ class ExplanationGeneratorV2:
                 preceding_block=preceding_block,
                 following_block=following_block,
             )
+
+            # Attach reliable readings via MeCab instead of LLM-generated ones
+            if ft == "vocabulary" and isinstance(data, VocabularyFacet):
+                for item in data.items:
+                    item.reading = get_reading(item.surface)
+
+            yield (ft, data, error)
 
     # ------------------------------------------------------------------
     # Internal helpers
