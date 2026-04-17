@@ -40,6 +40,7 @@ from app.schemas import (
     TranslationSegmentOut,
     WorkImportRequest,
     WorkOut,
+    WorkUpdateRequest,
 )
 from app.scrapers.exceptions import ScraperError, ScraperNotFoundError
 from app.utils.sentence_splitter import get_sentence_splitter
@@ -120,6 +121,21 @@ def get_work(work_id: int):
             work = works_service.get_work(work_id)
         except WorkNotFoundError:
             raise HTTPException(status_code=404, detail="work not found") from None
+        return WorkOut.model_validate(work)
+
+
+@router.patch("/{work_id}", response_model=WorkOut)
+def update_work(work_id: int, body: WorkUpdateRequest):
+    with SessionLocal() as db:
+        works_service = WorksService(db)
+        try:
+            work = works_service.get_work(work_id)
+        except WorkNotFoundError:
+            raise HTTPException(status_code=404, detail="work not found") from None
+        if "jlpt_level" in body.model_fields_set:
+            work.jlpt_level = body.jlpt_level
+        db.commit()
+        db.refresh(work)
         return WorkOut.model_validate(work)
 
 
@@ -875,7 +891,7 @@ def _v2_event_to_sse(event: ExplanationV2Event) -> dict:
 
 
 def _resolve_chapter_for_segment(db, work_id: int, chapter_id: int, segment_id: int):
-    """Validate work/chapter/segment and return ``(chapter, ExplanationWorkflowV2)``."""
+    """Validate work/chapter/segment and return ``(work, chapter, ExplanationWorkflowV2)``."""
     works_service = WorksService(db)
     chapters_service = ChaptersService(db)
     try:
@@ -897,7 +913,7 @@ def _resolve_chapter_for_segment(db, work_id: int, chapter_id: int, segment_id: 
     except SegmentNotTranslatedError:
         raise HTTPException(status_code=400, detail="segment is not translated") from None
 
-    return chapter, workflow
+    return work, chapter, workflow
 
 
 @router.get(
@@ -914,7 +930,7 @@ def get_sentence_explanation(
 ):
     """Return the cached explanation artifact, or ``status: not_found`` on a miss."""
     with SessionLocal() as db:
-        _resolve_chapter_for_segment(db, work_id, chapter_id, segment_id)
+        _resolve_chapter_for_segment(db, work_id, chapter_id, segment_id)  # validation only
         svc = ExplanationService(db)
         artifact = svc.get_artifact(segment_id, density, span_start=span_start, span_end=span_end)
         if artifact is None:
@@ -953,7 +969,7 @@ async def start_sentence_explanation(
     this artifact, reset it, and start a fresh run.
     """
     with SessionLocal() as db:
-        chapter, workflow = _resolve_chapter_for_segment(db, work_id, chapter_id, segment_id)
+        work, chapter, workflow = _resolve_chapter_for_segment(db, work_id, chapter_id, segment_id)
         try:
             artifact_id = await workflow.start(
                 chapter,
@@ -961,6 +977,7 @@ async def start_sentence_explanation(
                 body.span_start,
                 body.span_end,
                 body.density,
+                jlpt_level=work.jlpt_level,
                 force=body.force,
             )
         except SpanValidationError as exc:
@@ -991,12 +1008,14 @@ async def stream_sentence_explanation(
     """
     db = SessionLocal()
     try:
-        chapter, workflow = _resolve_chapter_for_segment(db, work_id, chapter_id, segment_id)
+        work, chapter, workflow = _resolve_chapter_for_segment(db, work_id, chapter_id, segment_id)
         try:
             workflow.validate_span(segment_id, chapter, span_start, span_end)
         except SpanValidationError as exc:
             db.close()
             raise HTTPException(status_code=400, detail=str(exc)) from None
+
+        work_jlpt_level = work.jlpt_level
 
         async def event_generator():
             try:
@@ -1006,6 +1025,7 @@ async def stream_sentence_explanation(
                     span_start,
                     span_end,
                     density,
+                    jlpt_level=work_jlpt_level,
                     is_disconnected=request.is_disconnected,
                 ):
                     yield _v2_event_to_sse(event)

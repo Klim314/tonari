@@ -19,15 +19,30 @@ class WorkImportRequest(BaseModel):
     force: bool = Field(default=False, description="Force re-sync even if the work exists")
 
 
+VALID_JLPT_LEVELS = {"N5", "N4", "N3", "N2", "N1"}
+
+
 class WorkOut(BaseModel):
     id: int
     title: str
     source: str | None = None
     source_id: str | None = None
     source_meta: dict[str, Any] | None = None
+    jlpt_level: str | None = None
 
     class Config:
         from_attributes = True
+
+
+class WorkUpdateRequest(BaseModel):
+    jlpt_level: str | None = Field(None, description="JLPT level (N5–N1) or null for default")
+
+    @field_validator("jlpt_level")
+    @classmethod
+    def validate_jlpt_level(cls, v: str | None) -> str | None:
+        if v is not None and v not in VALID_JLPT_LEVELS:
+            raise ValueError(f"jlpt_level must be one of {sorted(VALID_JLPT_LEVELS)} or null")
+        return v
 
 
 class ChapterOut(BaseModel):

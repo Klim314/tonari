@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from agents.base_agent import SegmentContext
 from agents.explanation_generator_v2 import get_explanation_generator_v2
+from app.config import settings
 from app.db import SessionLocal
 from app.explanation_schemas import FACET_ORDER, ArtifactPayload, FacetType
 from app.models import Chapter, TranslationSegment
@@ -120,6 +121,7 @@ class ExplanationWorkflowV2:
         span_end: int,
         density: Literal["sparse", "dense"],
         *,
+        jlpt_level: str | None = None,
         force: bool = False,
     ) -> int:
         """Get or create an artifact and kick off background generation.
@@ -156,6 +158,7 @@ class ExplanationWorkflowV2:
                 span_start,
                 span_end,
                 density,
+                jlpt_level=jlpt_level,
             )
 
         return artifact.id
@@ -172,6 +175,7 @@ class ExplanationWorkflowV2:
         span_end: int,
         density: Literal["sparse", "dense"],
         *,
+        jlpt_level: str | None = None,
         is_disconnected: Callable[[], Awaitable[bool]],
     ) -> AsyncGenerator[ExplanationV2Event, None]:
         """Yield facet events for this artifact.
@@ -211,6 +215,7 @@ class ExplanationWorkflowV2:
                 span_start,
                 span_end,
                 density,
+                jlpt_level=jlpt_level,
             )
 
         queue = handle.subscribe()
@@ -242,6 +247,8 @@ class ExplanationWorkflowV2:
         span_start: int,
         span_end: int,
         density: Literal["sparse", "dense"],
+        *,
+        jlpt_level: str | None = None,
     ) -> GenerationHandle:
         registry = get_registry()
 
@@ -253,6 +260,7 @@ class ExplanationWorkflowV2:
                 span_start=span_start,
                 span_end=span_end,
                 density=density,
+                jlpt_level=jlpt_level,
             )
 
         return await registry.ensure(artifact_id, producer_factory)
@@ -355,6 +363,7 @@ async def _run_generation(
     span_start: int,
     span_end: int,
     density: Literal["sparse", "dense"],
+    jlpt_level: str | None = None,
 ) -> AsyncGenerator[ExplanationV2Event, None]:
     """Background producer: drives the LLM and persists each facet.
 
@@ -436,6 +445,7 @@ async def _run_generation(
                 span_start=span_start,
                 span_end=span_end,
                 density=density,
+                jlpt_level=jlpt_level or settings.default_jlpt_level,
                 preceding_segments=preceding,
                 following_segments=following,
                 skip_facets=done_facets,

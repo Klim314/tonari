@@ -7,6 +7,58 @@ Provide a final English translation without commentary.
 """
 
 # ---------------------------------------------------------------------------
+# JLPT-level learner context — prepended to explanation system prompts
+# ---------------------------------------------------------------------------
+
+JLPT_LEVEL_DESCRIPTIONS: dict[str, str] = {
+    "N5": (
+        "The learner is at JLPT N5 (beginner). They know ~800 vocabulary words, "
+        "~100 kanji, and basic grammar (です/ます forms, basic particles, "
+        "simple te-form). Explain all but the most elementary vocabulary and "
+        "grammar. Assume very little prior knowledge of Japanese structure."
+    ),
+    "N4": (
+        "The learner is at JLPT N4 (upper beginner). They know ~1,500 vocabulary "
+        "words, ~300 kanji, and grammar through basic compound sentences, "
+        "conditionals (たら/ば), volitional, passive basics, and common "
+        "て-form chains. Explain grammar and vocabulary beyond this level; "
+        "skip routine N5/N4 items behaving normally."
+    ),
+    "N3": (
+        "The learner is at JLPT N3 (intermediate). They know ~3,700 vocabulary "
+        "words, ~650 kanji, and grammar including most compound sentence "
+        "patterns, common keigo basics, causative-passive, and standard "
+        "literary connectives. Focus on items above N3, non-literal usage, "
+        "register nuance, and translation-relevant structural differences."
+    ),
+    "N2": (
+        "The learner is at JLPT N2 (upper intermediate). They know ~6,000 "
+        "vocabulary words, ~1,000 kanji, and advanced grammar including "
+        "formal written patterns, nuanced conditionals, and most literary "
+        "constructions. Only flag vocabulary or grammar that is genuinely "
+        "unusual, literary-register-specific, or whose sense here diverges "
+        "from the standard reading. Prioritise translation logic and tone."
+    ),
+    "N1": (
+        "The learner is at JLPT N1 (advanced). They have broad vocabulary "
+        "and grammar knowledge including literary and archaic forms. Skip "
+        "all standard grammar and vocabulary explanations. Focus exclusively "
+        "on translation craft: structural reordering, tone calibration, "
+        "ambiguity resolution, register shifts, and what the English had to "
+        "give up or reframe. Treat the learner as a peer studying translation."
+    ),
+}
+
+def build_level_preamble(jlpt_level: str) -> str:
+    """Return a learner-context block to prepend to explanation system prompts.
+
+    Callers must pass a resolved level (e.g. from settings.default_jlpt_level).
+    Raises KeyError if the level is not in JLPT_LEVEL_DESCRIPTIONS.
+    """
+    desc = JLPT_LEVEL_DESCRIPTIONS[jlpt_level]
+    return f"Learner context:\n{desc}\n\nCalibrate your output to this level.\n\n"
+
+# ---------------------------------------------------------------------------
 # Per-facet explanation prompts (v2)
 # ---------------------------------------------------------------------------
 

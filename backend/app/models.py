@@ -62,6 +62,7 @@ class Work(Base):
     source: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     source_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
     source_meta: Mapped[dict | None] = mapped_column(JSON, default=None)
+    jlpt_level: Mapped[str | None] = mapped_column(String(4), nullable=True)
 
     chapters: Mapped[list["Chapter"]] = relationship("Chapter", back_populates="work")
     prompt_links: Mapped[list["WorkPrompt"]] = relationship(

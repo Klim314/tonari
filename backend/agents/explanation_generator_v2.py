@@ -16,6 +16,7 @@ from agents.prompts import (
     FACET_TRANSLATION_LOGIC_SPARSE,
     FACET_VOCABULARY_DENSE,
     FACET_VOCABULARY_SPARSE,
+    build_level_preamble,
 )
 from app.config import settings
 from app.explanation_schemas import (
@@ -156,6 +157,7 @@ class ExplanationGeneratorV2:
         span_start: int,
         span_end: int,
         density: Literal["sparse", "dense"],
+        jlpt_level: str,
         preceding_segments: list[SegmentContextInput] | None = None,
         following_segments: list[SegmentContextInput] | None = None,
         skip_facets: set[FacetType] | None = None,
@@ -170,11 +172,12 @@ class ExplanationGeneratorV2:
         preceding_block = render_block(preceding_segments or [], "preceding")
         following_block = render_block(following_segments or [], "following")
         skip = skip_facets or set()
+        level_preamble = build_level_preamble(jlpt_level)
 
         for facet_type in FACET_ORDER:
             if facet_type in skip:
                 continue
-            system_prompt = _FACET_PROMPTS[(facet_type, density)]
+            system_prompt = level_preamble + _FACET_PROMPTS[(facet_type, density)]
             ft, data, error = await self._generate_one(
                 facet_type=facet_type,
                 system_prompt=system_prompt,
