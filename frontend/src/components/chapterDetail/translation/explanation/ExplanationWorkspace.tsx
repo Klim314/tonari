@@ -232,8 +232,11 @@ export function ExplanationWorkspace({
 			<DialogPositioner>
 				<DialogContent
 					maxW={{ base: "100%", md: "1200px" }}
-					maxH={{ base: "100vh", md: "90vh" }}
-					m={{ base: 0, md: 6 }}
+					h={{ base: "100dvh", md: "calc(100dvh - 48px)" }}
+					m={{ base: 0, md: "auto" }}
+					display="flex"
+					flexDirection="column"
+					overflow="hidden"
 				>
 					<DialogCloseTrigger />
 					<DialogHeader borderBottomWidth="1px" pb={3}>
@@ -247,7 +250,14 @@ export function ExplanationWorkspace({
 							</Badge>
 						</HStack>
 					</DialogHeader>
-					<DialogBody p={0} overflow="hidden">
+					<DialogBody
+						p={0}
+						overflow="hidden"
+						flex="1"
+						minH="0"
+						display="flex"
+						flexDirection="column"
+					>
 						{loadingContext && !currentSegment ? (
 							<LoadingState />
 						) : contextError ? (
@@ -255,7 +265,7 @@ export function ExplanationWorkspace({
 						) : !currentSegment ? (
 							<NotFoundState />
 						) : (
-							<Flex direction="column" h="full" minH="0">
+							<Flex direction="column" flex="1" minH="0">
 								<Box
 									px={{ base: 4, md: 6 }}
 									py={3}
@@ -401,6 +411,11 @@ function SegmentBox({
 					translation={segment.tgt}
 					sentences={sentences}
 					activeSentenceIndex={activeSentenceIndex}
+					highlights={
+						activeFacet === "grammar" && facets.grammar.data
+							? facets.grammar.data.points.map((p) => p.source_snippet)
+							: undefined
+					}
 				/>
 
 				<Box
