@@ -123,11 +123,15 @@ class ExplanationWorkflowV2:
         *,
         jlpt_level: str | None = None,
         force: bool = False,
+        facet_types: list[FacetType] | None = None,
     ) -> int:
         """Get or create an artifact and kick off background generation.
 
         If ``force=True`` any in-flight generation for this artifact is
         cancelled and the artifact is reset before a fresh run is started.
+        When ``facet_types`` is also provided, only those facets are reset
+        while the rest of the payload is preserved.
+
         Idempotent otherwise: if generation is already running, a duplicate
         call is a no-op.
         """
@@ -145,7 +149,11 @@ class ExplanationWorkflowV2:
             registry = get_registry()
             superseded = ArtifactErrorEvent(artifact_id=artifact.id, error="superseded")
             await registry.cancel(artifact.id, emit_final=superseded)
-            if artifact.status != "pending" or artifact.payload_json is not None:
+            if facet_types:
+                # Partial regeneration: reset only the specified facets.
+                self._explanation_svc.regenerate_facets(artifact.id, facet_types)
+                artifact = self._get_artifact_fresh(artifact.id) or artifact
+            elif artifact.status != "pending" or artifact.payload_json is not None:
                 self._explanation_svc.regenerate(artifact.id)
                 artifact = self._get_artifact_fresh(artifact.id) or artifact
 

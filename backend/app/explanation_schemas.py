@@ -159,6 +159,10 @@ class ExplanationStartRequest(BaseModel):
     span_end: int = Field(..., gt=0)
     density: Literal["sparse", "dense"] = "sparse"
     force: bool = False
+    facet_types: list[FacetType] | None = Field(
+        None,
+        description="When set with force=true, only regenerate these specific facets instead of the entire artifact.",
+    )
 
 
 class ExplanationStartResponse(BaseModel):

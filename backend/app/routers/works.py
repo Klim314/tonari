@@ -979,6 +979,7 @@ async def start_sentence_explanation(
                 body.density,
                 jlpt_level=work.jlpt_level,
                 force=body.force,
+                facet_types=body.facet_types,
             )
         except SpanValidationError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from None

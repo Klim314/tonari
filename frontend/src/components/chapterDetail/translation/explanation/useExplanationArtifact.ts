@@ -26,7 +26,9 @@ interface UseExplanationArtifactResult {
 	error: string | null;
 	facets: FacetsState;
 	regenerate: () => void;
+	regenerateFacet: (facetType: FacetType) => void;
 	isRegenerating: boolean;
+	regeneratingFacet: FacetType | null;
 }
 
 interface ArtifactGetResponse {
@@ -88,11 +90,16 @@ export function useExplanationArtifact({
 	const [facets, setFacets] = useState<FacetsState>(emptyFacets);
 	const [invalidationNonce, setInvalidationNonce] = useState(0);
 	const [isRegenerating, setIsRegenerating] = useState(false);
+	const [regeneratingFacet, setRegeneratingFacet] = useState<FacetType | null>(
+		null,
+	);
 
 	const eventSourceRef = useRef<EventSource | null>(null);
 	const abortRef = useRef<AbortController | null>(null);
 	const invalidatedKeyRef = useRef<string | null>(null);
 	const streamCompletedRef = useRef(false);
+	const facetRegenRef = useRef<EventSource | null>(null);
+	const facetRegenAbortRef = useRef<AbortController | null>(null);
 	const requestKey = `${segmentId}:${spanStart}:${spanEnd}:${density}`;
 
 	const cleanup = useCallback(() => {
@@ -102,18 +109,154 @@ export function useExplanationArtifact({
 		abortRef.current = null;
 	}, []);
 
+	const cleanupFacetRegen = useCallback(() => {
+		facetRegenRef.current?.close();
+		facetRegenRef.current = null;
+		facetRegenAbortRef.current?.abort();
+		facetRegenAbortRef.current = null;
+	}, []);
+
 	const regenerate = useCallback(() => {
+		cleanupFacetRegen();
+		setRegeneratingFacet(null);
 		invalidatedKeyRef.current = requestKey;
 		setInvalidationNonce((n) => n + 1);
-	}, [requestKey]);
+	}, [requestKey, cleanupFacetRegen]);
+
+	const base = `/works/${workId}/chapters/${chapterId}/segments/${segmentId}/sentences/explanation`;
+	const query = `span_start=${spanStart}&span_end=${spanEnd}&density=${density}`;
+
+	const regenerateFacet = useCallback(
+		(facetType: FacetType) => {
+			// Clean up any prior facet regen
+			cleanupFacetRegen();
+
+			setRegeneratingFacet(facetType);
+			// Reset only this facet to pending
+			setFacets((prev) => ({
+				...prev,
+				[facetType]: { status: "generating", data: null, error: null },
+			}));
+
+			const controller = new AbortController();
+			facetRegenAbortRef.current = controller;
+
+			const run = async () => {
+				try {
+					// POST with force + facet_types to reset only this facet
+					await client.post({
+						url: base,
+						body: {
+							span_start: spanStart,
+							span_end: spanEnd,
+							density,
+							force: true,
+							facet_types: [facetType],
+						},
+						responseType: "json",
+						signal: controller.signal,
+						throwOnError: true,
+					});
+					if (controller.signal.aborted) return;
+
+					// Open SSE stream — the backend will replay completed facets
+					// and only generate the one we reset
+					const url = apiUrl(`${base}/stream?${query}`);
+					const es = new EventSource(url);
+					facetRegenRef.current = es;
+
+					es.addEventListener("explanation-facet-complete", (ev) => {
+						try {
+							const msg = JSON.parse((ev as MessageEvent).data) as {
+								facet_type: FacetType;
+								payload: unknown;
+							};
+							setFacets((prev) => ({
+								...prev,
+								[msg.facet_type]: {
+									status: "complete",
+									data: msg.payload as FacetDataMap[typeof msg.facet_type],
+									error: null,
+								},
+							}));
+						} catch {
+							// ignore malformed event
+						}
+					});
+
+					es.addEventListener("explanation-error", (ev) => {
+						try {
+							const msg = JSON.parse((ev as MessageEvent).data) as {
+								facet_type?: FacetType;
+								message?: string;
+							};
+							if (msg.facet_type) {
+								setFacets((prev) => ({
+									...prev,
+									[msg.facet_type as FacetType]: {
+										status: "error",
+										data: null,
+										error: msg.message ?? "facet generation failed",
+									},
+								}));
+							}
+						} catch {
+							// ignore
+						}
+					});
+
+					es.addEventListener("explanation-complete", () => {
+						setRegeneratingFacet(null);
+						es.close();
+						facetRegenRef.current = null;
+					});
+
+					es.onerror = () => {
+						if (es.readyState === EventSource.CONNECTING) return;
+						if (es.readyState !== EventSource.CLOSED) return;
+						facetRegenRef.current = null;
+						setRegeneratingFacet(null);
+						setFacets((prev) => ({
+							...prev,
+							[facetType]: {
+								status: "error",
+								data: null,
+								error: "connection lost",
+							},
+						}));
+					};
+				} catch (err) {
+					if (controller.signal.aborted) return;
+					if (err instanceof Error && err.name === "AbortError") return;
+					setRegeneratingFacet(null);
+					setFacets((prev) => ({
+						...prev,
+						[facetType]: {
+							status: "error",
+							data: null,
+							error:
+								err instanceof Error
+									? err.message
+									: "failed to regenerate facet",
+						},
+					}));
+				}
+			};
+
+			void run();
+		},
+		[base, query, spanStart, spanEnd, density, cleanupFacetRegen],
+	);
 
 	useEffect(() => {
 		if (!enabled) {
 			cleanup();
+			cleanupFacetRegen();
 			setStatus("idle");
 			setError(null);
 			setFacets(emptyFacets());
 			setIsRegenerating(false);
+			setRegeneratingFacet(null);
 			return;
 		}
 
@@ -129,9 +272,6 @@ export function useExplanationArtifact({
 		setError(null);
 		setFacets(emptyFacets());
 		setIsRegenerating(force);
-
-		const base = `/works/${workId}/chapters/${chapterId}/segments/${segmentId}/sentences/explanation`;
-		const query = `span_start=${spanStart}&span_end=${spanEnd}&density=${density}`;
 
 		const openStream = () => {
 			if (controller.signal.aborted) return;
@@ -267,16 +407,24 @@ export function useExplanationArtifact({
 		};
 	}, [
 		enabled,
-		workId,
-		chapterId,
-		segmentId,
 		spanStart,
 		spanEnd,
 		density,
 		requestKey,
 		invalidationNonce,
 		cleanup,
+		cleanupFacetRegen,
+		base,
+		query,
 	]);
 
-	return { status, error, facets, regenerate, isRegenerating };
+	return {
+		status,
+		error,
+		facets,
+		regenerate,
+		regenerateFacet,
+		isRegenerating,
+		regeneratingFacet,
+	};
 }

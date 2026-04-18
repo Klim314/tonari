@@ -14,6 +14,10 @@ export type ArtifactPayload = {
     vocabulary?: FacetEntry | null;
     grammar?: FacetEntry | null;
     translation_logic?: FacetEntry | null;
+    /**
+     * Error
+     */
+    error?: string | null;
 };
 
 /**
@@ -510,6 +514,12 @@ export type ExplanationStartRequest = {
      * Force
      */
     force?: boolean;
+    /**
+     * Facet Types
+     *
+     * When set with force=true, only regenerate these specific facets instead of the entire artifact.
+     */
+    facet_types?: Array<'overview' | 'vocabulary' | 'grammar' | 'translation_logic'> | null;
 };
 
 /**
@@ -1033,6 +1043,10 @@ export type WorkOut = {
     source_meta?: {
         [key: string]: unknown;
     } | null;
+    /**
+     * Jlpt Level
+     */
+    jlpt_level?: string | null;
 };
 
 /**
@@ -1045,6 +1059,18 @@ export type WorkPromptUpdateRequest = {
      * The prompt ID to set as default for the work
      */
     prompt_id: number;
+};
+
+/**
+ * WorkUpdateRequest
+ */
+export type WorkUpdateRequest = {
+    /**
+     * Jlpt Level
+     *
+     * JLPT level (N5–N1) or null for default
+     */
+    jlpt_level?: string | null;
 };
 
 export type HealthHealthGetData = {
@@ -1785,6 +1811,36 @@ export type GetWorkWorksWorkIdGetResponses = {
 };
 
 export type GetWorkWorksWorkIdGetResponse = GetWorkWorksWorkIdGetResponses[keyof GetWorkWorksWorkIdGetResponses];
+
+export type UpdateWorkWorksWorkIdPatchData = {
+    body: WorkUpdateRequest;
+    path: {
+        /**
+         * Work Id
+         */
+        work_id: number;
+    };
+    query?: never;
+    url: '/works/{work_id}';
+};
+
+export type UpdateWorkWorksWorkIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdateWorkWorksWorkIdPatchError = UpdateWorkWorksWorkIdPatchErrors[keyof UpdateWorkWorksWorkIdPatchErrors];
+
+export type UpdateWorkWorksWorkIdPatchResponses = {
+    /**
+     * Successful Response
+     */
+    200: WorkOut;
+};
+
+export type UpdateWorkWorksWorkIdPatchResponse = UpdateWorkWorksWorkIdPatchResponses[keyof UpdateWorkWorksWorkIdPatchResponses];
 
 export type ListChaptersForWorkWorksWorkIdChaptersGetData = {
     body?: never;

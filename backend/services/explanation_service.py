@@ -166,6 +166,28 @@ class ExplanationService:
         self.session.refresh(artifact)
         return artifact
 
+    def regenerate_facets(
+        self, artifact_id: int, facet_types: list[FacetType]
+    ) -> TranslationExplanation | None:
+        """Reset only the specified facets to pending, preserving all others.
+
+        Sets the artifact status to ``generating`` so the workflow picks it up.
+        The generation task will see the remaining facets as complete and skip
+        them, only running the LLM for the reset facets.
+        """
+        artifact = self.get_by_id(artifact_id)
+        if artifact is None:
+            return None
+        payload = self._load_payload(artifact)
+        for ft in facet_types:
+            setattr(payload, ft, None)
+        artifact.payload_json = payload.model_dump()
+        artifact.status = "generating"
+        self.session.add(artifact)
+        self.session.commit()
+        self.session.refresh(artifact)
+        return artifact
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------

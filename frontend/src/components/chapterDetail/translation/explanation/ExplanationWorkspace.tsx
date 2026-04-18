@@ -123,16 +123,23 @@ export function ExplanationWorkspace({
 			currentSegment.tgt,
 	);
 
-	const { status, error, facets, regenerate, isRegenerating } =
-		useExplanationArtifact({
-			workId,
-			chapterId,
-			segmentId,
-			spanStart: activeSentence?.span_start ?? 0,
-			spanEnd: activeSentence?.span_end ?? 1,
-			density: "sparse",
-			enabled: canFetch,
-		});
+	const {
+		status,
+		error,
+		facets,
+		regenerate,
+		regenerateFacet,
+		isRegenerating,
+		regeneratingFacet,
+	} = useExplanationArtifact({
+		workId,
+		chapterId,
+		segmentId,
+		spanStart: activeSentence?.span_start ?? 0,
+		spanEnd: activeSentence?.span_end ?? 1,
+		density: "sparse",
+		enabled: canFetch,
+	});
 
 	const goToSegment = useCallback(
 		(nextIndex: number) => {
@@ -327,6 +334,8 @@ export function ExplanationWorkspace({
 										facets={facets}
 										canFetch={canFetch}
 										error={error}
+										onRegenerateFacet={regenerateFacet}
+										regeneratingFacet={regeneratingFacet}
 									/>
 
 									<FacetSidebar
@@ -385,6 +394,8 @@ interface SegmentBoxProps {
 	facets: FacetsState;
 	canFetch: boolean;
 	error: string | null;
+	onRegenerateFacet: (facetType: FacetType) => void;
+	regeneratingFacet: FacetType | null;
 }
 
 function SegmentBox({
@@ -396,6 +407,8 @@ function SegmentBox({
 	facets,
 	canFetch,
 	error,
+	onRegenerateFacet,
+	regeneratingFacet,
 }: SegmentBoxProps) {
 	return (
 		<Box
@@ -433,6 +446,8 @@ function SegmentBox({
 						facets={facets}
 						canFetch={canFetch}
 						error={error}
+						onRegenerateFacet={onRegenerateFacet}
+						regeneratingFacet={regeneratingFacet}
 					/>
 				</Box>
 			</Stack>
@@ -446,12 +461,16 @@ function SegmentFacetBody({
 	facets,
 	canFetch,
 	error,
+	onRegenerateFacet,
+	regeneratingFacet,
 }: {
 	segment: ChapterSegment;
 	activeFacet: FacetType;
 	facets: FacetsState;
 	canFetch: boolean;
 	error: string | null;
+	onRegenerateFacet: (facetType: FacetType) => void;
+	regeneratingFacet: FacetType | null;
 }) {
 	if (!canFetch) {
 		return (
@@ -481,6 +500,8 @@ function SegmentFacetBody({
 			state={
 				facets[activeFacet] ?? { status: "pending", data: null, error: null }
 			}
+			onRegenerate={() => onRegenerateFacet(activeFacet)}
+			isRegenerating={regeneratingFacet === activeFacet}
 		/>
 	);
 }

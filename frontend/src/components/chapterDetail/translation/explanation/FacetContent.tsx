@@ -1,5 +1,13 @@
-import { Badge, Box, HStack, SimpleGrid, Stack, Text } from "@chakra-ui/react";
-import { Loader } from "lucide-react";
+import {
+	Badge,
+	Box,
+	HStack,
+	IconButton,
+	SimpleGrid,
+	Stack,
+	Text,
+} from "@chakra-ui/react";
+import { Loader, RefreshCw } from "lucide-react";
 import type { ReactNode } from "react";
 import type {
 	FacetState,
@@ -16,20 +24,50 @@ import { FACET_LABELS } from "./types";
 interface FacetContentProps {
 	facetType: FacetType;
 	state: FacetState;
+	onRegenerate?: () => void;
+	isRegenerating?: boolean;
 }
 
-export function FacetContent({ facetType, state }: FacetContentProps) {
+export function FacetContent({
+	facetType,
+	state,
+	onRegenerate,
+	isRegenerating,
+}: FacetContentProps) {
+	const canRegenerate =
+		onRegenerate &&
+		!isRegenerating &&
+		(state.status === "complete" || state.status === "error");
+
 	return (
 		<Stack gap={4} w="full">
-			<Text
-				fontSize="xs"
-				textTransform="uppercase"
-				fontWeight="bold"
-				color="fg.muted"
-				letterSpacing="wider"
-			>
-				{FACET_LABELS[facetType]}
-			</Text>
+			<HStack justify="space-between" align="center">
+				<Text
+					fontSize="xs"
+					textTransform="uppercase"
+					fontWeight="bold"
+					color="fg.muted"
+					letterSpacing="wider"
+				>
+					{FACET_LABELS[facetType]}
+				</Text>
+				{onRegenerate && (
+					<IconButton
+						aria-label={`Regenerate ${facetType}`}
+						size="2xs"
+						variant="ghost"
+						color="fg.muted"
+						onClick={onRegenerate}
+						disabled={!canRegenerate}
+					>
+						{isRegenerating ? (
+							<Loader size={12} className="animate-spin" />
+						) : (
+							<RefreshCw size={12} />
+						)}
+					</IconButton>
+				)}
+			</HStack>
 			<Body facetType={facetType} state={state} />
 		</Stack>
 	);
