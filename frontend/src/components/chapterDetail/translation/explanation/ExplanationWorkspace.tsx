@@ -411,11 +411,6 @@ function SegmentBox({
 					translation={segment.tgt}
 					sentences={sentences}
 					activeSentenceIndex={activeSentenceIndex}
-					highlights={
-						activeFacet === "grammar" && facets.grammar.data
-							? facets.grammar.data.points.map((p) => p.source_snippet)
-							: undefined
-					}
 				/>
 
 				<Box

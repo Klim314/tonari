@@ -96,18 +96,26 @@ Latest validation on file: `just test tests/test_explanation_workflow.py`, `cd f
 
 Phase 3 has multiple review passes recorded in [phase-3/review.md](phase-3/review.md). Earlier explanation-workspace issues were addressed. Remaining Phase 3 follow-up items are now deferred into Phase 4 / backlog rather than gating Phase 4 kickoff.
 
+Phase 4 review notes now live in [phase-4/review.md](phase-4/review.md). Latest review (2026-04-17) found that the current JLPT-level delta is not safe to merge yet:
+
+- explanation artifacts are still cached only by segment/span/density, so changing `work.jlpt_level` reuses stale artifacts generated for the old learner level
+- `PATCH /works/{work_id}` currently clears `jlpt_level` on `{}` because omitted and explicit `null` are treated the same
+
 ## Next Steps (Phase 4)
 
-1. Decide the span-highlighting gating question: inspect a real artifact's vocabulary/grammar items to see whether `source_span_start/end` are populated. If not, update the v2 system prompts in [backend/agents/prompts.py](../../../backend/agents/prompts.py) to instruct the LLM to emit character offsets into the `<sentence>` text.
-2. Implement span highlight on card click in `FacetContent.tsx` + `SourcePane.tsx`: single active highlight at a time, deactivates on click-away, driven by `source_span_start/end` on vocabulary and grammar items.
-3. Add SSE reconnect to `useExplanationArtifact.ts`: on drop, re-GET the artifact (render completed facets), then re-open the stream for pending facets. No partial-JSON parsing.
-4. Mobile bottom action bar: move Prev/Next/Regenerate to a bottom-of-dialog bar at mobile breakpoints; toolbar keeps counters.
-5. Cache status badge polish: make it density-aware and surface it on mobile as well as desktop.
-6. Manual QA with `?explanation_v2=1`: span click-highlight, mobile layout, SSE drop/reconnect, density labeling.
-7. Product-quality follow-up: turn the quality review into a revised facet rubric before deeper prompt/schema work. Prioritize facet-specific selection rules, decision-point-based `translation_logic`, and true sparse/dense policies.
-8. Compare `facet-rubrics-v1-2026-04-16.md` against at least one alternative rubric attempt before locking prompt drafts.
-9. Turn the prompt comparison into a concrete prompt-revision pass. Highest leverage: `vocabulary` and `grammar` field contracts + span instructions, then `overview` anti-paraphrase hardening.
-10. Decide whether `translation_logic` will keep the current blob schema or move to a decision-point schema before further prompt tuning.
+1. Fix the JLPT-level cache bug before shipping the new work setting: either include effective `jlpt_level` in `translation_explanations` identity/lookup or invalidate explanation artifacts when a work-level learner setting changes.
+2. Fix `PATCH /works/{work_id}` so omitted `jlpt_level` does not silently clear the field; distinguish explicit `null` from an unset field in `WorkUpdateRequest`.
+3. Add backend tests for the new learner-level behavior: cache miss/hit semantics across a level change, work update validation, and `{}` patch semantics.
+4. Decide the span-highlighting gating question: inspect a real artifact's vocabulary/grammar items to see whether `source_span_start/end` are populated. If not, update the v2 system prompts in [backend/agents/prompts.py](../../../backend/agents/prompts.py) to instruct the LLM to emit character offsets into the `<sentence>` text.
+5. Implement span highlight on card click in `FacetContent.tsx` + `SourcePane.tsx`: single active highlight at a time, deactivates on click-away, driven by `source_span_start/end` on vocabulary and grammar items.
+6. Add SSE reconnect to `useExplanationArtifact.ts`: on drop, re-GET the artifact (render completed facets), then re-open the stream for pending facets. No partial-JSON parsing.
+7. Mobile bottom action bar: move Prev/Next/Regenerate to a bottom-of-dialog bar at mobile breakpoints; toolbar keeps counters.
+8. Cache status badge polish: make it density-aware and surface it on mobile as well as desktop.
+9. Manual QA with `?explanation_v2=1`: span click-highlight, mobile layout, SSE drop/reconnect, density labeling.
+10. Product-quality follow-up: turn the quality review into a revised facet rubric before deeper prompt/schema work. Prioritize facet-specific selection rules, decision-point-based `translation_logic`, and true sparse/dense policies.
+11. Compare `facet-rubrics-v1-2026-04-16.md` against at least one alternative rubric attempt before locking prompt drafts.
+12. Turn the prompt comparison into a concrete prompt-revision pass. Highest leverage: `vocabulary` and `grammar` field contracts + span instructions, then `overview` anti-paraphrase hardening.
+13. Decide whether `translation_logic` will keep the current blob schema or move to a decision-point schema before further prompt tuning.
 
 ## Deferred Work (Phase 3 follow-ups not gating Phase 4)
 
@@ -128,9 +136,10 @@ Tracked in [backlog.md](backlog.md):
 
 ## Open Questions
 
+- Should effective learner level become part of artifact identity, or do we want a broader “work settings changed” invalidation path for explanation artifacts?
 - Are the v2 prompts producing populated `source_span_start/end` for vocabulary and grammar items today, or does the prompt need to be updated before the span-highlight UI can land?
 - Is the transient overlap-window concurrency behaviour acceptable, or do we want a generation lease on the artifact before widening the flag?
 
 ## Blockers
 
-- None for Phase 4 kickoff — the Phase 3 correctness issues above are deferred into the backlog rather than blocking Phase 4.
+- Current JLPT-level delta is not safe to merge until explanation caching is keyed or invalidated by effective learner level.

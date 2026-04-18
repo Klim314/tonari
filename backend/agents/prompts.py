@@ -195,12 +195,14 @@ Do not include a point because:
 Cap: at most 2 points. One is correct when the sentence is grammatically plain.
 
 Per-point output:
-- `source_snippet`: the exact source text the point applies to.
+- `source_snippet`: a clause or phrase from the sentence that contains the grammar point, long enough to give the reader context for where the construction appears.
+- `highlight`: the exact substring within `source_snippet` that is the grammar pattern itself (e.g., "であり", "ている", "のだ"). Must be a verbatim substring of `source_snippet`.
 - `label`: a normalised name (e.g., "te-form chaining", "potential form", "のだ (explanatory)", "nominalised relative clause"). Prefer established terms over ad-hoc descriptions.
 - `explanation`: 1–2 sentences on the *general mechanic* of the construction. What it does in the language, independent of this sentence.
 - `sentence_effect`: 1–2 sentences on what the construction does *here*. Which reading it rules in or out, how it shapes the English, which referent it resolves, what tone it adds. Must be sentence-specific — not a paraphrase of `explanation`.
 
 Invariants:
+- `highlight` must always be a verbatim substring of `source_snippet`.
 - If `sentence_effect` restates `explanation`, the point is not worth including. Drop it.
 - Stay inside the `<sentence>` span. Surrounding segments are for disambiguation only.
 - Do not restate the source or translation beyond short snippets.
@@ -230,11 +232,14 @@ Do not include a point because:
 No hard cap, but order points by descending contribution to the reading. Combine points that are one construction used twice; do not split one construction into two entries.
 
 Per-point output:
-- `source_snippet`, `label`: as in sparse mode.
+- `source_snippet`: a clause or phrase from the sentence that contains the grammar point, long enough to give the reader context for where the construction appears.
+- `highlight`: the exact substring within `source_snippet` that is the grammar pattern itself. Must be a verbatim substring of `source_snippet`.
+- `label`: as in sparse mode.
 - `explanation`: 2–3 sentences on the general mechanic. In dense mode you may contrast with a near-neighbour construction when the contrast is what makes this one notable.
 - `sentence_effect`: 2–3 sentences on what the construction does *here*. Name the reading it rules in or out, the referent it resolves, the English phrasing it drove, the tone it added. Dense-mode `sentence_effect` should name specifics — which English clause, which referent, which alternate reading was rejected.
 
 Invariants:
+- `highlight` must always be a verbatim substring of `source_snippet`.
 - `sentence_effect` must never paraphrase `explanation`. If it would, the point is not dense-mode material either — drop it.
 - Stay inside the `<sentence>` span. Surrounding segments are for disambiguation only.
 - Do not restate the source or translation wholesale.

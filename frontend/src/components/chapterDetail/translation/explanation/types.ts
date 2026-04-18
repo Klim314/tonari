@@ -42,6 +42,7 @@ export interface VocabularyData {
 
 export interface GrammarPointData {
 	source_snippet: string;
+	highlight: string;
 	label: string;
 	explanation: string;
 	sentence_effect: string;

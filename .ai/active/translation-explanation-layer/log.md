@@ -230,3 +230,22 @@ Append-only. Each session adds an entry. Only consult when you need to understan
   - `overview` needs stronger anti-paraphrase constraints
   - `translation_logic` has the best product direction but is blocked more by schema mismatch than by prompt wording
 - Updated `state.md` to link the comparison artifact and convert the old "compare prompt drafts" next step into concrete revision decisions.
+
+## 2026-04-17 — JLPT-level delta review
+
+- Reviewed the current backend delta for work-level JLPT calibration across:
+  - `backend/app/routers/works.py`
+  - `backend/app/schemas.py`
+  - `backend/app/models.py`
+  - `backend/services/explanation_service.py`
+  - `backend/services/explanation_workflow_v2.py`
+  - `backend/agents/explanation_generator_v2.py`
+  - `backend/agents/prompts.py`
+  - `backend/alembic/versions/d4a1e7f3b2c9_add_work_jlpt_level.py`
+- Added a new Phase 4 review doc at `.ai/active/translation-explanation-layer/phase-4/review.md`.
+- Main findings:
+  - explanation artifacts are still keyed only by segment/span/density, so changing `work.jlpt_level` can reuse stale artifacts generated for the wrong learner level
+  - `PATCH /works/{work_id}` currently clears `jlpt_level` on `{}` because omitted and explicit `null` are not distinguished
+- Validation run during review:
+  - `just test tests/test_explanation_workflow.py` passed
+- Updated `state.md` so the Phase 4 next-step list now prioritizes the JLPT cache-key/invalidation fix and the PATCH semantics fix before more prompt/UI work.

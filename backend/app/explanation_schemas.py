@@ -28,6 +28,10 @@ class VocabularyItem(BaseModel):
 
 class GrammarPoint(BaseModel):
     source_snippet: str = Field(..., description="The source text snippet this point applies to")
+    highlight: str = Field(
+        ...,
+        description="Exact substring within source_snippet to highlight",
+    )
     label: str = Field(
         ..., description="Normalized grammar label, e.g. 'te-form', 'potential form'"
     )

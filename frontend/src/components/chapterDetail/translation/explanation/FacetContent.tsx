@@ -1,5 +1,6 @@
 import { Badge, Box, HStack, SimpleGrid, Stack, Text } from "@chakra-ui/react";
 import { Loader } from "lucide-react";
+import type { ReactNode } from "react";
 import type {
 	FacetState,
 	FacetType,
@@ -186,18 +187,37 @@ function GrammarView({ data }: { data: GrammarData }) {
 	);
 }
 
+function renderHighlighted(text: string, highlight: string): ReactNode[] {
+	if (!highlight) return [text];
+	const idx = text.indexOf(highlight);
+	if (idx === -1) return [text];
+	const parts: ReactNode[] = [];
+	if (idx > 0) parts.push(text.slice(0, idx));
+	parts.push(
+		<Text as="span" fontWeight="bold" key={idx}>
+			{highlight}
+		</Text>,
+	);
+	if (idx + highlight.length < text.length)
+		parts.push(text.slice(idx + highlight.length));
+	return parts;
+}
+
 function GrammarCard({ point }: { point: GrammarPointData }) {
 	return (
 		<Card>
 			<Stack gap={2}>
-				<HStack gap={2} flexWrap="wrap" align="baseline">
-					<Text fontSize="md" fontWeight="semibold" fontFamily="serif">
-						{point.source_snippet}
-					</Text>
-					<Badge size="sm" variant="subtle" colorPalette="purple">
-						{point.label}
-					</Badge>
-				</HStack>
+				<Badge size="sm" variant="subtle" colorPalette="purple" w="fit-content">
+					{point.label}
+				</Badge>
+				<Text
+					fontSize="md"
+					fontFamily="serif"
+					color="fg.muted"
+					lineHeight="1.8"
+				>
+					{renderHighlighted(point.source_snippet, point.highlight)}
+				</Text>
 				<Text fontSize="sm" color="fg">
 					{point.explanation}
 				</Text>

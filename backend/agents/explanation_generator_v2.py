@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncGenerator
 from functools import cache
@@ -84,6 +85,7 @@ _STUB_DATA: dict[str, AnyFacetData] = {
         points=[
             GrammarPoint(
                 source_snippet="〜ている",
+                highlight="ている",
                 label="te-iru (ongoing state)",
                 explanation="Indicates a continuing action or resultant state.",
                 sentence_effect="Frames the subject as being in an ongoing condition.",
@@ -174,19 +176,29 @@ class ExplanationGeneratorV2:
         skip = skip_facets or set()
         level_preamble = build_level_preamble(jlpt_level)
 
+        # Fire all facet LLM calls concurrently, then yield in order.
+        tasks: dict[FacetType, asyncio.Task] = {}
         for facet_type in FACET_ORDER:
             if facet_type in skip:
                 continue
             system_prompt = level_preamble + _FACET_PROMPTS[(facet_type, density)]
-            ft, data, error = await self._generate_one(
-                facet_type=facet_type,
-                system_prompt=system_prompt,
-                segment_source=segment_source,
-                segment_translation=segment_translation,
-                sentence_text=sentence_text,
-                preceding_block=preceding_block,
-                following_block=following_block,
+            task = asyncio.create_task(
+                self._generate_one(
+                    facet_type=facet_type,
+                    system_prompt=system_prompt,
+                    segment_source=segment_source,
+                    segment_translation=segment_translation,
+                    sentence_text=sentence_text,
+                    preceding_block=preceding_block,
+                    following_block=following_block,
+                )
             )
+            tasks[facet_type] = task
+
+        for facet_type in FACET_ORDER:
+            if facet_type not in tasks:
+                continue
+            ft, data, error = await tasks[facet_type]
 
             # Attach reliable readings via MeCab instead of LLM-generated ones
             if ft == "vocabulary" and isinstance(data, VocabularyFacet):
