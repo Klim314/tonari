@@ -17,7 +17,7 @@ from agents.prompts import (
     FACET_TRANSLATION_LOGIC_SPARSE,
     FACET_VOCABULARY_DENSE,
     FACET_VOCABULARY_SPARSE,
-    build_level_preamble,
+    render_facet_prompt,
 )
 from app.config import settings
 from app.explanation_schemas import (
@@ -174,14 +174,15 @@ class ExplanationGeneratorV2:
         preceding_block = render_block(preceding_segments or [], "preceding")
         following_block = render_block(following_segments or [], "following")
         skip = skip_facets or set()
-        level_preamble = build_level_preamble(jlpt_level)
 
         # Fire all facet LLM calls concurrently, then yield in order.
         tasks: dict[FacetType, asyncio.Task] = {}
         for facet_type in FACET_ORDER:
             if facet_type in skip:
                 continue
-            system_prompt = level_preamble + _FACET_PROMPTS[(facet_type, density)]
+            system_prompt = render_facet_prompt(
+                _FACET_PROMPTS[(facet_type, density)], jlpt_level
+            )
             task = asyncio.create_task(
                 self._generate_one(
                     facet_type=facet_type,
