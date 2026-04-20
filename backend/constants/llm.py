@@ -109,6 +109,34 @@ GPT_3_5_TURBO = ModelInfo(
     cost_per_1m_output=1.50,
 )
 
+# Claude Series (via OpenRouter)
+CLAUDE_OPUS_4_7 = ModelInfo(
+    id="anthropic/claude-opus-4.7",
+    name="Claude Opus 4.7",
+    provider="openrouter",
+    max_tokens=200000,
+    cost_per_1m_input=15.00,
+    cost_per_1m_output=75.00,
+)
+
+CLAUDE_SONNET_4_6 = ModelInfo(
+    id="anthropic/claude-sonnet-4.6",
+    name="Claude Sonnet 4.6",
+    provider="openrouter",
+    max_tokens=200000,
+    cost_per_1m_input=3.00,
+    cost_per_1m_output=15.00,
+)
+
+CLAUDE_HAIKU_4_5 = ModelInfo(
+    id="anthropic/claude-haiku-4.5",
+    name="Claude Haiku 4.5",
+    provider="openrouter",
+    max_tokens=200000,
+    cost_per_1m_input=1.00,
+    cost_per_1m_output=5.00,
+)
+
 # Gemini 3 Series
 GEMINI_3_PRO = ModelInfo(
     id="gemini-3-pro-preview",
@@ -188,6 +216,10 @@ AVAILABLE_MODELS: list[ModelInfo] = [
     GPT_4_TURBO,
     GPT_4,
     GPT_3_5_TURBO,
+    # Anthropic Claude models via OpenRouter (newest first)
+    CLAUDE_OPUS_4_7,
+    CLAUDE_SONNET_4_6,
+    CLAUDE_HAIKU_4_5,
     # Google Gemini models (newest first)
     GEMINI_3_PRO,
     GEMINI_3_FLASH,

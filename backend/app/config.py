@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     # Provider-specific API keys
     openai_api_key: str | None = Field(default=None)
     gemini_api_key: str | None = Field(default=None)
+    openrouter_api_key: str | None = Field(default=None)
     translation_model: str = Field(default="gpt-5.2")
     translation_api_base_url: str | None = Field(default=None)
     translation_chunk_chars: int = Field(default=160)
@@ -28,6 +29,8 @@ class Settings(BaseSettings):
             return self.openai_api_key or self.translation_api_key
         elif provider == "gemini":
             return self.gemini_api_key
+        elif provider == "openrouter":
+            return self.openrouter_api_key
         return None
 
     class Config:

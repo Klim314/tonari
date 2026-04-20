@@ -98,6 +98,16 @@ def create_llm(
             temperature=0.2,
             streaming=True,
         )
+    elif provider == "openrouter":
+        if ChatOpenAI is None:
+            raise ImportError("langchain-openai not installed")
+        return ChatOpenAI(
+            api_key=api_key,
+            model=model,
+            base_url=api_base or "https://openrouter.ai/api/v1",
+            temperature=0.2,
+            streaming=True,
+        )
     else:
         raise ValueError(f"Unsupported provider: {provider}")
 
