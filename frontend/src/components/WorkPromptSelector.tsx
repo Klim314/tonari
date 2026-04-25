@@ -22,6 +22,7 @@ import {
 	invalidateWorkPromptDetail,
 	invalidateWorkPromptLists,
 } from "../lib/queryInvalidation";
+import { NewPromptDialog } from "./NewPromptDialog";
 
 interface WorkPromptSelectorProps {
 	workId: number;
@@ -35,6 +36,7 @@ export function WorkPromptSelector({
 	const queryClient = useQueryClient();
 	const [searchQuery, setSearchQuery] = useState("");
 	const [isOpen, setIsOpen] = useState(false);
+	const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
 	const [currentPromptError, setCurrentPromptError] = useState<string | null>(
 		null,
 	);
@@ -130,14 +132,26 @@ export function WorkPromptSelector({
 						<Popover.Content>
 							<Popover.Body p={0}>
 								<Box p={2} borderBottomWidth="1px">
-									<Input
-										autoFocus
-										placeholder="Search prompts..."
-										value={searchQuery}
-										onChange={(e) => setSearchQuery(e.target.value)}
-										size="sm"
-										variant="subtle"
-									/>
+									<HStack gap={2}>
+										<Input
+											autoFocus
+											placeholder="Search prompts..."
+											value={searchQuery}
+											onChange={(e) => setSearchQuery(e.target.value)}
+											size="sm"
+											variant="subtle"
+										/>
+										<Button
+											size="sm"
+											variant="outline"
+											onClick={() => {
+												setIsOpen(false);
+												setIsNewDialogOpen(true);
+											}}
+										>
+											+ New
+										</Button>
+									</HStack>
 								</Box>
 
 								<Box maxH="300px" overflowY="auto">
@@ -197,6 +211,15 @@ export function WorkPromptSelector({
 					{displayCurrentPromptError}
 				</Text>
 			)}
+
+			<NewPromptDialog
+				isOpen={isNewDialogOpen}
+				onClose={() => setIsNewDialogOpen(false)}
+				workId={workId}
+				onCreated={(prompt) => {
+					onPromptSelect?.(prompt);
+				}}
+			/>
 		</Stack>
 	);
 }

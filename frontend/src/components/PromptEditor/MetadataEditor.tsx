@@ -18,6 +18,7 @@ interface MetadataEditorProps {
 	onDescriptionChange: (description: string) => void;
 	onDelete?: () => void;
 	isDeleting?: boolean;
+	autoEditName?: boolean;
 }
 
 export function MetadataEditor({
@@ -27,8 +28,9 @@ export function MetadataEditor({
 	onDescriptionChange,
 	onDelete,
 	isDeleting,
+	autoEditName = false,
 }: MetadataEditorProps) {
-	const [isEditingName, setIsEditingName] = useState(false);
+	const [isEditingName, setIsEditingName] = useState(autoEditName);
 	const [isEditingDescription, setIsEditingDescription] = useState(false);
 	const [editName, setEditName] = useState(name);
 	const [editDescription, setEditDescription] = useState(description);
