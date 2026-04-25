@@ -17,6 +17,33 @@ class ModelInfo:
 
 
 # GPT-5 Series (Latest flagship models)
+GPT_5_5 = ModelInfo(
+    id="gpt-5.5",
+    name="GPT-5.5",
+    provider="openai",
+    max_tokens=128000,
+    cost_per_1m_input=1.25,
+    cost_per_1m_output=10,
+)
+
+GPT_5_4 = ModelInfo(
+    id="gpt-5.4",
+    name="GPT-5.4",
+    provider="openai",
+    max_tokens=128000,
+    cost_per_1m_input=1.25,
+    cost_per_1m_output=10,
+)
+
+GPT_5_3 = ModelInfo(
+    id="gpt-5.3",
+    name="GPT-5.3",
+    provider="openai",
+    max_tokens=128000,
+    cost_per_1m_input=1.25,
+    cost_per_1m_output=10,
+)
+
 GPT_5_2 = ModelInfo(
     id="gpt-5.2",
     name="GPT-5.2",
@@ -206,6 +233,9 @@ GEMINI_2_0_FLASH_LITE = ModelInfo(
 # All available models
 AVAILABLE_MODELS: list[ModelInfo] = [
     # OpenAI mainline text models (newest first)
+    GPT_5_5,
+    GPT_5_4,
+    GPT_5_3,
     GPT_5_2,
     GPT_5_1,
     GPT_5,
