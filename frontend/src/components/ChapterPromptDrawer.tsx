@@ -142,7 +142,12 @@ export function ChapterPromptDrawer({
 									minH="240px"
 									resize="vertical"
 									disabled={isLoading}
+									placeholder="Leave empty to use the default prompt (only the model is overridden)."
 								/>
+								<Field.HelperText>
+									Leave empty to bump the model without overriding the prompt —
+									the default system prompt will be used.
+								</Field.HelperText>
 							</Field.Root>
 
 							{errorMessage ? (

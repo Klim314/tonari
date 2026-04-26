@@ -84,7 +84,7 @@ export function TemplateEditor({
 				<FieldLabel htmlFor="template-input">Prompt Template</FieldLabel>
 				<Textarea
 					id="template-input"
-					placeholder="Enter your prompt template here. Use {variable_name} for dynamic content."
+					placeholder="Enter your prompt template here. Use {variable_name} for dynamic content. Leave empty to use the default system prompt (only the model is overridden)."
 					value={template}
 					onChange={(e) => onTemplateChange(e.target.value)}
 					disabled={isViewOnly}

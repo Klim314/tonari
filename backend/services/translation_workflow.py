@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from agents.translation_agent import TranslationAgent
 from app.config import settings
 from app.models import Chapter, ChapterTranslation, TranslationSegment
+from constants.llm import get_model_info
 from services.exceptions import SegmentNotFoundError
 from services.prompt import PromptService
 from services.translation_stream import TranslationStreamService
@@ -144,13 +145,19 @@ class TranslationWorkflow:
                 system_prompt = latest_version.template
                 model = latest_version.model
 
+        model_info = get_model_info(model)
+        provider = model_info.provider if model_info else "openai"
+        api_key = settings.get_api_key_for_provider(provider)
+        api_base = settings.translation_api_base_url if provider == "openai" else None
+
         return TranslationAgent(
             model=model,
-            api_key=settings.translation_api_key,
-            api_base=settings.translation_api_base_url,
+            api_key=api_key,
+            api_base=api_base,
             chunk_chars=settings.translation_chunk_chars,
             context_window=settings.translation_context_segments,
             system_prompt=system_prompt,
+            provider=provider,
         )
 
     async def start_or_resume(

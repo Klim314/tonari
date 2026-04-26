@@ -846,9 +846,9 @@ export type PromptVersionCreateRequest = {
     /**
      * Template
      *
-     * F-string template for the prompt
+     * F-string template for the prompt. Empty string means inherit the default system prompt at translation time, useful for bumping the model without overriding the prompt.
      */
-    template: string;
+    template?: string;
     /**
      * Parameters
      *

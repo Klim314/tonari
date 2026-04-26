@@ -72,17 +72,14 @@ export function usePromptOverride({
 	}, [isDirty]);
 
 	const promptAssigned = Boolean(workPrompt) && !workPromptNotAssigned;
-	const canSave =
-		promptAssigned &&
-		draft.model.trim().length > 0 &&
-		draft.template.trim().length > 0;
+	const canSave = promptAssigned && draft.model.trim().length > 0;
 
 	const saveDisabledReason = useMemo(() => {
 		if (!promptAssigned) {
 			return "Assign a prompt to this work before saving changes.";
 		}
 		if (isDirty && !canSave) {
-			return "Model and template are required.";
+			return "Model is required.";
 		}
 		return null;
 	}, [canSave, isDirty, promptAssigned]);
@@ -106,7 +103,7 @@ export function usePromptOverride({
 			return;
 		}
 		if (!canSave) {
-			setError("Model and template are required.");
+			setError("Model is required.");
 			return;
 		}
 		setSaving(true);

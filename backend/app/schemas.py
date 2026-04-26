@@ -267,7 +267,13 @@ class PromptUpdateRequest(BaseModel):
 class PromptVersionCreateRequest(BaseModel):
     model: str = Field(..., min_length=1, max_length=128, description="Model name (e.g., gpt-4)")
     template: str = Field(
-        ..., min_length=1, max_length=50000, description="F-string template for the prompt"
+        "",
+        max_length=50000,
+        description=(
+            "F-string template for the prompt. "
+            "Empty string means inherit the default system prompt at translation time, "
+            "useful for bumping the model without overriding the prompt."
+        ),
     )
     parameters: dict[str, Any] | None = Field(None, description="Optional metadata parameters")
     created_by: str | None = Field(None, max_length=255, description="Optional creator identifier")

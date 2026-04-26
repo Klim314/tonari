@@ -167,13 +167,15 @@ class TestPromptVersionValidation:
         assert "errors" in data
 
     def test_create_version_empty_template(self, client, test_prompt):
-        """Should reject version with empty template."""
+        """Empty template means inherit the default system prompt at translation time
+        (used to bump the model without overriding the prompt)."""
         response = client.post(
             f"/prompts/{test_prompt.id}/versions", json={"model": "gpt-4o", "template": ""}
         )
-        assert response.status_code == 422
-        data = response.json()
-        assert "errors" in data
+        assert response.status_code == 200
+        body = response.json()
+        assert body["template"] == ""
+        assert body["model"] == "gpt-4o"
 
     def test_create_version_invalid_template_syntax(self, client, test_prompt):
         """Should reject version with invalid f-string syntax."""
@@ -276,7 +278,8 @@ class TestValidationErrorFormat:
     def test_multiple_field_errors(self, client, test_prompt):
         """Should report multiple field errors."""
         response = client.post(
-            f"/prompts/{test_prompt.id}/versions", json={"model": "", "template": ""}
+            f"/prompts/{test_prompt.id}/versions",
+            json={"model": "", "template": "Answer this: {unclosed"},
         )
         assert response.status_code == 422
         data = response.json()
