@@ -5,13 +5,15 @@ import {
 	Collapsible,
 	HStack,
 	Icon,
+	Link,
 	Spinner,
 	Stack,
 	Text,
 } from "@chakra-ui/react";
 import { ChevronDown, ChevronRight, Folder, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { type MouseEvent, useCallback, useEffect, useState } from "react";
 import { apiUrl } from "../clientConfig";
+import { isModifiedClick } from "../lib/links";
 
 // Placeholder types - will be replaced with generated API types
 interface ChapterGroupMember {
@@ -43,6 +45,7 @@ interface ChapterGroupDetail {
 interface ChapterGroupRowProps {
 	group: ChapterGroupDetail;
 	onNavigateToChapter?: (chapterId: number) => void;
+	getChapterHref?: (chapterId: number) => string;
 	onDelete?: () => void;
 	manageMode?: boolean;
 }
@@ -54,6 +57,7 @@ function formatChapterKey(idx: number): string {
 export function ChapterGroupRow({
 	group,
 	onNavigateToChapter,
+	getChapterHref,
 	onDelete,
 	manageMode = false,
 }: ChapterGroupRowProps) {
@@ -165,39 +169,70 @@ export function ChapterGroupRow({
 						) : members && members.length > 0 ? (
 							members
 								.sort((a, b) => a.order_index - b.order_index)
-								.map((member) => (
-									<Box
-										key={member.id}
-										borderWidth="1px"
-										borderRadius="md"
-										p={3}
-										as={onNavigateToChapter ? "button" : "div"}
-										textAlign="left"
-										cursor={onNavigateToChapter ? "pointer" : "default"}
-										transition="background-color 0.2s ease"
-										_hover={
-											onNavigateToChapter ? { bg: "gray.800" } : undefined
-										}
-										onClick={
-											onNavigateToChapter
-												? () => onNavigateToChapter(member.chapter_id)
-												: undefined
-										}
-										ml={6}
-									>
-										<HStack justify="space-between" mb={1}>
-											<Text fontWeight="medium" color="teal.200" fontSize="sm">
-												Chapter {formatChapterKey(member.chapter.idx)}
-											</Text>
-											{member.chapter.is_fully_translated && (
-												<Badge colorPalette="green" variant="subtle" size="xs">
-													Translated
-												</Badge>
-											)}
-										</HStack>
-										<Text fontSize="sm">{member.chapter.title}</Text>
-									</Box>
-								))
+								.map((member) => {
+									const href = getChapterHref?.(member.chapter_id);
+									const chapterContent = (
+										<>
+											<HStack justify="space-between" mb={1}>
+												<Text
+													fontWeight="medium"
+													color="teal.200"
+													fontSize="sm"
+												>
+													Chapter {formatChapterKey(member.chapter.idx)}
+												</Text>
+												{member.chapter.is_fully_translated && (
+													<Badge
+														colorPalette="green"
+														variant="subtle"
+														size="xs"
+													>
+														Translated
+													</Badge>
+												)}
+											</HStack>
+											<Text fontSize="sm">{member.chapter.title}</Text>
+										</>
+									);
+									if (onNavigateToChapter && href) {
+										const handleClick = (e: MouseEvent) => {
+											if (isModifiedClick(e)) return;
+											e.preventDefault();
+											onNavigateToChapter(member.chapter_id);
+										};
+										return (
+											<Link
+												key={member.id}
+												href={href}
+												display="block"
+												borderWidth="1px"
+												borderRadius="md"
+												p={3}
+												textAlign="left"
+												cursor="pointer"
+												transition="background-color 0.2s ease"
+												_hover={{ bg: "gray.800", textDecoration: "none" }}
+												onClick={handleClick}
+												ml={6}
+											>
+												{chapterContent}
+											</Link>
+										);
+									}
+									return (
+										<Box
+											key={member.id}
+											borderWidth="1px"
+											borderRadius="md"
+											p={3}
+											textAlign="left"
+											cursor="default"
+											ml={6}
+										>
+											{chapterContent}
+										</Box>
+									);
+								})
 						) : (
 							<Text color="gray.500" fontSize="sm" ml={6}>
 								No chapters in this group

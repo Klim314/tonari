@@ -8,6 +8,7 @@ import {
 	Heading,
 	HStack,
 	Image,
+	Link,
 	Skeleton,
 	Stack,
 	Text,
@@ -25,6 +26,7 @@ import { useChapterSelection } from "../hooks/useChapterSelection";
 import { useWork } from "../hooks/useWork";
 import { useWorkChapters } from "../hooks/useWorkChapters";
 import { getApiErrorMessage } from "../lib/api";
+import { chapterPath, isModifiedClick } from "../lib/links";
 import { invalidateWorkChapters } from "../lib/queryInvalidation";
 import type { Chapter, ChapterGroup } from "../types/works";
 
@@ -254,6 +256,9 @@ export function WorkDetailPage({
 													key={`group-${group.id}`}
 													group={group}
 													onNavigateToChapter={onNavigateToChapter}
+													getChapterHref={(chapterId) =>
+														chapterPath(workId, chapterId)
+													}
 													onDelete={() => handleDeleteGroup(group.id)}
 													manageMode={manageMode}
 												/>
@@ -261,6 +266,9 @@ export function WorkDetailPage({
 										}
 										const chapter = item.data as Chapter;
 										const currentIndex = chapterIndex++;
+										const href = chapterPath(workId, chapter.id);
+										const renderAsLink =
+											!manageMode && Boolean(onNavigateToChapter);
 										const handleChapterClick = (e: MouseEvent) => {
 											if (manageMode) {
 												chapterSelection.toggleChapter(
@@ -269,10 +277,28 @@ export function WorkDetailPage({
 													e.shiftKey,
 													visibleChapterIds,
 												);
-											} else if (onNavigateToChapter) {
-												onNavigateToChapter(chapter.id);
+												return;
 											}
+											if (!onNavigateToChapter) return;
+											if (isModifiedClick(e)) return;
+											e.preventDefault();
+											onNavigateToChapter(chapter.id);
 										};
+										const chapterContent = (
+											<HStack justify="space-between" align="flex-start">
+												<Box>
+													<Text fontWeight="semibold" color="teal.200">
+														Chapter {formatChapterKey(chapter.idx)}
+													</Text>
+													<Text>{chapter.title}</Text>
+												</Box>
+												{chapter.is_fully_translated && (
+													<Badge colorPalette="green" variant="subtle">
+														Translated
+													</Badge>
+												)}
+											</HStack>
+										);
 										return (
 											<HStack key={`chapter-${chapter.id}`} gap={2}>
 												{manageMode && (
@@ -293,32 +319,37 @@ export function WorkDetailPage({
 														/>
 													</Checkbox.Root>
 												)}
-												<Box
-													flex="1"
-													borderWidth="1px"
-													borderRadius="md"
-													p={4}
-													as="button"
-													textAlign="left"
-													cursor="pointer"
-													transition="background-color 0.2s ease"
-													_hover={{ bg: "gray.800" }}
-													onClick={handleChapterClick}
-												>
-													<HStack justify="space-between" align="flex-start">
-														<Box>
-															<Text fontWeight="semibold" color="teal.200">
-																Chapter {formatChapterKey(chapter.idx)}
-															</Text>
-															<Text>{chapter.title}</Text>
-														</Box>
-														{chapter.is_fully_translated && (
-															<Badge colorPalette="green" variant="subtle">
-																Translated
-															</Badge>
-														)}
-													</HStack>
-												</Box>
+												{renderAsLink ? (
+													<Link
+														flex="1"
+														href={href}
+														borderWidth="1px"
+														borderRadius="md"
+														p={4}
+														textAlign="left"
+														cursor="pointer"
+														transition="background-color 0.2s ease"
+														_hover={{ bg: "gray.800", textDecoration: "none" }}
+														onClick={handleChapterClick}
+													>
+														{chapterContent}
+													</Link>
+												) : (
+													<Box
+														flex="1"
+														borderWidth="1px"
+														borderRadius="md"
+														p={4}
+														as="button"
+														textAlign="left"
+														cursor="pointer"
+														transition="background-color 0.2s ease"
+														_hover={{ bg: "gray.800" }}
+														onClick={handleChapterClick}
+													>
+														{chapterContent}
+													</Box>
+												)}
 											</HStack>
 										);
 									});
