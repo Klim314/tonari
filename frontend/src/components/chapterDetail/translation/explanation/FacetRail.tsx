@@ -38,9 +38,7 @@ export function FacetRail({
 					return (
 						<Box
 							key={facetType}
-							as="button"
-							type="button"
-							onClick={() => onChange(facetType)}
+							asChild
 							textAlign="left"
 							px={3}
 							py={2}
@@ -54,10 +52,12 @@ export function FacetRail({
 							whiteSpace="nowrap"
 							flexShrink={0}
 						>
-							<HStack gap={2} justify="space-between" w="full">
-								<Text as="span">{FACET_LABELS[facetType]}</Text>
-								<FacetStatusGlyph status={state.status} />
-							</HStack>
+							<button type="button" onClick={() => onChange(facetType)}>
+								<HStack gap={2} justify="space-between" w="full">
+									<Text as="span">{FACET_LABELS[facetType]}</Text>
+									<FacetStatusGlyph status={state.status} />
+								</HStack>
+							</button>
 						</Box>
 					);
 				})}

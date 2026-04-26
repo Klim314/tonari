@@ -60,11 +60,36 @@ function applyCachedFacets(raw: ArtifactGetResponse["facets"]): FacetsState {
 		const entry = raw[facetType];
 		if (!entry) continue;
 		if (entry.status === "complete" && entry.data) {
-			next[facetType] = {
-				status: "complete",
-				data: entry.data as FacetDataMap[typeof facetType],
-				error: null,
-			};
+			switch (facetType) {
+				case "overview":
+					next.overview = {
+						status: "complete",
+						data: entry.data as FacetDataMap["overview"],
+						error: null,
+					};
+					break;
+				case "vocabulary":
+					next.vocabulary = {
+						status: "complete",
+						data: entry.data as FacetDataMap["vocabulary"],
+						error: null,
+					};
+					break;
+				case "grammar":
+					next.grammar = {
+						status: "complete",
+						data: entry.data as FacetDataMap["grammar"],
+						error: null,
+					};
+					break;
+				case "translation_logic":
+					next.translation_logic = {
+						status: "complete",
+						data: entry.data as FacetDataMap["translation_logic"],
+						error: null,
+					};
+					break;
+			}
 		} else if (entry.status === "error") {
 			next[facetType] = {
 				status: "error",
@@ -355,7 +380,7 @@ export function useExplanationArtifact({
 		const run = async () => {
 			try {
 				if (!force) {
-					const getResp = await client.get<ArtifactGetResponse>({
+					const getResp = await client.get<ArtifactGetResponse, unknown, true>({
 						url: `${base}?${query}`,
 						responseType: "json",
 						signal: controller.signal,
