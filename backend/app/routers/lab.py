@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
@@ -5,6 +7,7 @@ from agents.translation_agent import TranslationAgent
 from app.config import settings
 from app.schemas import LabStreamRequest
 from constants.llm import get_model_info
+from observability import TraceContext
 
 router = APIRouter()
 
@@ -41,10 +44,22 @@ async def stream_lab_translation(req: LabStreamRequest):
         provider=provider,
     )
 
+    trace = TraceContext(
+        name="lab.stream",
+        session_id=f"lab:{uuid.uuid4()}",
+        metadata={
+            "model": req.model,
+            "provider": provider,
+            "template_len": len(req.template),
+            "text_len": len(req.text),
+        },
+        tags=["lab", provider],
+    )
+
     # 3. Stream Response
     async def event_generator():
         try:
-            async for chunk in agent.stream_segment(req.text):
+            async for chunk in agent.stream_segment(req.text, trace=trace):
                 # Raw character streaming for simple frontend consumption
                 yield chunk
         except Exception as e:

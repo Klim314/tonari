@@ -76,6 +76,16 @@ export function LabPage() {
 		}
 	};
 
+	const runLane = (laneId: string) => {
+		if (!inputText.trim()) return;
+		handleConfigChange(laneId, {
+			status: "running",
+			output: "",
+			error: undefined,
+		});
+		streamLane(laneId, inputText);
+	};
+
 	const streamLane = async (laneId: string, text: string) => {
 		const lane = lanes.find((l) => l.id === laneId);
 		if (!lane) {
@@ -225,6 +235,8 @@ export function LabPage() {
 								config={lane}
 								onConfigChange={handleConfigChange}
 								onRemove={handleRemoveLane}
+								onRun={runLane}
+								canRun={inputText.trim().length > 0}
 								models={availableModels}
 							/>
 						))}

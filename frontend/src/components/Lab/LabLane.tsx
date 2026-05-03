@@ -38,6 +38,8 @@ interface LabLaneProps {
 	config: LabLaneConfig;
 	onConfigChange: (id: string, updates: Partial<LabLaneConfig>) => void;
 	onRemove: (id: string) => void;
+	onRun: (id: string) => void;
+	canRun: boolean;
 	models: string[];
 }
 
@@ -45,6 +47,8 @@ export function LabLane({
 	config,
 	onConfigChange,
 	onRemove,
+	onRun,
+	canRun,
 	models,
 }: LabLaneProps) {
 	return (
@@ -72,14 +76,26 @@ export function LabLane({
 					<Heading size="sm" color="gray.700">
 						Configuration
 					</Heading>
-					<Button
-						size="xs"
-						colorPalette="red"
-						variant="ghost"
-						onClick={() => onRemove(config.id)}
-					>
-						Close
-					</Button>
+					<HStack gap={1}>
+						<Button
+							size="xs"
+							colorPalette="blue"
+							variant="solid"
+							onClick={() => onRun(config.id)}
+							loading={config.status === "running"}
+							disabled={!canRun}
+						>
+							Run
+						</Button>
+						<Button
+							size="xs"
+							colorPalette="red"
+							variant="ghost"
+							onClick={() => onRemove(config.id)}
+						>
+							Close
+						</Button>
+					</HStack>
 				</HStack>
 
 				<Field.Root>
