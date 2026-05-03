@@ -8,6 +8,7 @@ from agents.base_agent import (
     BaseAgent,
     SegmentContext,
     SegmentContextInput,
+    TraceContext,
     _normalize_context_segments,
     render_block,
 )
@@ -55,6 +56,7 @@ class TranslationAgent(BaseAgent):
         preceding_segments: Sequence[SegmentContextInput] | None = None,
         instruction: str | None = None,
         current_translation: str | None = None,
+        trace: TraceContext | None = None,
     ) -> AsyncGenerator[str, None]:
         """Stream translation for a segment with preceding context.
 
@@ -65,6 +67,7 @@ class TranslationAgent(BaseAgent):
                 (e.g., "make it more casual", "keep the honorific").
             current_translation: The existing translation to improve upon.
                 Required when instruction is provided.
+            trace: Optional Langfuse trace context for observability.
 
         Yields:
             Translation text chunks.
@@ -88,6 +91,7 @@ class TranslationAgent(BaseAgent):
         preceding_block = self._render_preceding_block(preceding_segments)
         instruction_block = self._render_instruction_block(instruction, current_translation)
         async for chunk in self.stream(
+            trace=trace,
             source_text=cleaned,
             preceding_block=preceding_block,
             instruction_block=instruction_block,
@@ -99,18 +103,22 @@ class TranslationAgent(BaseAgent):
         text: str,
         *,
         preceding_segments: Sequence[SegmentContextInput] | None = None,
+        trace: TraceContext | None = None,
     ) -> str:
         """Generate complete translation for a segment.
 
         Args:
             text: Source text to translate.
             preceding_segments: Previous segments for context window.
+            trace: Optional Langfuse trace context.
 
         Returns:
             Complete translated text.
         """
         collected: list[str] = []
-        async for chunk in self.stream_segment(text, preceding_segments=preceding_segments):
+        async for chunk in self.stream_segment(
+            text, preceding_segments=preceding_segments, trace=trace
+        ):
             collected.append(chunk)
         return "".join(collected).strip()
 

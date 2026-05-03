@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
+from agents.base_agent import TraceContext
 from agents.explanation_agent import get_explanation_agent
 from app.models import Chapter, TranslationSegment
 from services.exceptions import SegmentNotFoundError, SegmentNotTranslatedError
@@ -140,6 +141,18 @@ class ExplanationWorkflow:
             },
         )
 
+        trace = TraceContext(
+            name="explain.segment",
+            session_id=f"chapter_translation:{translation.id}",
+            metadata={
+                "chapter_id": chapter.id,
+                "chapter_translation_id": translation.id,
+                "segment_id": segment_id,
+                "order_index": segment.order_index,
+            },
+            tags=["explanation", "v1"],
+        )
+
         collected = ""
         try:
             async for delta in explanation_agent.stream_explanation(
@@ -147,6 +160,7 @@ class ExplanationWorkflow:
                 current_translation,
                 preceding_segments=preceding_segments,
                 following_segments=following_segments,
+                trace=trace,
             ):
                 if await is_disconnected():
                     raise asyncio.CancelledError

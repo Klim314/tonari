@@ -8,11 +8,13 @@ from typing import Literal
 
 from agents.base_agent import (
     SegmentContextInput,
+    TraceContext,
     build_cached_system_messages,
     create_llm,
     log_cache_usage,
     render_block,
 )
+from observability import build_runnable_config
 from agents.furigana import get_reading
 from agents.prompts import (
     FACET_GRAMMAR_DENSE,
@@ -169,6 +171,7 @@ class ExplanationGeneratorV2:
         preceding_segments: list[SegmentContextInput] | None = None,
         following_segments: list[SegmentContextInput] | None = None,
         skip_facets: set[FacetType] | None = None,
+        trace: TraceContext | None = None,
     ) -> AsyncGenerator[tuple[FacetType, AnyFacetData | None, str | None], None]:
         """Yield ``(facet_type, data, error)`` for each facet in order.
 
@@ -198,6 +201,7 @@ class ExplanationGeneratorV2:
                     sentence_text=sentence_text,
                     preceding_block=preceding_block,
                     following_block=following_block,
+                    trace=trace,
                 )
             )
             tasks[facet_type] = task
@@ -228,6 +232,7 @@ class ExplanationGeneratorV2:
         sentence_text: str,
         preceding_block: str,
         following_block: str,
+        trace: TraceContext | None = None,
     ) -> tuple[FacetType, AnyFacetData | None, str | None]:
         if not self._llm:
             return (facet_type, _STUB_DATA[facet_type], None)
@@ -246,9 +251,29 @@ class ExplanationGeneratorV2:
         else:
             messages = [("system", system_prompt), ("human", human_message)]
 
+        # Per-facet trace: tag the run with the facet so cost is attributable
+        # per facet in the Langfuse UI without losing the parent session.
+        facet_trace = None
+        if trace is not None:
+            facet_metadata = dict(trace.metadata) if trace.metadata else {}
+            facet_metadata["facet_type"] = facet_type
+            facet_trace = TraceContext(
+                name=f"explanation.{facet_type}",
+                session_id=trace.session_id,
+                user_id=trace.user_id,
+                metadata=facet_metadata,
+                tags=list(trace.tags) if trace.tags else [],
+            )
+        config = build_runnable_config(
+            facet_trace, provider=self.provider, model=self.model
+        )
+
         structured_llm = self._get_structured_llm(facet_type)
         try:
-            wrapped = await structured_llm.ainvoke(messages)
+            invoke_kwargs: dict = {}
+            if config is not None:
+                invoke_kwargs["config"] = config
+            wrapped = await structured_llm.ainvoke(messages, **invoke_kwargs)
             raw = wrapped.get("raw") if isinstance(wrapped, dict) else None
             parsed = wrapped.get("parsed") if isinstance(wrapped, dict) else wrapped
             if raw is not None:

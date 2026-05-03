@@ -13,6 +13,8 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 from langchain_openrouter import ChatOpenRouter
 
+from observability import TraceContext, build_runnable_config
+
 logger = logging.getLogger(__name__)
 
 
@@ -249,11 +251,15 @@ class BaseAgent:
 
     async def stream(
         self,
+        *,
+        trace: TraceContext | None = None,
         **format_kwargs,
     ) -> AsyncGenerator[str, None]:
         """Stream formatted messages through the LLM.
 
         Args:
+            trace: Optional Langfuse trace context (name, session_id, user_id,
+                metadata, tags). When omitted, the call is not observed.
             **format_kwargs: Arguments to format the prompt template with.
                 Must include all variables from system and human message templates.
 
@@ -281,9 +287,14 @@ class BaseAgent:
             )
             if isinstance(system_text, str) and isinstance(human_text, str):
                 messages = build_cached_system_messages(system_text, human_text)
+
+        config = build_runnable_config(trace, provider=self.provider, model=self.model)
         try:
             final_chunk = None
-            async for chunk in self._llm.astream(messages):
+            stream_kwargs: dict[str, Any] = {}
+            if config is not None:
+                stream_kwargs["config"] = config
+            async for chunk in self._llm.astream(messages, **stream_kwargs):
                 final_chunk = chunk
                 delta = _chunk_content_to_text(chunk.content)
                 if delta:
@@ -301,18 +312,21 @@ class BaseAgent:
 
     async def generate(
         self,
+        *,
+        trace: TraceContext | None = None,
         **format_kwargs,
     ) -> str:
         """Generate complete text by streaming and collecting all chunks.
 
         Args:
+            trace: Optional Langfuse trace context.
             **format_kwargs: Arguments to format the prompt template with.
 
         Returns:
             Complete generated text.
         """
         collected: list[str] = []
-        async for chunk in self.stream(**format_kwargs):
+        async for chunk in self.stream(trace=trace, **format_kwargs):
             collected.append(chunk)
         return "".join(collected).strip()
 
@@ -322,6 +336,7 @@ __all__ = [
     "BaseAgent",
     "SegmentContext",
     "SegmentContextInput",
+    "TraceContext",
     "build_cached_system_messages",
     "create_llm",
     "log_cache_usage",

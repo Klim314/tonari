@@ -1,41 +1,13 @@
 import json
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.db import init_db
-
-app = FastAPI(title="tonari-backend", version="0.0.1")
-
-
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request, exc):
-    """
-    Custom validation error handler that returns structured error information.
-    Transforms Pydantic validation errors into a more user-friendly format.
-    """
-    errors = []
-    for error in exc.errors():
-        # Build the field name from the location tuple
-        field_parts = []
-        for part in error["loc"]:
-            # Skip 'body' part, that's just the request body marker
-            if part != "body":
-                field_parts.append(str(part))
-
-        field_name = ".".join(field_parts) if field_parts else "unknown"
-
-        errors.append(
-            {
-                "field": field_name,
-                "message": error["msg"],
-                "type": error["type"],
-            }
-        )
-
-    return JSONResponse(status_code=422, content={"detail": "Validation failed", "errors": errors})
+from observability import flush_langfuse
 
 
 class TranslationLogFormatter(logging.Formatter):
@@ -77,9 +49,9 @@ class TranslationLogFormatter(logging.Formatter):
         return base_msg
 
 
-@app.on_event("startup")
-def on_startup() -> None:
-    # Configure logging to show application logs with extra fields
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: configure logging and initialise the database.
     logging.basicConfig(level=logging.INFO)
     root_logger = logging.getLogger()
     for handler in root_logger.handlers:
@@ -87,6 +59,44 @@ def on_startup() -> None:
             TranslationLogFormatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         )
     init_db()
+    try:
+        yield
+    finally:
+        # Shutdown: flush buffered Langfuse events so the last batch of traces
+        # is not lost on container stop. Lifespan fires under SIGTERM where
+        # @app.on_event("shutdown") may not.
+        flush_langfuse()
+
+
+app = FastAPI(title="tonari-backend", version="0.0.1", lifespan=lifespan)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    """
+    Custom validation error handler that returns structured error information.
+    Transforms Pydantic validation errors into a more user-friendly format.
+    """
+    errors = []
+    for error in exc.errors():
+        # Build the field name from the location tuple
+        field_parts = []
+        for part in error["loc"]:
+            # Skip 'body' part, that's just the request body marker
+            if part != "body":
+                field_parts.append(str(part))
+
+        field_name = ".".join(field_parts) if field_parts else "unknown"
+
+        errors.append(
+            {
+                "field": field_name,
+                "message": error["msg"],
+                "type": error["type"],
+            }
+        )
+
+    return JSONResponse(status_code=422, content={"detail": "Validation failed", "errors": errors})
 
 
 @app.get("/health")

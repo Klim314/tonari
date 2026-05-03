@@ -22,6 +22,16 @@ class Settings(BaseSettings):
     default_jlpt_level: str = Field(default="N3")
     prompt_override_secret: str = Field(default="tonari-prompt-override-secret")
     prompt_override_token_ttl_seconds: int = Field(default=600)
+    # Langfuse observability (https://langfuse.com)
+    # `langfuse_host` matches the upstream Langfuse SDK env var (LANGFUSE_HOST)
+    # so contributors can copy/paste config from Langfuse docs unchanged.
+    langfuse_public_key: str | None = Field(default=None)
+    langfuse_secret_key: str | None = Field(default=None)
+    langfuse_host: str = Field(default="https://cloud.langfuse.com")
+
+    @property
+    def langfuse_enabled(self) -> bool:
+        return bool(self.langfuse_public_key and self.langfuse_secret_key)
 
     def get_api_key_for_provider(self, provider: str) -> str | None:
         """Get the appropriate API key for a given provider."""

@@ -8,7 +8,7 @@ from typing import Literal
 
 from sqlalchemy.orm import Session
 
-from agents.base_agent import SegmentContext
+from agents.base_agent import SegmentContext, TraceContext
 from agents.explanation_generator_v2 import get_explanation_generator_v2
 from app.config import settings
 from app.db import SessionLocal
@@ -447,6 +447,23 @@ async def _run_generation(
 
             generator = get_explanation_generator_v2()
 
+            trace = TraceContext(
+                name="explain_v2.artifact",
+                session_id=f"chapter_translation:{segment.chapter_translation_id}",
+                metadata={
+                    "artifact_id": artifact_id,
+                    "chapter_id": chapter_id,
+                    "chapter_translation_id": segment.chapter_translation_id,
+                    "segment_id": segment_id,
+                    "order_index": segment.order_index,
+                    "span_start": span_start,
+                    "span_end": span_end,
+                    "density": density,
+                    "jlpt_level": jlpt_level or settings.default_jlpt_level,
+                },
+                tags=["explanation", "v2", density],
+            )
+
             async for facet_type, data, error in generator.generate_facets(
                 segment_source=source_text,
                 segment_translation=translation_text,
@@ -457,6 +474,7 @@ async def _run_generation(
                 preceding_segments=preceding,
                 following_segments=following,
                 skip_facets=done_facets,
+                trace=trace,
             ):
                 explanation_svc.update_facet(artifact_id, facet_type, data, error=error)
                 if error:

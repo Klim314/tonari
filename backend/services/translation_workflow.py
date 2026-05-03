@@ -9,6 +9,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from agents.base_agent import TraceContext
 from agents.translation_agent import TranslationAgent
 from app.config import settings
 from app.models import Chapter, ChapterTranslation, TranslationSegment
@@ -333,6 +334,24 @@ class TranslationWorkflow:
                     limit=agent.context_window,
                 )
 
+                trace = TraceContext(
+                    name="translate.retranslate_segment"
+                    if is_single_segment
+                    else "translate.segment",
+                    session_id=f"chapter_translation:{translation.id}",
+                    metadata={
+                        "work_id": work_id,
+                        "chapter_id": translation.chapter_id,
+                        "chapter_translation_id": translation.id,
+                        "segment_id": current.id,
+                        "order_index": current.order_index,
+                        "has_instruction": instruction is not None,
+                    },
+                    tags=["translation", "retranslate"]
+                    if is_single_segment
+                    else ["translation"],
+                )
+
                 collected = ""
                 last_persisted = ""
                 last_persist_at = 0.0
@@ -342,6 +361,7 @@ class TranslationWorkflow:
                         preceding_segments=context_segments,
                         instruction=instruction,
                         current_translation=current_translation,
+                        trace=trace,
                     ):
                         if await is_disconnected():
                             raise asyncio.CancelledError

@@ -4,7 +4,7 @@ import logging
 from collections.abc import AsyncGenerator, Sequence
 from functools import lru_cache
 
-from agents.base_agent import BaseAgent, SegmentContextInput
+from agents.base_agent import BaseAgent, SegmentContextInput, TraceContext
 from agents.prompts import SYSTEM_EXPLANATION
 from app.config import settings
 from constants.llm import get_model_info
@@ -44,6 +44,7 @@ class ExplanationAgent(BaseAgent):
         *,
         preceding_segments: Sequence[SegmentContextInput] | None = None,
         following_segments: Sequence[SegmentContextInput] | None = None,
+        trace: TraceContext | None = None,
     ) -> AsyncGenerator[str, None]:
         """Stream explanation for a translation with surrounding context.
 
@@ -115,7 +116,11 @@ class ExplanationAgent(BaseAgent):
             },
         )
 
-        async for chunk in self.stream(source_text=current_source, context_block=context_block):
+        async for chunk in self.stream(
+            trace=trace,
+            source_text=current_source,
+            context_block=context_block,
+        ):
             yield chunk
 
     async def generate_explanation(
@@ -125,6 +130,7 @@ class ExplanationAgent(BaseAgent):
         *,
         preceding_segments: Sequence[SegmentContextInput] | None = None,
         following_segments: Sequence[SegmentContextInput] | None = None,
+        trace: TraceContext | None = None,
     ) -> str:
         """Generate complete explanation for a translation.
 
@@ -143,6 +149,7 @@ class ExplanationAgent(BaseAgent):
             current_translation,
             preceding_segments=preceding_segments,
             following_segments=following_segments,
+            trace=trace,
         ):
             collected.append(chunk)
         return "".join(collected).strip()
