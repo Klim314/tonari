@@ -1,5 +1,5 @@
 import { Button } from "@chakra-ui/react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ChapterPromptDrawer } from "../components/ChapterPromptDrawer";
 import { ChapterDetailView } from "../components/chapterDetail/ChapterDetailView";
 import type { TranslationPanelProps } from "../components/chapterDetail/translation/TranslationPanel";
@@ -46,6 +46,31 @@ export function ChapterDetailPage({
 		workPrompt,
 		workPromptNotAssigned,
 	});
+
+	const nextChapterId = chapter?.next_chapter_id ?? null;
+	const prevChapterId = chapter?.prev_chapter_id ?? null;
+
+	useEffect(() => {
+		function handleKeyDown(event: KeyboardEvent) {
+			if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+				return;
+			}
+			const target = event.target as HTMLElement | null;
+			if (target?.isContentEditable) return;
+			const tag = target?.tagName;
+			if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+			if (event.key === "ArrowRight" && nextChapterId != null) {
+				event.preventDefault();
+				onNavigateBack(`/works/${workId}/chapters/${nextChapterId}`);
+			} else if (event.key === "ArrowLeft" && prevChapterId != null) {
+				event.preventDefault();
+				onNavigateBack(`/works/${workId}/chapters/${prevChapterId}`);
+			}
+		}
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
+	}, [nextChapterId, prevChapterId, workId, onNavigateBack]);
 
 	const handleRegenerateSegments = useCallback(async () => {
 		if (!workId || !chapterId) return;
