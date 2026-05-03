@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
 
 from sqlalchemy import func, select
@@ -89,6 +90,21 @@ class ChaptersService:
             .limit(1)
         )
         return self.session.execute(stmt).scalars().first()
+
+    def mark_chapter_read(self, chapter: Chapter) -> None:
+        chapter.last_read_at = datetime.now(UTC)
+        self.session.add(chapter)
+        self.session.commit()
+
+    def get_recently_read(self, limit: int = 10) -> list[Chapter]:
+        limit = max(1, min(limit, 50))
+        stmt = (
+            select(Chapter)
+            .where(Chapter.last_read_at.is_not(None))
+            .order_by(Chapter.last_read_at.desc())
+            .limit(limit)
+        )
+        return list(self.session.execute(stmt).scalars().all())
 
     def get_previous_chapter(self, work_id: int, current_sort_key: Decimal) -> Chapter | None:
         stmt = (

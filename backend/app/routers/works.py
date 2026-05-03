@@ -36,6 +36,7 @@ from app.schemas import (
     ChaptersWithGroupsResponse,
     ChapterTranslationStateOut,
     PaginatedWorksOut,
+    RecentChapterOut,
     SentenceSpanOut,
     TranslationSegmentOut,
     WorkImportRequest,
@@ -85,6 +86,25 @@ from services.works import WorksService
 router = APIRouter()
 
 logger = logging.getLogger(__name__)
+
+
+@router.get("/recent-chapters", response_model=list[RecentChapterOut])
+def list_recent_chapters(limit: int = Query(default=10, ge=1, le=50)):
+    with SessionLocal() as db:
+        chapters_service = ChaptersService(db)
+        chapters = chapters_service.get_recently_read(limit=limit)
+        return [
+            RecentChapterOut(
+                id=c.id,
+                work_id=c.work_id,
+                work_title=c.work.title,
+                idx=c.idx,
+                sort_key=float(c.sort_key),
+                title=c.title,
+                last_read_at=c.last_read_at,
+            )
+            for c in chapters
+        ]
 
 
 @router.get("/", response_model=PaginatedWorksOut)
@@ -242,6 +262,8 @@ def get_chapter_for_work(work_id: int, chapter_id: int):
 
         next_chapter = chapters_service.get_next_chapter(work_id, chapter.sort_key)
         prev_chapter = chapters_service.get_previous_chapter(work_id, chapter.sort_key)
+
+        chapters_service.mark_chapter_read(chapter)
 
         response = ChapterDetailOut.model_validate(chapter)
         response.next_chapter_id = next_chapter.id if next_chapter else None

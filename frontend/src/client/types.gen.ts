@@ -906,6 +906,40 @@ export type PromptVersionOut = {
 };
 
 /**
+ * RecentChapterOut
+ */
+export type RecentChapterOut = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Work Id
+     */
+    work_id: number;
+    /**
+     * Work Title
+     */
+    work_title: string;
+    /**
+     * Idx
+     */
+    idx: number;
+    /**
+     * Sort Key
+     */
+    sort_key: number;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Last Read At
+     */
+    last_read_at: string;
+};
+
+/**
  * SegmentEditPayload
  *
  * A single segment edit for manual translation editing.
@@ -1718,6 +1752,38 @@ export type UpdateChapterGroupMembersWorksWorkIdChapterGroupsGroupIdMembersPutRe
 };
 
 export type UpdateChapterGroupMembersWorksWorkIdChapterGroupsGroupIdMembersPutResponse = UpdateChapterGroupMembersWorksWorkIdChapterGroupsGroupIdMembersPutResponses[keyof UpdateChapterGroupMembersWorksWorkIdChapterGroupsGroupIdMembersPutResponses];
+
+export type ListRecentChaptersWorksRecentChaptersGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/works/recent-chapters';
+};
+
+export type ListRecentChaptersWorksRecentChaptersGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListRecentChaptersWorksRecentChaptersGetError = ListRecentChaptersWorksRecentChaptersGetErrors[keyof ListRecentChaptersWorksRecentChaptersGetErrors];
+
+export type ListRecentChaptersWorksRecentChaptersGetResponses = {
+    /**
+     * Response List Recent Chapters Works Recent Chapters Get
+     *
+     * Successful Response
+     */
+    200: Array<RecentChapterOut>;
+};
+
+export type ListRecentChaptersWorksRecentChaptersGetResponse = ListRecentChaptersWorksRecentChaptersGetResponses[keyof ListRecentChaptersWorksRecentChaptersGetResponses];
 
 export type SearchWorksWorksGetData = {
     body?: never;

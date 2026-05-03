@@ -66,6 +66,19 @@ class ChapterDetailOut(ChapterOut):
         from_attributes = True
 
 
+class RecentChapterOut(BaseModel):
+    id: int
+    work_id: int
+    work_title: str
+    idx: int
+    sort_key: float
+    title: str
+    last_read_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class PaginatedWorksOut(BaseModel):
     items: list[WorkOut]
     total: int

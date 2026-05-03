@@ -83,6 +83,9 @@ class Chapter(Base):
     title: Mapped[str] = mapped_column(String(512))
     normalized_text: Mapped[str] = mapped_column(Text)
     text_hash: Mapped[str] = mapped_column(String(128))
+    last_read_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
 
     work: Mapped[Work] = relationship("Work", back_populates="chapters")
     translations: Mapped[list["ChapterTranslation"]] = relationship(

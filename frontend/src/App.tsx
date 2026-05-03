@@ -56,6 +56,9 @@ function App() {
 				navigate(domain === "prompts" ? "/prompts" : "/")
 			}
 			onSelectWork={(workId) => navigate(`/works/${workId}`)}
+			onSelectChapter={(workId, chapterId) =>
+				navigate(`/works/${workId}/chapters/${chapterId}`)
+			}
 		/>
 	);
 }

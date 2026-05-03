@@ -8,12 +8,14 @@ interface LandingPageProps {
 	activeDomain: Domain;
 	onDomainChange: (domain: Domain) => void;
 	onSelectWork: (workId: number) => void;
+	onSelectChapter: (workId: number, chapterId: number) => void;
 }
 
 export function LandingPage({
 	activeDomain,
 	onDomainChange,
 	onSelectWork,
+	onSelectChapter,
 }: LandingPageProps) {
 	const [isAddModalOpen, setAddModalOpen] = useState(false);
 
@@ -27,7 +29,10 @@ export function LandingPage({
 				}
 			>
 				{activeDomain === "works" ? (
-					<LandingWorksPane onSelectWork={onSelectWork} />
+					<LandingWorksPane
+						onSelectWork={onSelectWork}
+						onSelectChapter={onSelectChapter}
+					/>
 				) : activeDomain === "prompts" ? (
 					<PromptsLandingPane />
 				) : null}
