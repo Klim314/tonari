@@ -3,6 +3,7 @@ from observability.langfuse_client import (
     build_runnable_config,
     flush_langfuse,
     get_langfuse_client,
+    observed_span,
 )
 
 __all__ = [
@@ -10,4 +11,5 @@ __all__ = [
     "build_runnable_config",
     "flush_langfuse",
     "get_langfuse_client",
+    "observed_span",
 ]

@@ -13,7 +13,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 from langchain_openrouter import ChatOpenRouter
 
-from observability import TraceContext, build_runnable_config
+from observability import TraceContext, observed_span
 
 logger = logging.getLogger(__name__)
 
@@ -288,17 +288,17 @@ class BaseAgent:
             if isinstance(system_text, str) and isinstance(human_text, str):
                 messages = build_cached_system_messages(system_text, human_text)
 
-        config = build_runnable_config(trace, provider=self.provider, model=self.model)
         try:
             final_chunk = None
-            stream_kwargs: dict[str, Any] = {}
-            if config is not None:
-                stream_kwargs["config"] = config
-            async for chunk in self._llm.astream(messages, **stream_kwargs):
-                final_chunk = chunk
-                delta = _chunk_content_to_text(chunk.content)
-                if delta:
-                    yield delta
+            with observed_span(trace, provider=self.provider, model=self.model) as config:
+                stream_kwargs: dict[str, Any] = {}
+                if config is not None:
+                    stream_kwargs["config"] = config
+                async for chunk in self._llm.astream(messages, **stream_kwargs):
+                    final_chunk = chunk
+                    delta = _chunk_content_to_text(chunk.content)
+                    if delta:
+                        yield delta
             if final_chunk is not None:
                 log_cache_usage(
                     getattr(final_chunk, "response_metadata", None),

@@ -14,7 +14,7 @@ from agents.base_agent import (
     log_cache_usage,
     render_block,
 )
-from observability import build_runnable_config
+from observability import observed_span
 from agents.furigana import get_reading
 from agents.prompts import (
     FACET_GRAMMAR_DENSE,
@@ -264,16 +264,16 @@ class ExplanationGeneratorV2:
                 metadata=facet_metadata,
                 tags=list(trace.tags) if trace.tags else [],
             )
-        config = build_runnable_config(
-            facet_trace, provider=self.provider, model=self.model
-        )
 
         structured_llm = self._get_structured_llm(facet_type)
         try:
-            invoke_kwargs: dict = {}
-            if config is not None:
-                invoke_kwargs["config"] = config
-            wrapped = await structured_llm.ainvoke(messages, **invoke_kwargs)
+            with observed_span(
+                facet_trace, provider=self.provider, model=self.model
+            ) as config:
+                invoke_kwargs: dict = {}
+                if config is not None:
+                    invoke_kwargs["config"] = config
+                wrapped = await structured_llm.ainvoke(messages, **invoke_kwargs)
             raw = wrapped.get("raw") if isinstance(wrapped, dict) else None
             parsed = wrapped.get("parsed") if isinstance(wrapped, dict) else wrapped
             if raw is not None:
