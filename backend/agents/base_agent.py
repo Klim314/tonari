@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import BaseMessage
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate
 
 try:
@@ -19,6 +19,11 @@ try:
     from langchain_google_genai import ChatGoogleGenerativeAI
 except ImportError:
     ChatGoogleGenerativeAI = None
+
+try:
+    from langchain_openrouter import ChatOpenRouter
+except ImportError:
+    ChatOpenRouter = None
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +63,58 @@ def stub_stream(src: str, *, chunk_size: int = 24) -> AsyncGenerator[str, None]:
     return _stream()
 
 
+def build_cached_system_messages(
+    system_prompt: str,
+    human_text: str,
+) -> list[BaseMessage]:
+    """Build messages with an Anthropic-style cache_control marker on the system prompt.
+
+    The marker is a no-op below the provider's minimum cacheable size
+    (1024 tok for Sonnet/Opus 4.x, 2048 tok for Haiku 4.5); leaving it in
+    place is forward-compatible as prompts grow.
+    """
+    return [
+        SystemMessage(
+            content=[
+                {
+                    "type": "text",
+                    "text": system_prompt,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ]
+        ),
+        HumanMessage(content=human_text),
+    ]
+
+
+def log_cache_usage(
+    response_metadata: dict | None,
+    usage_metadata: dict | None,
+    *,
+    provider: str,
+    model: str,
+) -> None:
+    """Emit a structured log line with cache hit telemetry, when present."""
+    if not response_metadata and not usage_metadata:
+        return
+    details = (usage_metadata or {}).get("input_token_details") or {}
+    cache_read = details.get("cache_read") or details.get("cache_read_input_tokens")
+    cache_create = details.get("cache_creation") or details.get("cache_creation_input_tokens")
+    input_tokens = (usage_metadata or {}).get("input_tokens")
+    if not (cache_read or cache_create):
+        return
+    logger.info(
+        "LLM cache usage",
+        extra={
+            "provider": provider,
+            "model": model,
+            "input_tokens": input_tokens,
+            "cache_read_tokens": cache_read,
+            "cache_creation_tokens": cache_create,
+        },
+    )
+
+
 def _chunk_content_to_text(chunk_content) -> str:
     if isinstance(chunk_content, str):
         return chunk_content
@@ -88,6 +145,7 @@ def create_llm(
             base_url=api_base or None,
             temperature=0.2,
             streaming=True,
+            stream_usage=True,
         )
     elif provider == "gemini":
         if ChatGoogleGenerativeAI is None:
@@ -99,14 +157,15 @@ def create_llm(
             streaming=True,
         )
     elif provider == "openrouter":
-        if ChatOpenAI is None:
-            raise ImportError("langchain-openai not installed")
-        return ChatOpenAI(
+        if ChatOpenRouter is None:
+            raise ImportError("langchain-openrouter not installed")
+        return ChatOpenRouter(
             api_key=api_key,
             model=model,
-            base_url=api_base or "https://openrouter.ai/api/v1",
+            base_url=api_base or None,
             temperature=0.2,
             streaming=True,
+            stream_usage=True,
         )
     else:
         raise ValueError(f"Unsupported provider: {provider}")
@@ -230,12 +289,30 @@ class BaseAgent:
                 yield chunk
             return
 
-        messages: list[BaseMessage] = self.prompt.format_messages(**format_kwargs)
+        messages = self.prompt.format_messages(**format_kwargs)
+        if self.provider == "openrouter":
+            system_text = next(
+                (m.content for m in messages if isinstance(m, SystemMessage)), None
+            )
+            human_text = next(
+                (m.content for m in messages if isinstance(m, HumanMessage)), None
+            )
+            if isinstance(system_text, str) and isinstance(human_text, str):
+                messages = build_cached_system_messages(system_text, human_text)
         try:
+            final_chunk = None
             async for chunk in self._llm.astream(messages):
+                final_chunk = chunk
                 delta = _chunk_content_to_text(chunk.content)
                 if delta:
                     yield delta
+            if final_chunk is not None:
+                log_cache_usage(
+                    getattr(final_chunk, "response_metadata", None),
+                    getattr(final_chunk, "usage_metadata", None),
+                    provider=self.provider,
+                    model=self.model,
+                )
         except Exception:  # pragma: no cover
             logger.exception("Streaming failed")
             raise
@@ -263,7 +340,9 @@ __all__ = [
     "BaseAgent",
     "SegmentContext",
     "SegmentContextInput",
+    "build_cached_system_messages",
     "create_llm",
+    "log_cache_usage",
     "render_block",
     "stub_stream",
 ]

@@ -6,7 +6,13 @@ from collections.abc import AsyncGenerator
 from functools import cache
 from typing import Literal
 
-from agents.base_agent import SegmentContextInput, create_llm, render_block
+from agents.base_agent import (
+    SegmentContextInput,
+    build_cached_system_messages,
+    create_llm,
+    log_cache_usage,
+    render_block,
+)
 from agents.furigana import get_reading
 from agents.prompts import (
     FACET_GRAMMAR_DENSE,
@@ -235,12 +241,31 @@ class ExplanationGeneratorV2:
             facet_label=FACET_LABELS[facet_type],
         )
 
+        if self.provider == "openrouter":
+            messages = build_cached_system_messages(system_prompt, human_message)
+        else:
+            messages = [("system", system_prompt), ("human", human_message)]
+
         structured_llm = self._get_structured_llm(facet_type)
         try:
-            result = await structured_llm.ainvoke(
-                [("system", system_prompt), ("human", human_message)]
-            )
-            return (facet_type, result, None)
+            wrapped = await structured_llm.ainvoke(messages)
+            raw = wrapped.get("raw") if isinstance(wrapped, dict) else None
+            parsed = wrapped.get("parsed") if isinstance(wrapped, dict) else wrapped
+            if raw is not None:
+                log_cache_usage(
+                    getattr(raw, "response_metadata", None),
+                    getattr(raw, "usage_metadata", None),
+                    provider=self.provider,
+                    model=self.model,
+                )
+            if parsed is None:
+                err = wrapped.get("parsing_error") if isinstance(wrapped, dict) else None
+                logger.warning(
+                    "ExplanationGeneratorV2: structured output parse failed",
+                    extra={"facet_type": facet_type, "model": self.model, "error": str(err) if err else None},
+                )
+                return (facet_type, None, str(err) if err else "structured output parse failed")
+            return (facet_type, parsed, None)
         except Exception as exc:
             logger.exception(
                 "ExplanationGeneratorV2: facet generation failed",
@@ -249,10 +274,12 @@ class ExplanationGeneratorV2:
             return (facet_type, None, str(exc))
 
     def _get_structured_llm(self, facet_type: FacetType):
-        """Return a cached ``llm.with_structured_output(schema)`` for this facet."""
+        """Return a cached ``llm.with_structured_output(schema, include_raw=True)`` for this facet."""
         if facet_type not in self._structured_llms:
             schema = FACET_SCHEMA_MAP[facet_type]
-            self._structured_llms[facet_type] = self._llm.with_structured_output(schema)
+            self._structured_llms[facet_type] = self._llm.with_structured_output(
+                schema, include_raw=True
+            )
         return self._structured_llms[facet_type]
 
 
