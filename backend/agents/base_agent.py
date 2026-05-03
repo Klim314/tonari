@@ -9,21 +9,9 @@ from typing import Any
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate
-
-try:
-    from langchain_openai import ChatOpenAI
-except ImportError:
-    ChatOpenAI = None
-
-try:
-    from langchain_google_genai import ChatGoogleGenerativeAI
-except ImportError:
-    ChatGoogleGenerativeAI = None
-
-try:
-    from langchain_openrouter import ChatOpenRouter
-except ImportError:
-    ChatOpenRouter = None
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
+from langchain_openrouter import ChatOpenRouter
 
 logger = logging.getLogger(__name__)
 
@@ -137,8 +125,6 @@ def create_llm(
 ) -> BaseChatModel:
     """Create the appropriate LLM based on the provider."""
     if provider == "openai":
-        if ChatOpenAI is None:
-            raise ImportError("langchain-openai not installed")
         return ChatOpenAI(
             api_key=api_key,
             model=model,
@@ -148,8 +134,6 @@ def create_llm(
             stream_usage=True,
         )
     elif provider == "gemini":
-        if ChatGoogleGenerativeAI is None:
-            raise ImportError("langchain-google-genai not installed")
         return ChatGoogleGenerativeAI(
             google_api_key=api_key,
             model=model,
@@ -157,8 +141,6 @@ def create_llm(
             streaming=True,
         )
     elif provider == "openrouter":
-        if ChatOpenRouter is None:
-            raise ImportError("langchain-openrouter not installed")
         return ChatOpenRouter(
             api_key=api_key,
             model=model,
@@ -241,7 +223,7 @@ class BaseAgent:
         self._llm: BaseChatModel | None = None
         self.prompt: ChatPromptTemplate | None = None
 
-        if api_key and ChatPromptTemplate:
+        if api_key:
             try:
                 self._llm = create_llm(
                     provider=provider,
@@ -259,7 +241,7 @@ class BaseAgent:
                 logger.warning(f"Failed to initialize LLM for provider {provider}: {e}")
                 logger.info("Using stub instead")
         else:
-            logger.info("LangChain dependencies unavailable or API key missing; using stub")
+            logger.info("API key missing; using stub")
 
     @property
     def has_provider(self) -> bool:
