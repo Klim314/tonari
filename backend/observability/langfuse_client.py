@@ -97,13 +97,11 @@ def _get_shared_handler():
         if _handler is not None or _handler_init_failed:
             return _handler
         try:
-            from langfuse.callback import CallbackHandler
+            # Langfuse 3.x: handler picks up the global client initialised by
+            # get_langfuse_client() above; no per-handler credentials needed.
+            from langfuse.langchain import CallbackHandler
 
-            _handler = CallbackHandler(
-                public_key=settings.langfuse_public_key,
-                secret_key=settings.langfuse_secret_key,
-                host=settings.langfuse_host,
-            )
+            _handler = CallbackHandler()
         except Exception:
             _handler_init_failed = True
             logger.warning("Failed to construct Langfuse CallbackHandler", exc_info=True)
