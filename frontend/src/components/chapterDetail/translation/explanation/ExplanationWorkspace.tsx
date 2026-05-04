@@ -198,14 +198,17 @@ export function ExplanationWorkspace({
 			if (target?.isContentEditable) return;
 			if (e.key === "ArrowLeft") {
 				e.preventDefault();
+				e.stopPropagation();
 				handleStepBack();
 			} else if (e.key === "ArrowRight") {
 				e.preventDefault();
+				e.stopPropagation();
 				handleStepForward();
 			}
 		};
-		window.addEventListener("keydown", onKey);
-		return () => window.removeEventListener("keydown", onKey);
+		window.addEventListener("keydown", onKey, { capture: true });
+		return () =>
+			window.removeEventListener("keydown", onKey, { capture: true });
 	}, [isOpen, handleStepBack, handleStepForward]);
 
 	const statusLabel =
