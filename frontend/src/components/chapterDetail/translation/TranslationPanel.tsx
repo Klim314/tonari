@@ -17,9 +17,7 @@ import {
 	type TranslationStreamStatus,
 	useChapterTranslationStream,
 } from "../../../hooks/useChapterTranslationStream";
-import { ExplanationPanel } from "./ExplanationPanel";
 import { ExplanationWorkspace } from "./explanation/ExplanationWorkspace";
-import { useExplanationV2Flag } from "./explanation/useExplanationV2Flag";
 import { RetranslateModal } from "./RetranslateModal";
 import { SegmentsList } from "./SegmentsList";
 
@@ -49,7 +47,6 @@ export const TranslationPanel = memo(function TranslationPanel({
 		number | null
 	>(null);
 	const [editingSegmentId, setEditingSegmentId] = useState<number | null>(null);
-	const explanationV2Enabled = useExplanationV2Flag();
 	const {
 		status: translationStatus,
 		error: translationError,
@@ -263,26 +260,16 @@ export const TranslationPanel = memo(function TranslationPanel({
 				/>
 			)}
 
-			{explanationSegmentId !== null &&
-				(explanationV2Enabled ? (
-					<ExplanationWorkspace
-						key={explanationSegmentId}
-						segmentId={explanationSegmentId}
-						workId={workId}
-						chapterId={chapterId}
-						isOpen={explanationSegmentId !== null}
-						onClose={() => setExplanationSegmentId(null)}
-					/>
-				) : (
-					<ExplanationPanel
-						key={explanationSegmentId}
-						segmentId={explanationSegmentId}
-						workId={workId}
-						chapterId={chapterId}
-						isOpen={explanationSegmentId !== null}
-						onClose={() => setExplanationSegmentId(null)}
-					/>
-				))}
+			{explanationSegmentId !== null && (
+				<ExplanationWorkspace
+					key={explanationSegmentId}
+					segmentId={explanationSegmentId}
+					workId={workId}
+					chapterId={chapterId}
+					isOpen={explanationSegmentId !== null}
+					onClose={() => setExplanationSegmentId(null)}
+				/>
+			)}
 
 			{retranslateModalSegmentId !== null && (
 				<RetranslateModal

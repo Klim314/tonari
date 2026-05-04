@@ -55,13 +55,6 @@ from services.exceptions import (
     WorkNotFoundError,
 )
 from services.explanation_service import ExplanationService
-from services.explanation_workflow import (
-    ExplanationCompleteEvent,
-    ExplanationDeltaEvent,
-    ExplanationErrorEvent,
-    ExplanationEvent,
-    ExplanationWorkflow,
-)
 from services.explanation_workflow_v2 import (
     ArtifactCompleteEvent,
     ArtifactErrorEvent,
@@ -661,23 +654,6 @@ def _translation_event_to_sse(event: TranslationEvent) -> dict:
             return _sse_event("translation-error", payload)
 
 
-def _explanation_event_to_sse(event: ExplanationEvent) -> dict:
-    match event:
-        case ExplanationDeltaEvent():
-            return _sse_event(
-                "explanation-delta", {"segment_id": event.segment_id, "delta": event.delta}
-            )
-        case ExplanationCompleteEvent():
-            return _sse_event(
-                "explanation-complete",
-                {"segment_id": event.segment_id, "explanation": event.explanation},
-            )
-        case ExplanationErrorEvent():
-            return _sse_event(
-                "explanation-error", {"segment_id": event.segment_id, "error": event.error}
-            )
-
-
 @router.get("/{work_id}/chapters/{chapter_id}/translate/stream")
 async def stream_chapter_translation(
     work_id: int,
@@ -773,108 +749,6 @@ async def retranslate_segment(
                     is_disconnected=request.is_disconnected,
                 ):
                     yield _translation_event_to_sse(event)
-            finally:
-                db.close()
-
-        return EventSourceResponse(event_generator())
-    except Exception:
-        db.close()
-        raise
-
-
-@router.get("/{work_id}/chapters/{chapter_id}/segments/{segment_id}/explain/stream")
-async def explain_segment(
-    work_id: int,
-    chapter_id: int,
-    segment_id: int,
-    request: Request,
-):
-    """Stream explanation for a translation segment."""
-    db = SessionLocal()
-    try:
-        works_service = WorksService(db)
-        chapters_service = ChaptersService(db)
-        try:
-            work = works_service.get_work(work_id)
-        except WorkNotFoundError:
-            raise HTTPException(status_code=404, detail="work not found") from None
-        try:
-            chapter = chapters_service.get_chapter(chapter_id)
-        except ChapterNotFoundError:
-            raise HTTPException(status_code=404, detail="chapter not found") from None
-        if chapter.work_id != work.id:
-            raise HTTPException(status_code=404, detail="chapter not found") from None
-
-        workflow = ExplanationWorkflow(db)
-        try:
-            workflow.preflight_check(chapter, segment_id)
-        except SegmentNotFoundError:
-            db.close()
-            raise HTTPException(status_code=404, detail="segment not found") from None
-        except SegmentNotTranslatedError:
-            db.close()
-            raise HTTPException(status_code=400, detail="segment is not translated") from None
-
-        async def event_generator():
-            try:
-                async for event in workflow.explain_segment(
-                    chapter,
-                    segment_id,
-                    force=False,
-                    is_disconnected=request.is_disconnected,
-                ):
-                    yield _explanation_event_to_sse(event)
-            finally:
-                db.close()
-
-        return EventSourceResponse(event_generator())
-    except Exception:
-        db.close()
-        raise
-
-
-@router.post("/{work_id}/chapters/{chapter_id}/segments/{segment_id}/regenerate-explanation")
-async def regenerate_explanation(
-    work_id: int,
-    chapter_id: int,
-    segment_id: int,
-    request: Request,
-):
-    """Clear and regenerate explanation for a translation segment."""
-    db = SessionLocal()
-    try:
-        works_service = WorksService(db)
-        chapters_service = ChaptersService(db)
-        try:
-            work = works_service.get_work(work_id)
-        except WorkNotFoundError:
-            raise HTTPException(status_code=404, detail="work not found") from None
-        try:
-            chapter = chapters_service.get_chapter(chapter_id)
-        except ChapterNotFoundError:
-            raise HTTPException(status_code=404, detail="chapter not found") from None
-        if chapter.work_id != work.id:
-            raise HTTPException(status_code=404, detail="chapter not found") from None
-
-        workflow = ExplanationWorkflow(db)
-        try:
-            workflow.preflight_check(chapter, segment_id)
-        except SegmentNotFoundError:
-            db.close()
-            raise HTTPException(status_code=404, detail="segment not found") from None
-        except SegmentNotTranslatedError:
-            db.close()
-            raise HTTPException(status_code=400, detail="segment is not translated") from None
-
-        async def event_generator():
-            try:
-                async for event in workflow.explain_segment(
-                    chapter,
-                    segment_id,
-                    force=True,
-                    is_disconnected=request.is_disconnected,
-                ):
-                    yield _explanation_event_to_sse(event)
             finally:
                 db.close()
 

@@ -54,8 +54,8 @@ Primary endpoints:
   Stream a full chapter translation.
 - `GET /works/{work_id}/chapters/{chapter_id}/segments/{segment_id}/retranslate/stream`
   Retranslate one segment, optionally with an `instruction` query parameter.
-- `GET /works/{work_id}/chapters/{chapter_id}/segments/{segment_id}/explain/stream`
-  Stream an explanation for one translated segment.
+- `GET /works/{work_id}/chapters/{chapter_id}/segments/{segment_id}/sentences/explanation/stream`
+  Stream the structured (facet-by-facet) explanation for one translated segment.
 - `POST /lab/stream`
   Prompt-lab translation stream. This path is ephemeral and does not persist data.
 
