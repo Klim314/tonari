@@ -9,7 +9,7 @@ from typing import Literal
 from sqlalchemy.orm import Session
 
 from agents.base_agent import SegmentContext, TraceContext
-from agents.explanation_generator_v2 import get_explanation_generator_v2
+from agents.explanation_generator_v2 import build_explanation_generator_v2
 from app.config import settings
 from app.db import SessionLocal
 from app.explanation_schemas import FACET_ORDER, ArtifactPayload, FacetType
@@ -17,6 +17,7 @@ from app.models import Chapter, TranslationSegment
 from services.exceptions import SegmentNotFoundError, SegmentNotTranslatedError, SpanValidationError
 from services.explanation_generation_registry import GenerationHandle, get_registry
 from services.explanation_service import ExplanationService
+from services.prompt import PromptService
 from services.translation_stream import PARTIAL_TRANSLATION_FLAG, TranslationStreamService
 
 logger = logging.getLogger(__name__)
@@ -232,9 +233,7 @@ class ExplanationWorkflowV2:
                 if await is_disconnected():
                     return
                 try:
-                    event = await asyncio.wait_for(
-                        queue.get(), timeout=_SUBSCRIBE_POLL_INTERVAL_S
-                    )
+                    event = await asyncio.wait_for(queue.get(), timeout=_SUBSCRIBE_POLL_INTERVAL_S)
                 except TimeoutError:
                     continue
                 if event is None:
@@ -336,6 +335,20 @@ class ExplanationWorkflowV2:
 # ---------------------------------------------------------------------------
 
 
+def _resolve_model_for_work(db: Session, work_id: int) -> str:
+    """Mirror translation_workflow._resolve_agent: latest version of the
+    work's assigned prompt → its model. Falls back to settings.translation_model.
+    """
+    prompt_service = PromptService(db)
+    prompt = prompt_service.get_prompt_for_work(work_id)
+    if prompt is None:
+        return settings.translation_model
+    versions, _, _, _ = prompt_service.get_prompt_versions(prompt.id, limit=1, offset=0)
+    if not versions:
+        return settings.translation_model
+    return versions[0].model
+
+
 def _get_preceding_context(segments, current, chapter_text, limit: int = 1):
     context = []
     for seg in reversed(segments):
@@ -387,9 +400,7 @@ async def _run_generation(
         translation_svc = TranslationStreamService(db)
 
         try:
-            chapter = (
-                db.execute(select(Chapter).where(Chapter.id == chapter_id)).scalars().first()
-            )
+            chapter = db.execute(select(Chapter).where(Chapter.id == chapter_id)).scalars().first()
             segment = (
                 db.execute(select(TranslationSegment).where(TranslationSegment.id == segment_id))
                 .scalars()
@@ -445,7 +456,8 @@ async def _run_generation(
                 yield _finalize_artifact(explanation_svc, artifact_id)
                 return
 
-            generator = get_explanation_generator_v2()
+            resolved_model = _resolve_model_for_work(db, chapter.work_id)
+            generator = build_explanation_generator_v2(model=resolved_model)
 
             trace = TraceContext(
                 name="explain_v2.artifact",

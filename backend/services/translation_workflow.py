@@ -148,11 +148,12 @@ class TranslationWorkflow:
 
         model_info = get_model_info(model)
         provider = model_info.provider if model_info else "openai"
+        resolved_model = model_info.id if model_info else model
         api_key = settings.get_api_key_for_provider(provider)
         api_base = settings.translation_api_base_url if provider == "openai" else None
 
         return TranslationAgent(
-            model=model,
+            model=resolved_model,
             api_key=api_key,
             api_base=api_base,
             chunk_chars=settings.translation_chunk_chars,
@@ -347,9 +348,7 @@ class TranslationWorkflow:
                         "order_index": current.order_index,
                         "has_instruction": instruction is not None,
                     },
-                    tags=["translation", "retranslate"]
-                    if is_single_segment
-                    else ["translation"],
+                    tags=["translation", "retranslate"] if is_single_segment else ["translation"],
                 )
 
                 collected = ""

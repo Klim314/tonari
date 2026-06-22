@@ -387,5 +387,3 @@ def test_retranslate_stream_returns_404_for_missing_segment(client, db_session):
     resp = client.get(f"/works/{work.id}/chapters/{chapter.id}/segments/99999/retranslate/stream")
     assert resp.status_code == 404
     assert resp.json()["detail"] == "segment not found"
-
-

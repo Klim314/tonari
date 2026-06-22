@@ -164,67 +164,65 @@ CLAUDE_HAIKU_4_5 = ModelInfo(
     cost_per_1m_output=5.00,
 )
 
-# Gemini 3 Series
+# Gemini Series (via OpenRouter)
 GEMINI_3_PRO = ModelInfo(
-    id="gemini-3-pro-preview",
+    id="google/gemini-3-pro-preview",
     name="Gemini 3 Pro (Preview)",
-    provider="gemini",
+    provider="openrouter",
     max_tokens=1048576,
     cost_per_1m_input=2.00,  # Up to 200k context
     cost_per_1m_output=12.00,
 )
 
 GEMINI_3_FLASH = ModelInfo(
-    id="gemini-3-flash-preview",
+    id="google/gemini-3-flash-preview",
     name="Gemini 3 Flash (Preview)",
-    provider="gemini",
+    provider="openrouter",
     max_tokens=1048576,
     cost_per_1m_input=0.50,
     cost_per_1m_output=3.00,
 )
 
-# Gemini 2.5 Series
 GEMINI_2_5_PRO = ModelInfo(
-    id="gemini-2.5-pro",
+    id="google/gemini-2.5-pro",
     name="Gemini 2.5 Pro",
-    provider="gemini",
+    provider="openrouter",
     max_tokens=1048576,
     cost_per_1m_input=1.25,
     cost_per_1m_output=10.00,
 )
 
 GEMINI_2_5_FLASH = ModelInfo(
-    id="gemini-2.5-flash",
+    id="google/gemini-2.5-flash",
     name="Gemini 2.5 Flash",
-    provider="gemini",
+    provider="openrouter",
     max_tokens=1048576,
     cost_per_1m_input=0.30,
     cost_per_1m_output=2.50,
 )
 
 GEMINI_2_5_FLASH_LITE = ModelInfo(
-    id="gemini-2.5-flash-lite",
+    id="google/gemini-2.5-flash-lite",
     name="Gemini 2.5 Flash-Lite",
-    provider="gemini",
+    provider="openrouter",
     max_tokens=1048576,
     cost_per_1m_input=0.10,
     cost_per_1m_output=0.40,
 )
 
-# Gemini 2.0 Series
 GEMINI_2_0_FLASH = ModelInfo(
-    id="gemini-2.0-flash",
+    id="google/gemini-2.0-flash-001",
     name="Gemini 2.0 Flash",
-    provider="gemini",
+    provider="openrouter",
     max_tokens=1048576,
     cost_per_1m_input=0.10,
     cost_per_1m_output=0.40,
 )
 
 GEMINI_2_0_FLASH_LITE = ModelInfo(
-    id="gemini-2.0-flash-lite",
+    id="google/gemini-2.0-flash-lite-001",
     name="Gemini 2.0 Flash-Lite",
-    provider="gemini",
+    provider="openrouter",
     max_tokens=1048576,
     cost_per_1m_input=0.10,
     cost_per_1m_output=0.40,
@@ -250,7 +248,7 @@ AVAILABLE_MODELS: list[ModelInfo] = [
     CLAUDE_OPUS_4_7,
     CLAUDE_SONNET_4_6,
     CLAUDE_HAIKU_4_5,
-    # Google Gemini models (newest first)
+    # Google Gemini models via OpenRouter (newest first)
     GEMINI_3_PRO,
     GEMINI_3_FLASH,
     GEMINI_2_5_PRO,
@@ -263,10 +261,27 @@ AVAILABLE_MODELS: list[ModelInfo] = [
 # Model lookup by ID
 MODEL_BY_ID = {model.id: model for model in AVAILABLE_MODELS}
 
+# Maps pre-OpenRouter Gemini IDs to their OpenRouter equivalents so persisted
+# prompt versions don't need a data migration when the provider switches.
+LEGACY_MODEL_ALIASES: dict[str, str] = {
+    "gemini-3-pro-preview": "google/gemini-3-pro-preview",
+    "gemini-3-flash-preview": "google/gemini-3-flash-preview",
+    "gemini-2.5-pro": "google/gemini-2.5-pro",
+    "gemini-2.5-flash": "google/gemini-2.5-flash",
+    "gemini-2.5-flash-lite": "google/gemini-2.5-flash-lite",
+    "gemini-2.0-flash": "google/gemini-2.0-flash-001",
+    "gemini-2.0-flash-lite": "google/gemini-2.0-flash-lite-001",
+}
+
 
 def get_model_info(model_id: str) -> ModelInfo | None:
-    """Get model information by ID."""
-    return MODEL_BY_ID.get(model_id)
+    """Get model information by ID, transparently resolving legacy aliases."""
+    if model_id in MODEL_BY_ID:
+        return MODEL_BY_ID[model_id]
+    aliased = LEGACY_MODEL_ALIASES.get(model_id)
+    if aliased is not None:
+        return MODEL_BY_ID.get(aliased)
+    return None
 
 
 def list_models_by_provider(provider: str) -> list[ModelInfo]:

@@ -28,9 +28,7 @@ def _get_tagger() -> fugashi.Tagger:
 
 def _kata_to_hira(text: str) -> str:
     """Convert katakana characters to hiragana."""
-    return "".join(
-        chr(ord(ch) - 0x60) if "\u30A1" <= ch <= "\u30F6" else ch for ch in text
-    )
+    return "".join(chr(ord(ch) - 0x60) if "\u30a1" <= ch <= "\u30f6" else ch for ch in text)
 
 
 def get_reading(surface: str) -> str | None:

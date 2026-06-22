@@ -19,8 +19,9 @@ Relevant environment variables live in `.env` and `.env.example`.
   Chunk size used by the stub fallback stream.
 - `TRANSLATION_CONTEXT_SEGMENTS`
   Number of preceding translated segments to include as context for each segment request.
-- `OPENAI_API_KEY` / `GEMINI_API_KEY`
-  Additional provider-specific keys used by some paths, notably the prompt lab.
+- `OPENAI_API_KEY` / `OPENROUTER_API_KEY`
+  Additional provider-specific keys used by some paths, notably the prompt lab. Claude and Gemini
+  models are routed through OpenRouter.
 - `PROMPT_OVERRIDE_SECRET`
   Secret used to sign one-off prompt override tokens.
 - `PROMPT_OVERRIDE_TOKEN_TTL_SECONDS`

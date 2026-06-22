@@ -1,4 +1,5 @@
 from observability.langfuse_client import (
+    ObservationConfig,
     TraceContext,
     build_runnable_config,
     flush_langfuse,
@@ -7,6 +8,7 @@ from observability.langfuse_client import (
 )
 
 __all__ = [
+    "ObservationConfig",
     "TraceContext",
     "build_runnable_config",
     "flush_langfuse",

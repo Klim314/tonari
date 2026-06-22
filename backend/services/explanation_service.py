@@ -70,9 +70,7 @@ class ExplanationService:
         # concurrent get_or_create calls for the same segment are serialized,
         # preventing a TOCTOU race on the check-then-insert below.
         self.session.execute(
-            select(TranslationSegment)
-            .where(TranslationSegment.id == segment_id)
-            .with_for_update()
+            select(TranslationSegment).where(TranslationSegment.id == segment_id).with_for_update()
         )
 
         existing = self.get_artifact(segment_id, density, span_start=span_start, span_end=span_end)

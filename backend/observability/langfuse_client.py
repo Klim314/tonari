@@ -49,6 +49,21 @@ class TraceContext:
     tags: list[str] = field(default_factory=list)
 
 
+@dataclass(slots=True)
+class ObservationConfig:
+    """Per-call observability handles yielded by ``observed_span``.
+
+    ``config`` is the LangChain runnable config (carries the Langfuse callback
+    handler). ``trace_id`` is the Langfuse trace id for the active span — pass
+    it to upstream providers (e.g. OpenRouter Broadcast) so their pushed
+    observations attach to the same trace as our handler-created generation.
+    Both are ``None`` when observability is disabled.
+    """
+
+    config: dict[str, Any] | None = None
+    trace_id: str | None = None
+
+
 def get_langfuse_client():
     """Return the singleton Langfuse client, or None if disabled / unavailable."""
     global _client, _client_init_failed
@@ -117,23 +132,24 @@ def observed_span(
     *,
     provider: str | None = None,
     model: str | None = None,
-) -> Iterator[dict[str, Any] | None]:
-    """Open a Langfuse parent span and yield the LangChain runnable config.
+) -> Iterator[ObservationConfig]:
+    """Open a Langfuse parent span and yield an ``ObservationConfig``.
 
     In Langfuse 3.x the langchain ``CallbackHandler`` attaches to the current
     OTel span — without an enclosing parent span, the handler produces no
     output. This context manager opens that parent span via the Langfuse
     client, applies session/user/tags via ``span.update_trace(...)``, and
-    yields a runnable config carrying the handler that the LLM invocation
-    should pass to ``astream``/``ainvoke``.
+    yields a runnable config (carrying the handler) plus the trace id (so
+    callers can forward it to providers that push their own observations into
+    Langfuse, like OpenRouter Broadcast).
 
-    Yields ``None`` when observability is disabled so callers can skip the
-    ``config`` arg entirely.
+    Yields an empty ``ObservationConfig`` when observability is disabled so
+    callers can skip the ``config`` arg entirely.
     """
     client = get_langfuse_client()
     handler = _get_shared_handler()
     if client is None or handler is None:
-        yield None
+        yield ObservationConfig()
         return
 
     span_name = (trace.name if trace and trace.name else None) or "llm-call"
@@ -161,7 +177,7 @@ def observed_span(
         )
     except Exception:
         logger.warning("Failed to open Langfuse parent span", exc_info=True)
-        yield None
+        yield ObservationConfig()
         return
 
     with span_cm as span:
@@ -180,7 +196,10 @@ def observed_span(
             except Exception:
                 logger.warning("Failed to update Langfuse trace", exc_info=True)
 
-        yield {"callbacks": [handler]}
+        yield ObservationConfig(
+            config={"callbacks": [handler]},
+            trace_id=trace_id,
+        )
 
 
 def build_runnable_config(

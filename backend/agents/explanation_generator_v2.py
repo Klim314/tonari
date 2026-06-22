@@ -3,18 +3,17 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import AsyncGenerator
-from functools import cache
 from typing import Literal
 
 from agents.base_agent import (
     SegmentContextInput,
     TraceContext,
     build_cached_system_messages,
+    build_openrouter_trace,
     create_llm,
     log_cache_usage,
     render_block,
 )
-from observability import observed_span
 from agents.furigana import get_reading
 from agents.prompts import (
     FACET_GRAMMAR_DENSE,
@@ -42,6 +41,7 @@ from app.explanation_schemas import (
     VocabularyItem,
 )
 from constants.llm import get_model_info
+from observability import observed_span
 
 logger = logging.getLogger(__name__)
 
@@ -189,9 +189,7 @@ class ExplanationGeneratorV2:
         for facet_type in FACET_ORDER:
             if facet_type in skip:
                 continue
-            system_prompt = render_facet_prompt(
-                _FACET_PROMPTS[(facet_type, density)], jlpt_level
-            )
+            system_prompt = render_facet_prompt(_FACET_PROMPTS[(facet_type, density)], jlpt_level)
             task = asyncio.create_task(
                 self._generate_one(
                     facet_type=facet_type,
@@ -267,12 +265,12 @@ class ExplanationGeneratorV2:
 
         structured_llm = self._get_structured_llm(facet_type)
         try:
-            with observed_span(
-                facet_trace, provider=self.provider, model=self.model
-            ) as config:
+            with observed_span(facet_trace, provider=self.provider, model=self.model) as obs:
                 invoke_kwargs: dict = {}
-                if config is not None:
-                    invoke_kwargs["config"] = config
+                if obs.config is not None:
+                    invoke_kwargs["config"] = obs.config
+                if self.provider == "openrouter" and obs.trace_id is not None:
+                    invoke_kwargs["trace"] = build_openrouter_trace(obs.trace_id, facet_trace)
                 wrapped = await structured_llm.ainvoke(messages, **invoke_kwargs)
             raw = wrapped.get("raw") if isinstance(wrapped, dict) else None
             parsed = wrapped.get("parsed") if isinstance(wrapped, dict) else wrapped
@@ -287,7 +285,11 @@ class ExplanationGeneratorV2:
                 err = wrapped.get("parsing_error") if isinstance(wrapped, dict) else None
                 logger.warning(
                     "ExplanationGeneratorV2: structured output parse failed",
-                    extra={"facet_type": facet_type, "model": self.model, "error": str(err) if err else None},
+                    extra={
+                        "facet_type": facet_type,
+                        "model": self.model,
+                        "error": str(err) if err else None,
+                    },
                 )
                 return (facet_type, None, str(err) if err else "structured output parse failed")
             return (facet_type, parsed, None)
@@ -309,17 +311,18 @@ class ExplanationGeneratorV2:
 
 
 # ---------------------------------------------------------------------------
-# Module-level singleton
+# Factory
 # ---------------------------------------------------------------------------
 
 
-@cache
-def get_explanation_generator_v2() -> ExplanationGeneratorV2:
-    model_info = get_model_info(settings.translation_model)
+def build_explanation_generator_v2(model: str | None = None) -> ExplanationGeneratorV2:
+    requested_model = model or settings.translation_model
+    model_info = get_model_info(requested_model)
     provider = model_info.provider if model_info else "openai"
+    resolved_model = model_info.id if model_info else requested_model
     api_key = settings.get_api_key_for_provider(provider)
     return ExplanationGeneratorV2(
-        model=settings.translation_model,
+        model=resolved_model,
         api_key=api_key,
         api_base=settings.translation_api_base_url,
         provider=provider,
@@ -328,5 +331,5 @@ def get_explanation_generator_v2() -> ExplanationGeneratorV2:
 
 __all__ = [
     "ExplanationGeneratorV2",
-    "get_explanation_generator_v2",
+    "build_explanation_generator_v2",
 ]

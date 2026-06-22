@@ -442,9 +442,7 @@ class TestStartOrResume:
         assert persist_calls[0] == "t0"
 
         assert any(isinstance(e, SegmentCompleteEvent) for e in events)
-        segment = db_session.execute(
-            select(TranslationSegment)
-        ).scalars().first()
+        segment = db_session.execute(select(TranslationSegment)).scalars().first()
         assert segment.tgt == "".join(tokens)
         assert "partial" not in (segment.flags or [])
 
@@ -474,9 +472,7 @@ class TestStartOrResume:
             )
 
         assert was_cancelled
-        segment = db_session.execute(
-            select(TranslationSegment)
-        ).scalars().first()
+        segment = db_session.execute(select(TranslationSegment)).scalars().first()
         # First delta persisted by throttle; cancel fires on the third iteration,
         # after "alpha"+"beta" was collected. Flush-on-cancel must save that text.
         assert segment.tgt == "alphabeta"

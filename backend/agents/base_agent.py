@@ -9,7 +9,6 @@ from typing import Any
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 from langchain_openrouter import ChatOpenRouter
 
@@ -105,6 +104,29 @@ def log_cache_usage(
     )
 
 
+def build_openrouter_trace(
+    trace_id: str,
+    trace: TraceContext | None,
+) -> dict[str, Any]:
+    """Build the ``trace`` body field for OpenRouter Broadcast correlation.
+
+    OpenRouter forwards this object to its observability sinks (Langfuse,
+    LangSmith, etc.). Setting ``trace_id`` to the same id we use for our
+    handler-created span means the OpenRouter-pushed generation lands on the
+    same Langfuse trace as our local observation. ``trace_name`` and
+    ``session_id`` give the broadcast event meaningful labels in the UI.
+    """
+    body: dict[str, Any] = {"trace_id": trace_id}
+    if trace is not None:
+        if trace.name:
+            body["trace_name"] = trace.name
+        if trace.session_id:
+            body["session_id"] = trace.session_id
+        if trace.user_id:
+            body["user_id"] = trace.user_id
+    return body
+
+
 def _chunk_content_to_text(chunk_content) -> str:
     if isinstance(chunk_content, str):
         return chunk_content
@@ -134,13 +156,6 @@ def create_llm(
             temperature=0.2,
             streaming=True,
             stream_usage=True,
-        )
-    elif provider == "gemini":
-        return ChatGoogleGenerativeAI(
-            google_api_key=api_key,
-            model=model,
-            temperature=0.2,
-            streaming=True,
         )
     elif provider == "openrouter":
         return ChatOpenRouter(
@@ -279,21 +294,19 @@ class BaseAgent:
 
         messages = self.prompt.format_messages(**format_kwargs)
         if self.provider == "openrouter":
-            system_text = next(
-                (m.content for m in messages if isinstance(m, SystemMessage)), None
-            )
-            human_text = next(
-                (m.content for m in messages if isinstance(m, HumanMessage)), None
-            )
+            system_text = next((m.content for m in messages if isinstance(m, SystemMessage)), None)
+            human_text = next((m.content for m in messages if isinstance(m, HumanMessage)), None)
             if isinstance(system_text, str) and isinstance(human_text, str):
                 messages = build_cached_system_messages(system_text, human_text)
 
         try:
             final_chunk = None
-            with observed_span(trace, provider=self.provider, model=self.model) as config:
+            with observed_span(trace, provider=self.provider, model=self.model) as obs:
                 stream_kwargs: dict[str, Any] = {}
-                if config is not None:
-                    stream_kwargs["config"] = config
+                if obs.config is not None:
+                    stream_kwargs["config"] = obs.config
+                if self.provider == "openrouter" and obs.trace_id is not None:
+                    stream_kwargs["trace"] = build_openrouter_trace(obs.trace_id, trace)
                 async for chunk in self._llm.astream(messages, **stream_kwargs):
                     final_chunk = chunk
                     delta = _chunk_content_to_text(chunk.content)
@@ -329,7 +342,6 @@ class BaseAgent:
         async for chunk in self.stream(trace=trace, **format_kwargs):
             collected.append(chunk)
         return "".join(collected).strip()
-
 
 
 __all__ = [

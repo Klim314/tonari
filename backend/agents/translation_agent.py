@@ -177,12 +177,13 @@ def get_translation_agent() -> TranslationAgent:
     # Get model info to determine provider
     model_info = get_model_info(settings.translation_model)
     provider = model_info.provider if model_info else "openai"
+    resolved_model = model_info.id if model_info else settings.translation_model
 
     # Get the appropriate API key for the provider
     api_key = settings.get_api_key_for_provider(provider)
 
     return TranslationAgent(
-        model=settings.translation_model,
+        model=resolved_model,
         api_key=api_key,
         api_base=settings.translation_api_base_url,
         chunk_chars=settings.translation_chunk_chars,
