@@ -50,6 +50,7 @@ class ChapterOut(BaseModel):
     work_id: int
     idx: int
     sort_key: float
+    source_chapter_id: str | None = None
     title: str
     is_fully_translated: bool = False
 

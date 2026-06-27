@@ -1,17 +1,14 @@
 from __future__ import annotations
 
-import re
-
 from bs4 import BeautifulSoup
+
+from app.scrapers.text import normalize_text, remove_ruby_annotations
 
 _TITLE_SELECTORS = ["#novel_subtitle", "#novel_title", "h1.p-novel__title"]
 _BODY_SELECTORS = ["#novel_honbun", "#honbun", "div.p-novel__body"]
 
-
-def _remove_ruby_annotations(element) -> None:
-    """Remove ruby annotation tags (rt, rp) from the element tree."""
-    for tag in element.find_all(["rt", "rp"]):
-        tag.decompose()
+# Backwards-compatible alias for the previously module-private helper.
+_remove_ruby_annotations = remove_ruby_annotations
 
 
 def _get_paragraph_text(element) -> str:
@@ -71,9 +68,3 @@ def _extract_modern_body(body):
         block_text = _get_paragraph_text(block)
         lines.append(block_text)
     return "\n".join(lines)
-
-
-def normalize_text(text: str) -> str:
-    text = text.replace("\r\n", "\n").replace("\r", "\n")
-    text = re.sub(r"\n{3,}", "\n\n", text)
-    return text.strip("\n")

@@ -104,6 +104,7 @@ def health():
     return {"ok": True}
 
 
+from app.kakuyomu import scraper as _kakuyomu_scraper  # noqa: E402,F401  (registers scraper)
 from app.routers.chapter_groups import router as chapter_groups_router  # noqa: E402
 from app.routers.ingest import router as ingest_router  # noqa: E402
 from app.routers.lab import router as lab_router  # noqa: E402

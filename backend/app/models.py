@@ -80,6 +80,9 @@ class Chapter(Base):
     work_id: Mapped[int] = mapped_column(ForeignKey("works.id", ondelete="CASCADE"))
     idx: Mapped[int] = mapped_column(Integer)
     sort_key: Mapped[Decimal] = mapped_column(Numeric(12, 4), index=True)
+    # Source-native chapter identifier (e.g. a Kakuyomu episode id). Diagnostic only:
+    # lets us detect upstream reordering/backdating independently of the positional sort_key.
+    source_chapter_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     title: Mapped[str] = mapped_column(String(512))
     normalized_text: Mapped[str] = mapped_column(Text)
     text_hash: Mapped[str] = mapped_column(String(128))

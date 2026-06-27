@@ -5,6 +5,7 @@ import logging
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from urllib.parse import urlparse
 
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import select
@@ -17,6 +18,18 @@ from services.chapters import ChaptersService
 from services.translation_stream import TranslationStreamService
 
 logger = logging.getLogger(__name__)
+
+
+def _source_chapter_id_from_url(url: str) -> str | None:
+    """Derive the source-native chapter id from a chapter URL.
+
+    Works across sources by taking the trailing non-empty path segment
+    (Kakuyomu: the episode id in ``.../episodes/<id>``; Syosetu: the chapter
+    number in ``.../<n>/``). Uses the URL path only, so query strings,
+    fragments, and trailing slashes don't affect the result.
+    """
+    segments = [segment for segment in urlparse(url).path.split("/") if segment]
+    return segments[-1] if segments else None
 
 # In-memory broadcaster for SSE
 # Map: work_id -> list of queues
@@ -144,8 +157,14 @@ class ScrapeManager:
                     db.commit()
 
                     try:
-                        # Scrape Logic
-                        chapter_url = scraper.build_chapter_url(work.source_id, sort_key)
+                        # Scrape Logic. build_chapter_url is wrapped in a threadpool
+                        # because some sources (e.g. Kakuyomu) do a blocking HTTP fetch
+                        # to resolve opaque chapter ids, which would otherwise stall the
+                        # event loop and every work's SSE broadcasts.
+                        chapter_url = await run_in_threadpool(
+                            scraper.build_chapter_url, work.source_id, sort_key
+                        )
+                        source_chapter_id = _source_chapter_id_from_url(chapter_url)
 
                         # Run synchronous scrape in threadpool to avoid blocking event loop
                         title, normalized_text = await run_in_threadpool(
@@ -169,6 +188,7 @@ class ScrapeManager:
                             if force or text_changed:
                                 existing_chapter.idx = idx
                                 existing_chapter.sort_key = sort_key
+                                existing_chapter.source_chapter_id = source_chapter_id
                                 existing_chapter.title = title
                                 existing_chapter.normalized_text = normalized_text
                                 existing_chapter.text_hash = text_hash
@@ -197,6 +217,7 @@ class ScrapeManager:
                                 work_id=work.id,
                                 idx=idx,
                                 sort_key=sort_key,
+                                source_chapter_id=source_chapter_id,
                                 title=title,
                                 normalized_text=normalized_text,
                                 text_hash=text_hash,
